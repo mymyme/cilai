@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageAiManifest",
+  "type": "object",
+  "properties": {
+    "contextTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalPageContextType"
+      }
+    },
+    "conversationHandoff": {
+      "type": "boolean"
+    },
+    "model": {
+      "type": "boolean"
+    },
+    "readTools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalPageTool"
+      }
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "uiActions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalPageUiAction"
+      }
+    },
+    "writeTools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalPageTool"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contextTypes",
+    "uiActions",
+    "model",
+    "conversationHandoff",
+    "readTools",
+    "writeTools"
+  ],
+  "$defs": {
+    "PersonalPageConfirmationPolicy": {
+      "type": "string",
+      "enum": [
+        "always"
+      ]
+    },
+    "PersonalPageContextType": {
+      "type": "object",
+      "properties": {
+        "contextType": {
+          "type": "string"
+        },
+        "dataSchema": true,
+        "schemaVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "contextType",
+        "schemaVersion",
+        "dataSchema"
+      ]
+    },
+    "PersonalPageRiskLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "PersonalPageTool": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "title",
+        "description",
+        "inputSchema"
+      ]
+    },
+    "PersonalPageUiAction": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string"
+        },
+        "confirmationPolicy": {
+          "$ref": "#/$defs/PersonalPageConfirmationPolicy"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedEffects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputSchema": true,
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "riskLevel": {
+          "$ref": "#/$defs/PersonalPageRiskLevel"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "title",
+        "description",
+        "inputSchema",
+        "riskLevel",
+        "preconditions",
+        "expectedEffects",
+        "confirmationPolicy"
+      ]
+    }
+  }
+}

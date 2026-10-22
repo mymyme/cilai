@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_McpConnection",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/McpConnection"
+  },
+  "$defs": {
+    "McpAuthMode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "bearer",
+        "environment"
+      ]
+    },
+    "McpConnection": {
+      "type": "object",
+      "properties": {
+        "approvedCatalogDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "approvedToolNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "config": {
+          "$ref": "#/$defs/McpConnectionConfig"
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "credentialRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/McpSecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "purposes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/McpPurpose"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "validation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/McpValidationRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "profileId",
+        "connectionId",
+        "revision",
+        "authGeneration",
+        "config",
+        "enabled",
+        "deleted",
+        "approvedToolNames",
+        "purposes",
+        "updatedAt"
+      ]
+    },
+    "McpConnectionConfig": {
+      "type": "object",
+      "properties": {
+        "authMode": {
+          "$ref": "#/$defs/McpAuthMode"
+        },
+        "environmentVariables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "network": {
+          "$ref": "#/$defs/McpNetworkConfig"
+        },
+        "source": {
+          "$ref": "#/$defs/McpSource"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "source",
+        "authMode",
+        "environmentVariables",
+        "network"
+      ]
+    },
+    "McpLocalPermissions": {
+      "type": "object",
+      "properties": {
+        "childProcesses": {
+          "type": "boolean"
+        },
+        "network": {
+          "type": "boolean"
+        },
+        "readRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "writeRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "readRoots",
+        "writeRoots",
+        "network",
+        "childProcesses"
+      ]
+    },
+    "McpNetworkConfig": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ModelNetworkMode"
+        },
+        "proxyUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ]
+    },
+    "McpPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation"
+      ]
+    },
+    "McpSecretRef": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "account"
+      ]
+    },
+    "McpSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "local_command"
+            },
+            "permissions": {
+              "$ref": "#/$defs/McpLocalPermissions"
+            },
+            "program": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "program",
+            "args",
+            "cwd",
+            "permissions"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "remote_http"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "url"
+          ]
+        }
+      ]
+    },
+    "McpToolDefinition": {
+      "type": "object",
+      "properties": {
+        "annotations": true,
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "inputSchema"
+      ]
+    },
+    "McpValidationRecord": {
+      "type": "object",
+      "properties": {
+        "catalogDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "protocolVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasonCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "serverName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceFingerprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/McpValidationState"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/McpToolDefinition"
+          }
+        },
+        "validatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "validationId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "validationId",
+        "connectionId",
+        "revision",
+        "state",
+        "tools",
+        "validatedAt"
+      ]
+    },
+    "McpValidationState": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "ModelNetworkMode": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "system_proxy",
+        "custom_proxy"
+      ]
+    }
+  }
+}

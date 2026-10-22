@@ -1,0 +1,27 @@
+# Windows 免安装分发：优化构建，不请求代码签名，独立于安装器更新通道。
+appId: cn.cilai.personal.workbench
+productName: 词来个人工作台
+executableName: cilai-personal-workbench
+copyright: 词来
+afterPack: scripts/after-pack.mjs
+forceCodeSigning: false
+directories:
+  output: ${env.CILAI_DESKTOP_OUTPUT}
+  buildResources: build
+files:
+  - shell/**/*
+  - package.json
+  - "!**/*.test.js"
+  - "!**/*.map"
+extraResources:
+  - from: ../desktop-ui/dist
+    to: frontend
+  - from: ${env.CILAI_SIDECAR_STAGE}
+    to: sidecar
+win:
+  icon: ../../assets/icons/icon.ico
+  signExecutable: false
+  target:
+    - target: dir
+      arch: [x64]
+publish: null

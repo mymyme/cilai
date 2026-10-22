@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageUiAction",
+  "type": "object",
+  "properties": {
+    "actionId": {
+      "type": "string"
+    },
+    "confirmationPolicy": {
+      "$ref": "#/$defs/PersonalPageConfirmationPolicy"
+    },
+    "description": {
+      "type": "string"
+    },
+    "expectedEffects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputSchema": true,
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "riskLevel": {
+      "$ref": "#/$defs/PersonalPageRiskLevel"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "actionId",
+    "title",
+    "description",
+    "inputSchema",
+    "riskLevel",
+    "preconditions",
+    "expectedEffects",
+    "confirmationPolicy"
+  ],
+  "$defs": {
+    "PersonalPageConfirmationPolicy": {
+      "type": "string",
+      "enum": [
+        "always"
+      ]
+    },
+    "PersonalPageRiskLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  }
+}

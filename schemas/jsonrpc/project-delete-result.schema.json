@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectDeleteResult",
+  "type": "object",
+  "properties": {
+    "projectId": {
+      "type": "string"
+    },
+    "releasedWorkspaceIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "removedAttentionCases": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "removedDeliverables": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "removedPhases": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "removedTasks": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "required": [
+    "projectId",
+    "releasedWorkspaceIds",
+    "removedPhases",
+    "removedTasks",
+    "removedDeliverables",
+    "removedAttentionCases"
+  ]
+}

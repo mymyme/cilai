@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CapabilityCreationPreviewResult",
+  "type": "object",
+  "properties": {
+    "contentDigest": {
+      "type": "string"
+    },
+    "creationProjectId": {
+      "type": "string"
+    },
+    "html": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "creationProjectId",
+    "title",
+    "html",
+    "contentDigest"
+  ]
+}

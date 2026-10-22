@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelValidationReportParams",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "$ref": "#/$defs/ModelValidationOutcome"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtimeVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "serviceVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "validationId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "validationId",
+    "outcome"
+  ],
+  "$defs": {
+    "ModelValidationOutcome": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    }
+  }
+}

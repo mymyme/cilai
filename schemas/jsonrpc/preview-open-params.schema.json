@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenPreviewParams",
+  "type": "object",
+  "properties": {
+    "localFileId": {
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/PreviewSource"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "localFileId",
+    "source"
+  ],
+  "$defs": {
+    "PreviewSource": {
+      "type": "string",
+      "enum": [
+        "local",
+        "cloud",
+        "baseline",
+        "platform_mock"
+      ]
+    }
+  }
+}

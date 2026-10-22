@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReadTextResourceParams",
+  "type": "object",
+  "properties": {
+    "maxBytes": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "offset": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "ticketId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticketId",
+    "offset",
+    "maxBytes"
+  ]
+}

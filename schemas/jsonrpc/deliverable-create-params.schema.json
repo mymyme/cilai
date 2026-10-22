@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeliverableCreateParams",
+  "type": "object",
+  "properties": {
+    "acceptanceCriteria": {
+      "type": "string"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "deliverableType": {
+      "type": "string"
+    },
+    "ownerLabel": {
+      "type": "string"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "title",
+    "deliverableType",
+    "ownerLabel",
+    "acceptanceCriteria",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

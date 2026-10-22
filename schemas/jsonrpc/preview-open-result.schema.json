@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenPreviewResult",
+  "type": "object",
+  "properties": {
+    "availability": {
+      "$ref": "#/$defs/PreviewAvailability"
+    },
+    "contentBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "contentRevision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "format": {
+      "$ref": "#/$defs/PreviewFormat"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "relativePath": {
+      "type": "string"
+    },
+    "sizeBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "source": {
+      "$ref": "#/$defs/PreviewSource"
+    },
+    "sourceModifiedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "ticketExpiresAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "ticketId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "source",
+    "availability",
+    "format",
+    "relativePath"
+  ],
+  "$defs": {
+    "PreviewAvailability": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    "PreviewFormat": {
+      "type": "string",
+      "enum": [
+        "image",
+        "docx",
+        "pptx",
+        "xlsx",
+        "xmind",
+        "markdown",
+        "html",
+        "pdf",
+        "plain_text",
+        "unsupported"
+      ]
+    },
+    "PreviewSource": {
+      "type": "string",
+      "enum": [
+        "local",
+        "cloud",
+        "baseline",
+        "platform_mock"
+      ]
+    }
+  }
+}

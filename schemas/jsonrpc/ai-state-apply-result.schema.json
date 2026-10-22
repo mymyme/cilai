@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiStateApplyResult",
+  "type": "object",
+  "properties": {
+    "stateRevision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "required": [
+    "stateRevision"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationClaim",
+  "type": "object",
+  "properties": {
+    "claimId": {
+      "type": "string"
+    },
+    "modelLeaseIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "released": {
+      "type": "boolean"
+    },
+    "ruleId": {
+      "type": "string"
+    },
+    "ruleVersion": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "runId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "triggerId": {
+      "type": "string"
+    },
+    "writerLeaseId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "claimId",
+    "profileId",
+    "ruleId",
+    "ruleVersion",
+    "triggerId",
+    "owner",
+    "writerLeaseId",
+    "modelLeaseIds",
+    "released"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

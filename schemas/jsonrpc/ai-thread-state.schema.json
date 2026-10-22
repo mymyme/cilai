@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiThreadState",
+  "type": "object",
+  "properties": {
+    "binding": true,
+    "generations": {
+      "type": "array",
+      "default": [],
+      "items": true
+    },
+    "messages": {
+      "type": "array",
+      "items": true
+    },
+    "operations": {
+      "type": "array",
+      "items": true
+    }
+  },
+  "required": [
+    "operations",
+    "messages"
+  ]
+}

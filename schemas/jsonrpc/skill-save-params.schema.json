@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillSaveParams",
+  "type": "object",
+  "properties": {
+    "automatic": {
+      "type": "boolean"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "expectedRevision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "files": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/SkillPackageFileInput"
+      }
+    },
+    "instructions": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "skillId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "description",
+    "instructions",
+    "enabled",
+    "automatic",
+    "clientOperationId",
+    "requestFingerprint"
+  ],
+  "$defs": {
+    "SkillPackageFileInput": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  }
+}

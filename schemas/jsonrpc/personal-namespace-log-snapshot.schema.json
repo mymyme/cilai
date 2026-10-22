@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceLogSnapshot",
+  "type": "object",
+  "properties": {
+    "changedNanoseconds": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "device": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "file": {
+      "$ref": "#/$defs/PersonalNamespaceLogFile"
+    },
+    "inode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "logicalBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "modifiedNanoseconds": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "file",
+    "exists"
+  ],
+  "$defs": {
+    "PersonalNamespaceLogFile": {
+      "type": "string",
+      "enum": [
+        "host_service_current",
+        "host_service_previous",
+        "test_diagnostics_current",
+        "test_diagnostics_previous"
+      ]
+    }
+  }
+}

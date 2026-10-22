@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalDataResult",
+  "type": "object",
+  "properties": {
+    "artifactDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "artifactRelativePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalDataIssue"
+      }
+    },
+    "pendingCategories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalDataCategory"
+      }
+    },
+    "restoredProfileId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "restoredWorkspaces": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/PersonalRestoredWorkspace"
+      }
+    },
+    "retainedCurrentRelativePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "verifiedCategories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalDataCategory"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "verifiedCategories",
+    "pendingCategories",
+    "issues"
+  ],
+  "$defs": {
+    "PersonalDataCategory": {
+      "type": "string",
+      "enum": [
+        "business_database",
+        "native_history",
+        "native_memory",
+        "skills",
+        "applications",
+        "application_data",
+        "attachments",
+        "configuration",
+        "workspace_originals"
+      ]
+    },
+    "PersonalDataIssue": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalDataCategory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ]
+    },
+    "PersonalRestoredWorkspace": {
+      "type": "object",
+      "properties": {
+        "contentSnapshotDigest": {
+          "type": "string"
+        },
+        "restoredPath": {
+          "type": "string"
+        },
+        "sourcePath": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourcePath",
+        "restoredPath",
+        "contentSnapshotDigest"
+      ]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpSource",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "const": "local_command"
+        },
+        "permissions": {
+          "$ref": "#/$defs/McpLocalPermissions"
+        },
+        "program": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "program",
+        "args",
+        "cwd",
+        "permissions"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "remote_http"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "url"
+      ]
+    }
+  ],
+  "$defs": {
+    "McpLocalPermissions": {
+      "type": "object",
+      "properties": {
+        "childProcesses": {
+          "type": "boolean"
+        },
+        "network": {
+          "type": "boolean"
+        },
+        "readRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "writeRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "readRoots",
+        "writeRoots",
+        "network",
+        "childProcesses"
+      ]
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalStorageItem",
+  "type": "object",
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/PersonalStorageCategory"
+    },
+    "cleanupAllowed": {
+      "type": "boolean"
+    },
+    "displayPath": {
+      "type": "string"
+    },
+    "fileCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "itemId": {
+      "type": "string"
+    },
+    "logicalBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "managedRelativePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalStorageReference"
+      }
+    },
+    "snapshotDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "itemId",
+    "category",
+    "displayPath",
+    "cleanupAllowed",
+    "reasons",
+    "references"
+  ],
+  "$defs": {
+    "PersonalStorageCategory": {
+      "type": "string",
+      "enum": [
+        "cache",
+        "logs",
+        "attachments",
+        "application_data",
+        "skills",
+        "applications",
+        "native_history",
+        "native_memory",
+        "recovery_copies",
+        "business_database",
+        "configuration",
+        "project_originals",
+        "other_protected"
+      ]
+    },
+    "PersonalStorageReference": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "objectId"
+      ]
+    }
+  }
+}

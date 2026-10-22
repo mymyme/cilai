@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectDeleteParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

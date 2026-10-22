@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuccessResponse",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/RequestId"
+    },
+    "jsonrpc": {
+      "type": "string"
+    },
+    "result": true
+  },
+  "required": [
+    "jsonrpc",
+    "id",
+    "result"
+  ],
+  "$defs": {
+    "RequestId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelDescriptorObserveParams",
+  "type": "object",
+  "properties": {
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedAuthGeneration": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "expectedConfigRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelDescriptorObservation"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "expectedConfigRevision",
+    "expectedAuthGeneration",
+    "models"
+  ],
+  "$defs": {
+    "ModelCapabilityEvidence": {
+      "type": "object",
+      "properties": {
+        "evidenceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/ModelEvidenceSource"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelCapabilityState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "source"
+      ]
+    },
+    "ModelCapabilityState": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "supported",
+        "unsupported"
+      ]
+    },
+    "ModelDescriptorObservation": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ModelCapabilityEvidence"
+          }
+        },
+        "contextWindowTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "defaultReasoningEffort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "inputModalities": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "runtimeVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serviceVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/ModelEvidenceSource"
+        },
+        "supportedReasoningEfforts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "modelId",
+        "displayName",
+        "source",
+        "capabilities"
+      ]
+    },
+    "ModelEvidenceSource": {
+      "type": "string",
+      "enum": [
+        "user_declared",
+        "service_declared",
+        "runtime_catalog",
+        "observed"
+      ]
+    }
+  }
+}

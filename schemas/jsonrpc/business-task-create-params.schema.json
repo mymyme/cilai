@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BusinessTaskCreateParams",
+  "type": "object",
+  "properties": {
+    "assigneeLabel": {
+      "type": "string"
+    },
+    "assigneeType": {
+      "description": "以枚举表达，合法取值随契约发布；非法值在反序列化阶段即被拒绝。",
+      "$ref": "#/$defs/TaskAssigneeType"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "completionCriteria": {
+      "type": "string"
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "expectedOutput": {
+      "type": "string"
+    },
+    "inputContext": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "phaseId": {
+      "type": "string"
+    },
+    "priority": {
+      "description": "以枚举表达，理由同 `assignee_type`。",
+      "$ref": "#/$defs/WorkPriority"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "phaseId",
+    "title",
+    "objective",
+    "inputContext",
+    "expectedOutput",
+    "completionCriteria",
+    "assigneeType",
+    "assigneeLabel",
+    "priority",
+    "clientOperationId",
+    "requestFingerprint"
+  ],
+  "$defs": {
+    "TaskAssigneeType": {
+      "description": "任务责任主体类型。以枚举而非字符串表达，使合法取值出现在协议契约中，\n客户端无需查阅服务端源码，非法值也会在反序列化阶段即被拒绝。",
+      "type": "string",
+      "enum": [
+        "user",
+        "agent",
+        "collaboration"
+      ]
+    },
+    "WorkPriority": {
+      "description": "工作优先级。任务、阻塞、决策请求与智能体事故共用同一套档位。\n\n此前只有任务用枚举，其余几处是裸字符串：服务端照样按同一套档位校验，写错却要等到\n运行时被整条拒绝。事故上报就因此长期写了一个不在档位里的值，而上报失败在界面侧是\n静默的，事故卡从来没有建出来过。以枚举表达后非法值在反序列化阶段即被拒绝。",
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    }
+  }
+}

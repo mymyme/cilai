@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AttentionCaseTransitionResult",
+  "type": "object",
+  "properties": {
+    "attentionCase": {
+      "$ref": "#/$defs/AttentionCaseItem"
+    }
+  },
+  "required": [
+    "attentionCase"
+  ],
+  "$defs": {
+    "AttentionCaseItem": {
+      "type": "object",
+      "properties": {
+        "agentLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "agentRunId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attentionCaseId": {
+          "type": "string"
+        },
+        "caseType": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "decisionAction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionActionAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "decisionActionSummary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionActorLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionConsequence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionDelegatedTo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionEvidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionImpact": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionOptions": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decisionRecommendation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deliverableId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "phaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "reporterLabel": {
+          "type": "string"
+        },
+        "resolutionSummary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolvedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "responsibilityLabel": {
+          "type": "string"
+        },
+        "responsibilityType": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "attentionCaseId",
+        "caseType",
+        "projectId",
+        "title",
+        "detail",
+        "status",
+        "responsibilityType",
+        "responsibilityLabel",
+        "reporterLabel",
+        "priority",
+        "stateRevision",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  }
+}

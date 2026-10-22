@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpValidateParams",
+  "type": "object",
+  "properties": {
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "sourceConsent": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "expectedRevision",
+    "sourceConsent"
+  ]
+}

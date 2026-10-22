@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpGrantParams",
+  "type": "object",
+  "properties": {
+    "approvedToolNames": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "purposes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/McpPurpose"
+      }
+    },
+    "sourceConsent": {
+      "type": "boolean"
+    },
+    "validationId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "expectedRevision",
+    "validationId",
+    "approvedToolNames",
+    "purposes",
+    "sourceConsent"
+  ],
+  "$defs": {
+    "McpPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation"
+      ]
+    }
+  }
+}

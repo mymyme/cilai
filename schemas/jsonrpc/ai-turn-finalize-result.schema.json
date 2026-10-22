@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiTurnFinalizeResult",
+  "type": "object",
+  "properties": {
+    "ledgerReceipt": true,
+    "replayed": {
+      "description": "同一回合此前已提交过，本次未写入状态；调用方不能再把本地状态当作库里的现状。",
+      "type": "boolean"
+    },
+    "stage": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stateRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "taskId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "taskTitle": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "stateRevision",
+    "ledgerReceipt",
+    "replayed"
+  ]
+}

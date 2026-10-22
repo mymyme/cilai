@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeliverableVersionCreateParams",
+  "type": "object",
+  "properties": {
+    "carriers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DeliverableCarrierInputItem"
+      }
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "deliverableId": {
+      "type": "string"
+    },
+    "localFileIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "deliverableId",
+    "summary",
+    "localFileIds",
+    "carriers",
+    "clientOperationId",
+    "requestFingerprint"
+  ],
+  "$defs": {
+    "DeliverableCarrierInputItem": {
+      "type": "object",
+      "properties": {
+        "carrierRole": {
+          "type": "string"
+        },
+        "carrierType": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "sourceVersionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "versionLabel": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "carrierType",
+        "carrierRole",
+        "label",
+        "reference",
+        "versionLabel"
+      ]
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelConnectionCommitParams",
+  "type": "object",
+  "properties": {
+    "credentialRef": {
+      "description": "Host 在系统库写入并读回核验后提交此引用；不表示认证/推理已通过。",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelSecretRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "networkCredentialRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelSecretRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "operationId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId"
+  ],
+  "$defs": {
+    "ModelSecretRef": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "account"
+      ]
+    }
+  }
+}

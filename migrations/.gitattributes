@@ -1,0 +1,2 @@
+# 第 59 版已应用于现有资料库，保留其原始 LF 字节以匹配迁移校验值。
+0059_add_workbench_context_imports.sql text eol=lf

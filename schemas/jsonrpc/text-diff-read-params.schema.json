@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReadTextDiffParams",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "diffTicketId": {
+      "type": "string"
+    },
+    "maxBytes": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "maxRows": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "diffTicketId",
+    "cursor",
+    "maxRows",
+    "maxBytes"
+  ]
+}

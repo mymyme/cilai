@@ -1,0 +1,250 @@
+/*
+ * 工作台内的浏览器模块。占根网格最后一列，把内容区挤窄而不是盖住它——它可能开很久，
+ * 盖住等于这段时间工作台不能用。收起时那一列为零宽，布局回到未打开的样子。
+ */
+
+/* 收起只是隐藏：卸载会连同标签的内容元素一起移除，AI 正在浏览的页面会被杀掉 */
+.ai-browser[data-open="false"] { display: none; }
+
+.ai-browser {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  grid-row: 2;
+  grid-column: -2;
+  overflow: hidden;
+  border-left: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+}
+
+/*
+ * 与对话内容之间的分割线。落在面板左边框上，热区往两边各让几像素——
+ * 只认那一条一像素的线，鼠标根本按不住。
+ */
+.ai-browser__resizer {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  width: 10px;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.ai-browser__resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: transparent;
+  content: "";
+  transition: width 120ms ease, background 120ms ease;
+}
+
+.ai-browser__resizer:hover::after,
+.ai-browser__resizer:focus-visible::after,
+.ai-browser.is-resizing .ai-browser__resizer::after { width: 2px; background: var(--accent-strong); }
+
+.ai-browser__resizer:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-strong) 22%, transparent); }
+
+/* 拖动时别让内容元素抢走指针事件，否则鼠标一划进页面里拖动就断了 */
+.ai-browser.is-resizing .ai-browser__view { pointer-events: none; }
+
+.ai-browser__tabs {
+  display: flex;
+  height: 34px;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0;
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.ai-browser__tab {
+  display: flex;
+  min-width: 0;
+  max-width: 180px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--chrome-text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--text-2xs);
+}
+
+.ai-browser__tab:hover { background: var(--chrome-bg-hover); }
+.ai-browser__tab[data-active="true"] { color: var(--chrome-text-strong); background: var(--chrome-bg-active); }
+
+.ai-browser__tab-label {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-browser__tab-close {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  opacity: .6;
+  place-items: center;
+}
+
+.ai-browser__tab-close:hover { background: var(--chrome-bg-hover); opacity: 1; }
+
+.ai-browser__new, .ai-browser__close {
+  display: grid;
+  width: 26px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text-muted);
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+.ai-browser__new:hover, .ai-browser__close:hover { color: var(--chrome-text-strong); background: var(--chrome-bg-hover); }
+.ai-browser__spacer { flex: 1; }
+
+.ai-browser__bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.ai-browser__bar > button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text-muted);
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+.ai-browser__bar > button:hover:not(:disabled) { color: var(--chrome-text-strong); background: var(--chrome-bg-hover); }
+.ai-browser__bar > button:disabled { cursor: default; opacity: .35; }
+
+.ai-browser__address { min-width: 0; flex: 1; }
+
+.ai-browser__address input {
+  width: 100%;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius-pill);
+  color: var(--chrome-text);
+  background: var(--chrome-bg-alt);
+  font-size: var(--text-2xs);
+}
+
+.ai-browser__address input:focus-visible {
+  border-color: var(--chrome-accent);
+  outline: none;
+}
+
+/* 驾驶权要一眼看清：员工与 AI 同时动同一个页面，事后无从复核 */
+.ai-browser__driver {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--chrome-border);
+  color: var(--chrome-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.ai-browser[data-driver="employee"] .ai-browser__driver { color: var(--chrome-accent-text); }
+
+.ai-browser__driver button {
+  padding: 3px 10px;
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius-pill);
+  color: inherit;
+  background: var(--chrome-bg-alt);
+  cursor: pointer;
+  font-size: var(--text-2xs);
+}
+
+.ai-browser__driver button:hover { background: var(--chrome-bg-hover); }
+
+.ai-browser__stage { position: relative; min-height: 0; flex: 1; background: var(--bg-canvas); }
+
+/* 非当前标签只隐藏不卸载：卸载等于每次切标签都让页面从头加载 */
+.ai-browser__view { position: absolute; display: none; inset: 0; width: 100%; height: 100%; }
+.ai-browser__view[data-active] { display: flex; }
+
+.ai-browser__error {
+  padding: 8px 10px;
+  border-top: 1px solid var(--chrome-border);
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--text-2xs);
+}
+
+/*
+ * 工具栏里的展开入口，与同列其他按钮同尺寸、同样不带框。
+ *
+ * 选择器必须带 .ai-workbench 这一层：对话页有一条 `.ai-workbench button` 给页内所有按钮
+ * 加边框和底色，权重比单独的类名高一档，不加作用域就会被它盖回去，图标上凭空多出一个方框。
+ * 同排的用量环和侧栏开关也都是这么写的。
+ */
+.ai-workbench .ai-browser-toggle {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  place-items: center;
+}
+
+/*
+ * 收起是常规灰，展开是强调色——两个状态只靠颜色区分，不画常驻的框。
+ * 悬停给一层底色当作即时反馈，松开就没了，不会和"已展开"混起来。
+ */
+.ai-workbench .ai-browser-toggle:hover { border: 0; color: var(--accent-text); background: var(--bg-hover); }
+.ai-workbench .ai-browser-toggle[aria-expanded="true"] { color: var(--accent-text); background: transparent; }
+.ai-workbench .ai-browser-toggle:focus-visible { background: transparent; outline: none; box-shadow: var(--focus-ring-accent); }
+
+/*
+ * AI 正在用浏览器的提示。早先是把整颗图标染成强调色，结果和"已展开"完全同色——
+ * AI 一开始浏览，收起和展开就长得一模一样，员工看不出自己点了没有。改成右上角一个点：
+ * 与展开态各占一个维度，四种组合都分得开。
+ */
+.ai-workbench .ai-browser-toggle { position: relative; }
+
+.ai-browser-toggle__dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--chrome-bg);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelUsageBeginParams",
+  "type": "object",
+  "properties": {
+    "leaseId": {
+      "type": "string"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "scopeId": {
+      "type": "string"
+    },
+    "snapshotDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "leaseId",
+    "snapshotDigest",
+    "scopeId"
+  ]
+}

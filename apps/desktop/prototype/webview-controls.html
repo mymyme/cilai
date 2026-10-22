@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>原生控件自检</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 28px 32px; background: #151920; color: #e6edf3;
+    font: 14px -apple-system, "PingFang SC", sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.hint { margin: 0 0 24px; color: #8b949e; font-size: 13px; }
+  .row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .row label { width: 150px; color: #b6c2cf; }
+  select, input { font: inherit; padding: 7px 10px; background: #1d232c; color: #e6edf3;
+    border: 1px solid #2f3742; border-radius: 8px; min-width: 240px; }
+  #ctx { margin-top: 8px; padding: 22px; border: 1px dashed #3a434f; border-radius: 10px; color: #8b949e; }
+  #echo { margin-top: 20px; padding: 12px 14px; background: #10151c; border-radius: 8px;
+    font-family: ui-monospace, monospace; font-size: 12px; color: #7ee787; white-space: pre-wrap; }
+</style>
+<h1>原生控件自检</h1>
+<p class="hint">离屏承载下，以下六类控件的弹层全部画不出来。逐个点开确认它们在 webview 里是否正常。</p>
+
+<div class="row"><label>下拉列表</label>
+  <select id="sel"><option>请选择</option><option>一般工业固废</option><option>危险废物</option><option>废气排放</option></select></div>
+<div class="row"><label>日期</label><input id="d1" type="date"></div>
+<div class="row"><label>日期时间</label><input id="d2" type="datetime-local"></div>
+<div class="row"><label>颜色</label><input id="c1" type="color" value="#4f8cff"></div>
+<div class="row"><label>建议列表</label>
+  <input id="dl" list="opts" placeholder="输入「废」试试">
+  <datalist id="opts"><option value="废气"><option value="废水"><option value="废渣"></datalist></div>
+<div class="row"><label>中文输入</label><input id="ime" placeholder="用输入法打一段中文"></div>
+<div id="ctx">在这块区域点右键，确认上下文菜单能否弹出</div>
+<div id="echo">等待操作…</div>
+
+<script>
+  const echo = document.getElementById("echo");
+  const lines = [];
+  const say = (text) => { lines.unshift(text); echo.textContent = lines.slice(0, 8).join("\n"); };
+  for (const id of ["sel", "d1", "d2", "c1", "dl", "ime"]) {
+    const el = document.getElementById(id);
+    el.addEventListener("change", () => say(`${id} 取值 → ${JSON.stringify(el.value)}`));
+  }
+  document.getElementById("ime").addEventListener("compositionend",
+    (e) => say(`输入法上屏 → ${JSON.stringify(e.data)}`));
+  document.getElementById("ctx").addEventListener("contextmenu",
+    () => say("收到右键事件（若系统菜单同时弹出即为正常）"));
+</script>

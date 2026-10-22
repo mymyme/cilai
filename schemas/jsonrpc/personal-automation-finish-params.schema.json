@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationFinishParams",
+  "type": "object",
+  "properties": {
+    "claimId": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/PersonalAutomationFinishOutcome"
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "claimId",
+    "owner",
+    "outcome"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalAutomationFinishOutcome": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "cancelled",
+        "outcome_unconfirmed"
+      ]
+    }
+  }
+}

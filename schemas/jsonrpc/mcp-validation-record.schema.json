@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpValidationRecord",
+  "type": "object",
+  "properties": {
+    "catalogDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "protocolVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "serverName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "serverVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourceFingerprint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "$ref": "#/$defs/McpValidationState"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/McpToolDefinition"
+      }
+    },
+    "validatedAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "validationId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "validationId",
+    "connectionId",
+    "revision",
+    "state",
+    "tools",
+    "validatedAt"
+  ],
+  "$defs": {
+    "McpToolDefinition": {
+      "type": "object",
+      "properties": {
+        "annotations": true,
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "inputSchema"
+      ]
+    },
+    "McpValidationState": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    }
+  }
+}

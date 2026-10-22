@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectAttachWorkspaceParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceIds": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

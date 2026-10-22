@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalRestoreWorkspacePlanParams",
+  "description": "目录路径由宿主原生选择器取得，普通页面不能提供恢复写入目标。",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "destinationParent": {
+      "type": "string"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "previewDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "previewDigest",
+    "destinationParent",
+    "clientOperationId"
+  ]
+}

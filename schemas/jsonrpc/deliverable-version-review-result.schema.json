@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeliverableVersionReviewResult",
+  "type": "object",
+  "properties": {
+    "decision": {
+      "type": "string"
+    },
+    "deliverable": {
+      "$ref": "#/$defs/DeliverableItem"
+    },
+    "version": {
+      "$ref": "#/$defs/DeliverableVersionItem"
+    }
+  },
+  "required": [
+    "deliverable",
+    "version",
+    "decision"
+  ],
+  "$defs": {
+    "DeliverableCarrierItem": {
+      "type": "object",
+      "properties": {
+        "carrierId": {
+          "type": "string"
+        },
+        "carrierRole": {
+          "type": "string"
+        },
+        "carrierType": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "sourceDeliverableId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceProjectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceVersionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "versionLabel": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "carrierId",
+        "carrierType",
+        "carrierRole",
+        "label",
+        "reference",
+        "versionLabel"
+      ]
+    },
+    "DeliverableFileBindingItem": {
+      "type": "object",
+      "properties": {
+        "bindingRole": {
+          "type": "string"
+        },
+        "checksumAlgorithm": {
+          "type": "string"
+        },
+        "checksumValue": {
+          "type": "string"
+        },
+        "fileRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "localFileId": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "localFileId",
+        "workspaceId",
+        "relativePath",
+        "fileRevision",
+        "checksumAlgorithm",
+        "checksumValue",
+        "bindingRole"
+      ]
+    },
+    "DeliverableItem": {
+      "type": "object",
+      "properties": {
+        "acceptanceCriteria": {
+          "type": "string"
+        },
+        "currentAcceptedVersionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deliverableId": {
+          "type": "string"
+        },
+        "deliverableType": {
+          "type": "string"
+        },
+        "ownerLabel": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "versions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeliverableVersionItem"
+          }
+        }
+      },
+      "required": [
+        "deliverableId",
+        "projectId",
+        "title",
+        "deliverableType",
+        "ownerLabel",
+        "acceptanceCriteria",
+        "status",
+        "stateRevision",
+        "updatedAt",
+        "versions"
+      ]
+    },
+    "DeliverableVersionItem": {
+      "type": "object",
+      "properties": {
+        "acceptedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeliverableFileBindingItem"
+          }
+        },
+        "carriers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeliverableCarrierItem"
+          }
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "rejectedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "versionId": {
+          "type": "string"
+        },
+        "versionNo": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "versionId",
+        "versionNo",
+        "status",
+        "summary",
+        "createdAt",
+        "bindings",
+        "carriers"
+      ]
+    }
+  }
+}

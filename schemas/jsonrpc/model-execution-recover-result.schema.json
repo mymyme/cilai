@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelExecutionRecoverResult",
+  "type": "object",
+  "properties": {
+    "connectionId": {
+      "type": "string"
+    },
+    "leases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelExecutionLeaseDiagnostic"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "leases"
+  ],
+  "$defs": {
+    "ModelExecutionLeaseDiagnostic": {
+      "type": "object",
+      "properties": {
+        "leaseId": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelExecutionProcess"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelExecutionRecoveryState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "leaseId",
+        "owner",
+        "processes",
+        "state",
+        "reason"
+      ]
+    },
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionProcess": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionRecoveryState": {
+      "type": "string",
+      "enum": [
+        "released",
+        "owner_alive",
+        "process_alive",
+        "unconfirmed"
+      ]
+    }
+  }
+}

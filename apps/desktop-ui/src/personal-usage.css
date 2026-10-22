@@ -1,0 +1,17 @@
+.personal-usage-page { box-sizing:border-box; height:100%; overflow:auto; padding:clamp(24px,4vw,48px); color:var(--text-primary); }
+.personal-usage-page > header { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.personal-usage-page h1 { margin:0; font-size:26px; letter-spacing:-.025em; }
+.personal-usage-page button,.personal-usage-page select { border:1px solid var(--border-default); border-radius:var(--radius-md); padding:8px 12px; color:var(--text-primary); background:var(--bg-surface); font:inherit; font-size:var(--text-xs); }
+.personal-usage-filter { display:flex; align-items:center; gap:12px; margin:24px 0 16px; font-size:var(--text-xs); }
+.personal-usage-note { color:var(--text-secondary); font-size:var(--text-xs); line-height:1.7; }
+.personal-usage-table { overflow:auto; margin:20px 0; border:1px solid var(--border-default); border-radius:var(--radius-md); }
+.personal-usage-table table { width:100%; min-width:1280px; border-collapse:collapse; text-align:left; font-size:var(--text-xs); }
+.personal-usage-table th,.personal-usage-table td { padding:14px 12px; border-bottom:1px solid var(--border-subtle); vertical-align:top; }
+.personal-usage-table th { color:var(--text-secondary); font-weight:500; white-space:nowrap; }
+.personal-usage-table td { font-variant-numeric:tabular-nums; }
+.personal-usage-table small { display:block; margin-top:6px; color:var(--text-secondary); overflow-wrap:anywhere; }
+.personal-usage-table code { display:block; max-width:190px; overflow-wrap:anywhere; font-size:11px; }
+.personal-usage-coverage { display:grid; gap:12px; padding-top:20px; border-top:1px solid var(--border-default); font-size:var(--text-xs); }
+.personal-usage-coverage > div { display:flex; gap:24px; }
+.personal-usage-coverage dt { width:86px; flex-shrink:0; }
+.personal-usage-coverage dd { margin:0; color:var(--text-secondary); }

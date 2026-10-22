@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DecisionRequestCreateParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "consequence": {
+      "type": "string"
+    },
+    "decisionOwnerLabel": {
+      "type": "string"
+    },
+    "deliverableId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "impact": {
+      "type": "string"
+    },
+    "options": {
+      "type": "string"
+    },
+    "phaseId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "priority": {
+      "description": "以枚举表达，合法取值随契约发布；非法值在反序列化阶段即被拒绝。",
+      "$ref": "#/$defs/WorkPriority"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string"
+    },
+    "recommendation": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "requesterLabel": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "title",
+    "question",
+    "options",
+    "impact",
+    "evidence",
+    "recommendation",
+    "consequence",
+    "decisionOwnerLabel",
+    "requesterLabel",
+    "priority",
+    "clientOperationId",
+    "requestFingerprint"
+  ],
+  "$defs": {
+    "WorkPriority": {
+      "description": "工作优先级。任务、阻塞、决策请求与智能体事故共用同一套档位。\n\n此前只有任务用枚举，其余几处是裸字符串：服务端照样按同一套档位校验，写错却要等到\n运行时被整条拒绝。事故上报就因此长期写了一个不在档位里的值，而上报失败在界面侧是\n静默的，事故卡从来没有建出来过。以枚举表达后非法值在反序列化阶段即被拒绝。",
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    }
+  }
+}

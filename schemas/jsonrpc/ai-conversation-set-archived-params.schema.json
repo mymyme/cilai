@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiConversationSetArchivedParams",
+  "type": "object",
+  "properties": {
+    "archived": {
+      "type": "boolean"
+    },
+    "conversationIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "expectedRevision",
+    "conversationIds",
+    "archived"
+  ]
+}

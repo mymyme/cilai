@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_ModelConnection",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/ModelConnection"
+  },
+  "$defs": {
+    "LocalModelRuntime": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "lmstudio"
+      ]
+    },
+    "ModelAuthMode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "api_key",
+        "runtime_managed_chatgpt"
+      ]
+    },
+    "ModelAuthScope": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "runtimeKind": {
+          "$ref": "#/$defs/ModelRuntimeKind"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelAuthScopeState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runtimeKind",
+        "authGeneration",
+        "state",
+        "operationId"
+      ]
+    },
+    "ModelAuthScopeState": {
+      "type": "string",
+      "enum": [
+        "active",
+        "retired",
+        "signed_out"
+      ]
+    },
+    "ModelConnection": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "authScopes": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ModelAuthScope"
+          }
+        },
+        "config": {
+          "$ref": "#/$defs/ModelConnectionConfig"
+        },
+        "configRevision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "profileId",
+        "connectionId",
+        "configRevision",
+        "authGeneration",
+        "config",
+        "deleted",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ModelConnectionConfig": {
+      "type": "object",
+      "properties": {
+        "authMode": {
+          "$ref": "#/$defs/ModelAuthMode"
+        },
+        "baseUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/ModelConnectionKind"
+        },
+        "localRuntime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalModelRuntime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "network": {
+          "$ref": "#/$defs/ModelNetworkConfig",
+          "default": {
+            "headerNames": [],
+            "mode": "direct",
+            "proxyAuth": "none",
+            "proxySecretRef": null,
+            "proxyUrl": null,
+            "serviceAuth": "none"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "authMode",
+        "enabled"
+      ]
+    },
+    "ModelConnectionKind": {
+      "type": "string",
+      "enum": [
+        "openai_key",
+        "chatgpt",
+        "custom_responses",
+        "local"
+      ]
+    },
+    "ModelNetworkAuthentication": {
+      "type": "string",
+      "enum": [
+        "none",
+        "basic"
+      ]
+    },
+    "ModelNetworkConfig": {
+      "type": "object",
+      "properties": {
+        "caCertificatePem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headerNames": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "$ref": "#/$defs/ModelNetworkMode",
+          "default": "direct"
+        },
+        "proxyAuth": {
+          "$ref": "#/$defs/ModelNetworkAuthentication",
+          "default": "none"
+        },
+        "proxySecretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proxyUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serviceAuth": {
+          "$ref": "#/$defs/ModelNetworkAuthentication",
+          "default": "none"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ModelNetworkMode": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "system_proxy",
+        "custom_proxy"
+      ]
+    },
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    },
+    "ModelSecretRef": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "account"
+      ]
+    }
+  }
+}

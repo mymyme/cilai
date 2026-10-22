@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceStorageStartResult",
+  "type": "object",
+  "properties": {
+    "operation": {
+      "$ref": "#/$defs/PersonalNamespaceStorageOperation"
+    },
+    "permits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalNamespaceActionPermit"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operation",
+    "permits"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalNamespaceActionOutcome": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "PersonalNamespaceActionPermit": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/PersonalNamespaceStorageKind"
+        },
+        "permitToken": {
+          "type": "string"
+        },
+        "shellOwner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "permitToken",
+        "kind",
+        "shellOwner"
+      ]
+    },
+    "PersonalNamespaceActionReceipt": {
+      "type": "object",
+      "properties": {
+        "acknowledgedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "actionId": {
+          "type": "string"
+        },
+        "afterCacheBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "kind": {
+          "$ref": "#/$defs/PersonalNamespaceStorageKind"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalNamespaceActionOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasonCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalNamespaceActionState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "kind",
+        "state"
+      ]
+    },
+    "PersonalNamespaceActionState": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "started",
+        "acknowledged",
+        "unconfirmed"
+      ]
+    },
+    "PersonalNamespaceBrowserSnapshot": {
+      "type": "object",
+      "properties": {
+        "cacheBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "partition": {
+          "type": "string"
+        },
+        "storagePath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "partition",
+        "storagePath",
+        "cacheBytes"
+      ]
+    },
+    "PersonalNamespaceLogFile": {
+      "type": "string",
+      "enum": [
+        "host_service_current",
+        "host_service_previous",
+        "test_diagnostics_current",
+        "test_diagnostics_previous"
+      ]
+    },
+    "PersonalNamespaceLogSnapshot": {
+      "type": "object",
+      "properties": {
+        "changedNanoseconds": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "device": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/PersonalNamespaceLogFile"
+        },
+        "inode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logicalBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "mode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modifiedNanoseconds": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "exists"
+      ]
+    },
+    "PersonalNamespaceStorageKind": {
+      "type": "string",
+      "enum": [
+        "host_service_logs",
+        "test_diagnostics_logs",
+        "browser_http_cache"
+      ]
+    },
+    "PersonalNamespaceStorageOperation": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalNamespaceActionReceipt"
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "browserSession": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalNamespaceBrowserSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "logFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalNamespaceLogSnapshot"
+          }
+        },
+        "logSegmentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "namespaceIdentity": {
+          "type": "string"
+        },
+        "namespacePath": {
+          "type": "string"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "previewDigest": {
+          "type": "string"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "shellOwner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalStorageOperationState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "profileId",
+        "namespacePath",
+        "namespaceIdentity",
+        "shellOwner",
+        "state",
+        "previewDigest",
+        "createdAt",
+        "updatedAt",
+        "logFiles",
+        "actions",
+        "blockers"
+      ]
+    },
+    "PersonalStorageOperationState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "applying",
+        "completed",
+        "incomplete",
+        "cancelled"
+      ]
+    }
+  }
+}

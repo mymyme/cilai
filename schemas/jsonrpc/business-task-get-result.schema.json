@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BusinessTaskGetResult",
+  "type": "object",
+  "properties": {
+    "contributions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BusinessTaskContributionItem"
+      }
+    },
+    "task": {
+      "$ref": "#/$defs/BusinessTaskItem"
+    }
+  },
+  "required": [
+    "task",
+    "contributions"
+  ],
+  "$defs": {
+    "BusinessTaskContributionItem": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "conversationStatus": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "outcomeSummary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcomeTitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "runId",
+        "conversationId",
+        "conversationStatus",
+        "reason",
+        "confidence",
+        "createdAt"
+      ]
+    },
+    "BusinessTaskItem": {
+      "type": "object",
+      "properties": {
+        "assigneeLabel": {
+          "type": "string"
+        },
+        "assigneeType": {
+          "type": "string"
+        },
+        "attemptNo": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "businessTaskId": {
+          "type": "string"
+        },
+        "completionCriteria": {
+          "type": "string"
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "expectedOutput": {
+          "type": "string"
+        },
+        "inputContext": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "businessTaskId",
+        "projectId",
+        "title",
+        "objective",
+        "inputContext",
+        "expectedOutput",
+        "completionCriteria",
+        "assigneeType",
+        "assigneeLabel",
+        "priority",
+        "attemptNo",
+        "status",
+        "stateRevision",
+        "updatedAt"
+      ]
+    }
+  }
+}

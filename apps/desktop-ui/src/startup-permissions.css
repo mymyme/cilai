@@ -1,0 +1,9 @@
+.startup-permissions { display: grid; justify-items: center; gap: 10px; min-width: 0; }
+.startup-permissions-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--accent-border-subtle); border-radius: 10px; color: var(--accent-text); background: var(--bg-selected); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.startup-permissions-button > svg { flex: 0 0 auto; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.startup-permissions-button:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-hover); }
+.startup-permissions-button:focus-visible { outline: none; box-shadow: var(--focus-ring-accent); }
+.startup-permissions-button:disabled { opacity: 0.55; cursor: default; }
+.startup-permissions-result { width: 100%; box-sizing: border-box; margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.startup-permissions-result[data-tone="error"] { border: 1px solid var(--danger-strong); color: var(--danger-text); background: var(--danger-bg); }
+.startup-permissions-result[data-tone="success"] { border: 1px solid var(--success-strong); color: var(--success-text); background: var(--success-bg); }

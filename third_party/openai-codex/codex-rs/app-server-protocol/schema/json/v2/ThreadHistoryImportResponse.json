@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "messageCount": {
+      "format": "uint32",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "threadId": {
+      "type": "string"
+    },
+    "turnCount": {
+      "format": "uint32",
+      "minimum": 0.0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "messageCount",
+    "threadId",
+    "turnCount"
+  ],
+  "title": "ThreadHistoryImportResponse",
+  "type": "object"
+}

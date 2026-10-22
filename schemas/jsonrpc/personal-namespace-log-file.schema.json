@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceLogFile",
+  "type": "string",
+  "enum": [
+    "host_service_current",
+    "host_service_previous",
+    "test_diagnostics_current",
+    "test_diagnostics_previous"
+  ]
+}

@@ -1,0 +1,16 @@
+/* 悬停气泡。挂在文档根部，位置由行内样式给出，此处只管外观。 */
+.hover-tip {
+  position: fixed;
+  z-index: 80;
+  padding: 5px 9px;
+  transform: translateY(-50%);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text);
+  background: var(--chrome-bg);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+}

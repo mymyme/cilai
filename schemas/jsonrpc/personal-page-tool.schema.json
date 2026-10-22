@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageTool",
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "inputSchema": true,
+    "name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "title",
+    "description",
+    "inputSchema"
+  ]
+}

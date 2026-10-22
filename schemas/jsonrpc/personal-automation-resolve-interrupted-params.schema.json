@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationResolveInterruptedParams",
+  "type": "object",
+  "properties": {
+    "claimId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "claimId"
+  ]
+}

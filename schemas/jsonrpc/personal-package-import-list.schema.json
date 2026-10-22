@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_PersonalPackageImportPreview",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/PersonalPackageImportPreview"
+  },
+  "$defs": {
+    "PersonalPackageImportPreview": {
+      "type": "object",
+      "properties": {
+        "addedPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "importId": {
+          "type": "string"
+        },
+        "installedDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "installedPageAi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalPageAiManifest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "localCreationProjectId": {
+          "type": "string"
+        },
+        "localPackageDigest": {
+          "type": "string"
+        },
+        "localVersion": {
+          "type": "string"
+        },
+        "preparedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "previewDigest": {
+          "type": "string"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "requestedPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/PersonalPackageImportSource"
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalPackageImportState"
+        },
+        "target": {
+          "$ref": "#/$defs/PersonalPackageImportTarget"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "importId",
+        "profileId",
+        "state",
+        "preparedAt",
+        "updatedAt",
+        "previewDigest",
+        "source",
+        "target",
+        "localCreationProjectId",
+        "localVersion",
+        "localPackageDigest",
+        "requestedPermissions",
+        "addedPermissions"
+      ]
+    },
+    "PersonalPackageImportSource": {
+      "type": "object",
+      "properties": {
+        "acceptanceExamplesPresent": {
+          "type": "boolean"
+        },
+        "archiveBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "archiveDigest": {
+          "type": "string"
+        },
+        "authenticated": {
+          "type": "boolean"
+        },
+        "formatVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "fullBusinessGoalPresent": {
+          "type": "boolean"
+        },
+        "pageAi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalPageAiManifest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pluginId": {
+          "type": "string"
+        },
+        "sourceBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "sourceDigest": {
+          "type": "string"
+        },
+        "sourceFileCount": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "summary": {
+          "type": "string"
+        },
+        "targetType": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "unpackedBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "authenticated",
+        "formatVersion",
+        "archiveDigest",
+        "sourceDigest",
+        "pluginId",
+        "version",
+        "title",
+        "summary",
+        "targetType",
+        "sourceFileCount",
+        "archiveBytes",
+        "sourceBytes",
+        "unpackedBytes",
+        "fullBusinessGoalPresent",
+        "acceptanceExamplesPresent"
+      ]
+    },
+    "PersonalPackageImportState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "committed",
+        "cancelled"
+      ]
+    },
+    "PersonalPackageImportTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "new"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "mode"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "creationProjectId": {
+              "type": "string"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "mode": {
+              "type": "string",
+              "const": "upgrade"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "creationProjectId",
+            "expectedRevision"
+          ]
+        }
+      ]
+    },
+    "PersonalPageAiManifest": {
+      "type": "object",
+      "properties": {
+        "contextTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageContextType"
+          }
+        },
+        "conversationHandoff": {
+          "type": "boolean"
+        },
+        "model": {
+          "type": "boolean"
+        },
+        "readTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageTool"
+          }
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "uiActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageUiAction"
+          }
+        },
+        "writeTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageTool"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "contextTypes",
+        "uiActions",
+        "model",
+        "conversationHandoff",
+        "readTools",
+        "writeTools"
+      ]
+    },
+    "PersonalPageConfirmationPolicy": {
+      "type": "string",
+      "enum": [
+        "always"
+      ]
+    },
+    "PersonalPageContextType": {
+      "type": "object",
+      "properties": {
+        "contextType": {
+          "type": "string"
+        },
+        "dataSchema": true,
+        "schemaVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "contextType",
+        "schemaVersion",
+        "dataSchema"
+      ]
+    },
+    "PersonalPageRiskLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "PersonalPageTool": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "title",
+        "description",
+        "inputSchema"
+      ]
+    },
+    "PersonalPageUiAction": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string"
+        },
+        "confirmationPolicy": {
+          "$ref": "#/$defs/PersonalPageConfirmationPolicy"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedEffects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputSchema": true,
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "riskLevel": {
+          "$ref": "#/$defs/PersonalPageRiskLevel"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "title",
+        "description",
+        "inputSchema",
+        "riskLevel",
+        "preconditions",
+        "expectedEffects",
+        "confirmationPolicy"
+      ]
+    }
+  }
+}

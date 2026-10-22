@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiLedgerApplyResult",
+  "type": "object",
+  "properties": {
+    "commandId": {
+      "type": "string"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AiLedgerRecordReceipt"
+      }
+    }
+  },
+  "required": [
+    "commandId",
+    "records"
+  ],
+  "$defs": {
+    "AiLedgerRecordReceipt": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "collection",
+        "id"
+      ]
+    }
+  }
+}

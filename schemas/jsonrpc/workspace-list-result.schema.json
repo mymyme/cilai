@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceListResult",
+  "type": "object",
+  "properties": {
+    "workspaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/WorkspaceSummary"
+      }
+    }
+  },
+  "required": [
+    "workspaces"
+  ],
+  "$defs": {
+    "WorkspaceSummary": {
+      "type": "object",
+      "properties": {
+        "baselineRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deviceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "localRoot": {
+          "type": "string"
+        },
+        "localStatus": {
+          "type": "string"
+        },
+        "managedRoot": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissionRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissionRole": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "platformBound": {
+          "type": "boolean"
+        },
+        "platformRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "teamSpaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "workspaceKind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "workspaceKind",
+        "displayName",
+        "localRoot",
+        "localStatus",
+        "stateRevision",
+        "platformBound"
+      ]
+    }
+  }
+}

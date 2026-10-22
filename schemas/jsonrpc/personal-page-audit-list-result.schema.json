@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageAuditListResult",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalPageAuditEvent"
+      }
+    },
+    "nextBeforeSequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "$defs": {
+    "PersonalPageAuditEvent": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "$ref": "#/$defs/PersonalPageAuditRecord"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "record"
+      ]
+    },
+    "PersonalPageAuditMethod": {
+      "type": "string",
+      "enum": [
+        "session_open",
+        "session_read",
+        "session_close",
+        "context_publish",
+        "context_revoke",
+        "ui_actions_register",
+        "ui_action_invoke",
+        "model_session_create",
+        "model_session_read",
+        "model_message_read",
+        "model_run_create",
+        "model_run_read",
+        "model_run_cancel",
+        "model_write_resolve",
+        "conversation_handoff_prepare",
+        "conversation_handoff_commit",
+        "tool_read",
+        "tool_write"
+      ]
+    },
+    "PersonalPageAuditOutcome": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "rejected",
+        "cancelled",
+        "failed",
+        "outcome_unknown"
+      ]
+    },
+    "PersonalPageAuditPrepareParams": {
+      "type": "object",
+      "properties": {
+        "argumentsDigest": {
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/PersonalPageBindingParams"
+        },
+        "documentId": {
+          "type": "string"
+        },
+        "method": {
+          "$ref": "#/$defs/PersonalPageAuditMethod"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "permissionDigest": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "binding",
+        "permissionDigest",
+        "documentId",
+        "requestId",
+        "method",
+        "argumentsDigest"
+      ]
+    },
+    "PersonalPageAuditRecord": {
+      "type": "object",
+      "properties": {
+        "finishedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalPageAuditOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "readOnlyAfterRestore": {
+          "type": "boolean"
+        },
+        "reasonCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "request": {
+          "$ref": "#/$defs/PersonalPageAuditPrepareParams"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "profileId",
+        "request",
+        "preparedAt",
+        "readOnlyAfterRestore"
+      ]
+    },
+    "PersonalPageBindingParams": {
+      "type": "object",
+      "properties": {
+        "creationProjectId": {
+          "type": "string"
+        },
+        "expectedPackageDigest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "creationProjectId",
+        "expectedPackageDigest"
+      ]
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpSaveCommitParams",
+  "type": "object",
+  "properties": {
+    "credentialRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/McpSecretRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "operationId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId"
+  ],
+  "$defs": {
+    "McpSecretRef": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "account"
+      ]
+    }
+  }
+}

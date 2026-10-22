@@ -1,0 +1,15 @@
+/* 外观（边框/圆角/底色/投影）已由 styles.css 的共享规则给出，这里只留自己的尺寸。 */
+.confirm-dialog { width: min(480px, 100%); gap: 12px; padding: 22px 24px; }
+.confirm-dialog h3 { margin: 0; color: var(--text-heading); font-size: var(--text-base); font-weight: 650; }
+.confirm-body { color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.65; }
+.confirm-body strong { color: var(--text-heading); }
+.confirm-body p { margin: 0 0 6px; }
+.confirm-body p:last-child { margin-bottom: 0; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+.alert-dialog { width: min(400px, 100%); gap: 16px; padding: 24px; }
+.alert-dialog .confirm-body { overflow-wrap: anywhere; }
+.alert-dialog .confirm-actions { margin-top: 0; }
+
+.confirm-comment { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 0; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 600; }
+.confirm-comment textarea { resize: vertical; padding: 9px 11px; border: 1px solid var(--border-input); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface); font: inherit; font-size: var(--text-sm); font-weight: 400; }
+.confirm-comment textarea:focus-visible { border-color: var(--accent-border); outline: none; box-shadow: var(--focus-ring-accent); }

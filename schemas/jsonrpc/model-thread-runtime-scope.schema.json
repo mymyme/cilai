@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelThreadRuntimeScope",
+  "type": "object",
+  "properties": {
+    "authGeneration": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "configRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "runtimeHomeScope": {
+      "type": "string"
+    },
+    "runtimeKind": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "profileId",
+    "connectionId",
+    "configRevision",
+    "authGeneration",
+    "runtimeHomeScope",
+    "runtimeKind"
+  ]
+}

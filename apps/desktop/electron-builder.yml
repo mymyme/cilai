@@ -1,0 +1,67 @@
+# Electron 调试构建配置。本地测试包不更新，在线测试包具备双通道更新。
+appId: cn.cilai.personal.workbench
+productName: 词来个人工作台
+executableName: cilai-personal-workbench
+copyright: 词来
+artifactName: cilai-personal-workbench-${version}-${os}-${arch}.${ext}
+
+afterPack: scripts/after-pack.mjs
+
+directories:
+  output: ${env.CILAI_DESKTOP_OUTPUT}
+  buildResources: build
+
+# 只打包壳自身与界面产物；业务服务与既有 sidecar 作为外部资源随包分发
+files:
+  - shell/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/*.test.js"
+
+extraResources:
+  - from: ../desktop-ui/dist
+    to: frontend
+  - from: ${env.CILAI_SIDECAR_STAGE}
+    to: sidecar
+
+# 图标取自现有资源，不另存一份，避免同一产品维护两套图标事实源。
+mac:
+  signIgnore:
+    - /Contents/Resources/sidecar/codex-runtime(/|$)
+  # 应用元信息按实际需要收敛。打包工具的模板会带上摄像头、麦克风、蓝牙等权限声明，
+  # 而这些能力在容器与浏览器里一律拒绝——声明了却不用，等于凭空多出几项权限，
+  # 还会让应用出现在系统隐私设置的对应列表里。设为 null 即从产物中移除。
+  #
+  # 传输安全对齐现有壳：只放开网页内容，不整体放开。企业服务的请求由业务进程发出，
+  # 不受这项约束；容器里的业务页面才需要它。这里的合并是逐键深度合并，因此打包工具
+  # 默认给出的那几项要逐一移除，只留一项不会覆盖掉它们。
+  extendInfo:
+    NSDownloadsFolderUsageDescription: 用于打开和保存你选择的本地工作区文件。
+    NSCameraUsageDescription: null
+    NSMicrophoneUsageDescription: null
+    NSAudioCaptureUsageDescription: null
+    NSBluetoothAlwaysUsageDescription: null
+    NSBluetoothPeripheralUsageDescription: null
+    NSAppTransportSecurity:
+      NSAllowsArbitraryLoadsInWebContent: true
+      NSAllowsArbitraryLoads: null
+      NSAllowsLocalNetworking: null
+      NSExceptionDomains: null
+    NSHumanReadableCopyright: 词来
+  category: public.app-category.productivity
+  icon: ../../assets/icons/icon.icns
+  target:
+    - target: dir
+    - target: dmg
+    - target: zip
+  # 打包入口按用途注入临时签名，或 Developer ID 与公证配置。
+  identity: null
+  hardenedRuntime: false
+
+win:
+  icon: ../../assets/icons/icon.ico
+  target:
+    - target: dir
+
+# 更新配置由 afterPack 写入。此处关闭 Builder 的自动上传。
+publish: null

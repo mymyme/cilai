@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectPhaseTransitionParams",
+  "type": "object",
+  "properties": {
+    "actorLabel": {
+      "type": "string"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "comment": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "phaseId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "targetStatus": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "phaseId",
+    "targetStatus",
+    "expectedRevision",
+    "actorLabel",
+    "comment",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

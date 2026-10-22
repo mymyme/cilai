@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillSaveResult",
+  "type": "object",
+  "properties": {
+    "skill": {
+      "$ref": "#/$defs/SkillDetail"
+    }
+  },
+  "required": [
+    "skill"
+  ],
+  "$defs": {
+    "SkillDetail": {
+      "type": "object",
+      "properties": {
+        "automatic": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SkillPackageFile"
+          }
+        },
+        "instructions": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "skillId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "skillId",
+        "name",
+        "description",
+        "source",
+        "instructions",
+        "files",
+        "enabled",
+        "automatic",
+        "stateRevision",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SkillPackageFile": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "path",
+        "category",
+        "content",
+        "sizeBytes"
+      ]
+    }
+  }
+}

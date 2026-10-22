@@ -1,0 +1,9 @@
+.personal-data-settings{max-width:900px;padding:30px 36px;color:var(--text-primary)}
+.personal-data-settings header,.personal-maintenance header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.personal-data-settings h1{font-size:22px;margin:0 0 22px}.personal-data-settings h2{font-size:16px;margin:24px 0 14px}.personal-data-settings h3{font-size:14px}
+.personal-data-settings p,.personal-maintenance p{font-size:13px;line-height:1.6;color:var(--text-secondary)}
+.personal-data-settings article,.personal-maintenance article{border-top:1px solid var(--border-default);padding:14px 0}
+.personal-data-settings code,.personal-maintenance code{font-size:12px;overflow-wrap:anywhere;display:inline-block;max-width:100%}
+.personal-data-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.personal-data-settings button,.personal-maintenance button{padding:6px 12px;border:1px solid var(--border-default);border-radius:6px;background:var(--bg-surface);color:inherit;font:inherit;cursor:pointer}.personal-data-settings button:disabled,.personal-maintenance button:disabled{opacity:.45;cursor:default}
+.personal-data-settings fieldset{border:1px solid var(--border-default);border-radius:8px;padding:12px;margin:16px 0}.personal-data-settings label{display:block;font-size:13px;padding:6px 0}.personal-data-settings small{display:block;margin-left:22px;color:var(--text-secondary);overflow-wrap:anywhere}
+.personal-data-issues{padding-left:20px;font-size:13px;line-height:1.7}.personal-data-issues code{display:block}.personal-maintenance{margin-top:24px}.personal-maintenance [role=alert],.personal-data-settings [role=alert]{color:var(--danger-text)}

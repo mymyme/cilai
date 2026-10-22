@@ -1,0 +1,99 @@
+# 正式分发配置：在开发配置之上补签名、公证与更新源。
+#
+# 与开发配置分开，是因为两者的失败方式不同——开发期签名失败应当不影响出包，正式
+# 分发时签名失败必须让构建停下。凭据一律经环境变量注入，不落进仓库。
+#
+# 需要的环境变量：
+#   CILAI_SIGNING_IDENTITY  证书名，形如 "Developer ID Application: 公司名 (TEAMID)"
+#   APPLE_API_KEY           公证用的 App Store Connect 密钥文件路径
+#   APPLE_API_KEY_ID        密钥标识
+#   APPLE_API_ISSUER        签发者标识
+#   CILAI_UPDATE_FEED       更新源地址；当前 macOS ARM64 稳定通道为
+#                           尚未配置个人版更新地址
+#
+# 本配置尚未在真实证书下验证过：需要开发者证书与公证凭据，两者都不在仓库内。
+
+appId: cn.cilai.personal.workbench
+productName: 词来个人工作台
+executableName: cilai-personal-workbench
+copyright: 词来
+artifactName: cilai-personal-workbench-${version}-${os}-${arch}.${ext}
+forceCodeSigning: true
+
+afterPack: scripts/after-pack.mjs
+
+directories:
+  output: ${env.CILAI_DESKTOP_OUTPUT}
+  buildResources: build
+
+files:
+  - shell/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/*.test.js"
+
+extraResources:
+  - from: ../desktop-ui/dist
+    to: frontend
+  - from: ${env.CILAI_SIDECAR_STAGE}
+    to: sidecar
+
+# 图标取自现有壳的资源，不另存一份：两个壳是同一个产品的前后两代，图标理应一致，
+# 各存一份迟早会只更新其中一份。迁移期靠产品名区分，不靠图标。
+mac:
+  signIgnore:
+    - /Contents/Resources/sidecar/codex-runtime(/|$)
+  # 应用元信息按实际需要收敛。打包工具的模板会带上摄像头、麦克风、蓝牙等权限声明，
+  # 而这些能力在容器与浏览器里一律拒绝——声明了却不用，等于凭空多出几项权限，
+  # 还会让应用出现在系统隐私设置的对应列表里。设为 null 即从产物中移除。
+  #
+  # 传输安全对齐现有壳：只放开网页内容，不整体放开。企业服务的请求由业务进程发出，
+  # 不受这项约束；容器里的业务页面才需要它。这里的合并是逐键深度合并，因此打包工具
+  # 默认给出的那几项要逐一移除，只留一项不会覆盖掉它们。
+  extendInfo:
+    NSDownloadsFolderUsageDescription: 用于打开和保存你选择的本地工作区文件。
+    NSCameraUsageDescription: null
+    NSMicrophoneUsageDescription: null
+    NSAudioCaptureUsageDescription: null
+    NSBluetoothAlwaysUsageDescription: null
+    NSBluetoothPeripheralUsageDescription: null
+    NSAppTransportSecurity:
+      NSAllowsArbitraryLoadsInWebContent: true
+      NSAllowsArbitraryLoads: null
+      NSAllowsLocalNetworking: null
+      NSExceptionDomains: null
+    NSHumanReadableCopyright: 词来
+  category: public.app-category.productivity
+  icon: ../../assets/icons/icon.icns
+  target:
+    - target: dmg
+    - target: zip
+  identity: ${env.CILAI_SIGNING_IDENTITY}
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  notarize: true
+
+# Windows 端。渲染引擎随包分发，因此不需要系统内置浏览器组件，也就没有它的分发策略要处理。
+# 安装形式按已确认结论：默认免管理员的当前用户安装，企业分发另出 MSI。
+# 签名走 Authenticode，与 macOS 是两套凭据，同样经环境变量注入。
+#   CILAI_WIN_CERT_FILE      证书文件路径
+#   CILAI_WIN_CERT_PASSWORD  证书口令
+win:
+  icon: ../../assets/icons/icon.ico
+  target:
+    - target: nsis
+  certificateFile: ${env.CILAI_WIN_CERT_FILE}
+  certificatePassword: ${env.CILAI_WIN_CERT_PASSWORD}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+# 更新源由正式构建注入。渲染进程不能覆盖该地址。
+publish:
+  provider: generic
+  url: ${env.CILAI_UPDATE_FEED}
+  channel: latest

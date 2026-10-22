@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationListTriggersParams",
+  "type": "object",
+  "properties": {
+    "beforeSequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "limit": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "ruleId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "limit"
+  ]
+}

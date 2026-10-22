@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfirmFileParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "expectedBaselineVersionId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expectedChecksumAlgorithm": {
+      "type": "string"
+    },
+    "expectedChecksumValue": {
+      "type": "string"
+    },
+    "localFileId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "localFileId",
+    "expectedChecksumAlgorithm",
+    "expectedChecksumValue",
+    "clientOperationId"
+  ]
+}

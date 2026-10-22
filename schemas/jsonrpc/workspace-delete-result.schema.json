@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceDeleteResult",
+  "type": "object",
+  "properties": {
+    "removedEvents": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "removedFiles": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "removedFiles",
+    "removedEvents"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMemoryResetScopeCompleteParams",
+  "type": "object",
+  "properties": {
+    "failureReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "officialResponse": true,
+    "operationId": {
+      "type": "string"
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    },
+    "previewDigest": {
+      "type": "string"
+    },
+    "scopeId": {
+      "type": "string"
+    },
+    "writerLeaseId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "previewDigest",
+    "scopeId",
+    "owner"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

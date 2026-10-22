@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalRestorePreview",
+  "type": "object",
+  "properties": {
+    "archiveDigest": {
+      "type": "string"
+    },
+    "currentProfileId": {
+      "type": "string"
+    },
+    "fileCount": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "manifestDigest": {
+      "type": "string"
+    },
+    "preservesCurrentCopy": {
+      "type": "boolean"
+    },
+    "replacesCurrentProfileDirectory": {
+      "type": "boolean"
+    },
+    "sourceProfile": {
+      "$ref": "#/$defs/PersonalProfileManifest"
+    },
+    "targetProfileId": {
+      "type": "string"
+    },
+    "totalBytes": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalDataIssue"
+      }
+    },
+    "workspaceDestination": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalRestoreWorkspaceDestination"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workspaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalBackupWorkspace"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "sourceProfile",
+    "currentProfileId",
+    "targetProfileId",
+    "archiveDigest",
+    "manifestDigest",
+    "replacesCurrentProfileDirectory",
+    "preservesCurrentCopy",
+    "fileCount",
+    "totalBytes",
+    "workspaces",
+    "warnings"
+  ],
+  "$defs": {
+    "PersonalBackupWorkspace": {
+      "type": "object",
+      "properties": {
+        "archivePrefix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contentSnapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalWorkspaceContentSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "originalFilesIncluded": {
+          "type": "boolean"
+        },
+        "originalPath": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "displayName",
+        "originalPath",
+        "originalFilesIncluded"
+      ]
+    },
+    "PersonalDataCategory": {
+      "type": "string",
+      "enum": [
+        "business_database",
+        "native_history",
+        "native_memory",
+        "skills",
+        "applications",
+        "application_data",
+        "attachments",
+        "configuration",
+        "workspace_originals"
+      ]
+    },
+    "PersonalDataIssue": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PersonalDataCategory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ]
+    },
+    "PersonalProfileManifest": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "profileId",
+        "displayName"
+      ]
+    },
+    "PersonalRestoreWorkspaceDestination": {
+      "type": "object",
+      "properties": {
+        "parentIdentity": {
+          "type": "string"
+        },
+        "parentPath": {
+          "type": "string"
+        },
+        "targetPath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "parentPath",
+        "parentIdentity",
+        "targetPath"
+      ]
+    },
+    "PersonalWorkspaceContentEntry": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "fileIdentity": {
+          "type": "string"
+        },
+        "fileType": {
+          "type": "string"
+        },
+        "localFileId": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "relativePath": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "localFileId",
+        "relativePath",
+        "fileType",
+        "fileIdentity",
+        "stateRevision"
+      ]
+    },
+    "PersonalWorkspaceContentSnapshot": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalWorkspaceContentEntry"
+          }
+        },
+        "fullGeneration": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "fullSnapshotId": {
+          "type": "string"
+        },
+        "latestGeneration": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "protocolVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "rootIdentity": {
+          "type": "string"
+        },
+        "rootPath": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "workspaceRevision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "workspaceId",
+        "rootIdentity",
+        "rootPath",
+        "workspaceRevision",
+        "latestGeneration",
+        "fullSnapshotId",
+        "fullGeneration",
+        "digest",
+        "entries"
+      ]
+    }
+  }
+}

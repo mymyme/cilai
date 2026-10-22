@@ -1,0 +1,40 @@
+/* The trigger deliberately carries no colours of its own: it inherits every page rule that used
+   to target `select`, so a dropdown looks the same before and after the swap. Only the parts a
+   native select never exposed — text alignment and the option list — are defined here. */
+.ch-select { display: flex; align-items: center; text-align: left; }
+.ch-select-value { overflow: hidden; min-width: 0; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.ch-select-value[data-placeholder] { color: var(--text-tertiary); }
+.ch-select[aria-expanded="true"] { border-color: var(--border-focus); box-shadow: var(--focus-ring-accent); }
+
+.ch-select-list {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  overflow-y: auto;
+  gap: 1px;
+  padding: 5px;
+  min-width: max-content;
+  max-width: min(360px, 92vw);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+}
+.ch-select-list button {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+.ch-select-list button[data-active="true"] { color: var(--text-primary); background: var(--bg-hover); }
+.ch-select-list button[aria-selected="true"] { color: var(--accent-text); background: var(--bg-selected); font-weight: 600; }
+.ch-select-list button:disabled { cursor: not-allowed; opacity: .45; }

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalWriterLease",
+  "type": "object",
+  "properties": {
+    "createdAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "instanceFence": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "launchProtocol": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "leaseId": {
+      "type": "string"
+    },
+    "localTransportFinished": {
+      "type": "boolean"
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    },
+    "processMode": {
+      "$ref": "#/$defs/PersonalWriterMode"
+    },
+    "processes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelExecutionProcess"
+      }
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "remoteOutcomeUnconfirmed": {
+      "type": "boolean"
+    },
+    "resourceId": {
+      "type": "string"
+    },
+    "resourceRevision": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/PersonalWriterState"
+    },
+    "updatedAt": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "profileId",
+    "instanceFence",
+    "kind",
+    "resourceId",
+    "resourceRevision",
+    "owner",
+    "launchProtocol",
+    "processMode",
+    "processes",
+    "state",
+    "localTransportFinished",
+    "remoteOutcomeUnconfirmed",
+    "createdAt",
+    "updatedAt"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionProcess": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalWriterMode": {
+      "type": "string",
+      "enum": [
+        "local_process",
+        "remote_request"
+      ]
+    },
+    "PersonalWriterState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "active",
+        "released"
+      ]
+    }
+  }
+}

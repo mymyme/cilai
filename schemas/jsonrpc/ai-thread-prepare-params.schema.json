@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiThreadPrepareParams",
+  "type": "object",
+  "properties": {
+    "applicationScope": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AiThreadApplicationScope"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "conversationId": {
+      "type": "string"
+    },
+    "expectedBindingRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "input": true,
+    "kind": {
+      "$ref": "#/$defs/AiThreadOperationKind"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "ownerInstanceId": {
+      "type": "string"
+    },
+    "protocolVersion": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "runId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "conversationId",
+    "operationId",
+    "runId",
+    "ownerInstanceId",
+    "expectedBindingRevision",
+    "protocolVersion",
+    "kind",
+    "input"
+  ],
+  "$defs": {
+    "AiApplicationSessionKind": {
+      "type": "string",
+      "enum": [
+        "application_page",
+        "application_task"
+      ]
+    },
+    "AiThreadApplicationScope": {
+      "type": "object",
+      "properties": {
+        "applicationId": {
+          "type": "string"
+        },
+        "sessionKind": {
+          "$ref": "#/$defs/AiApplicationSessionKind"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "applicationId",
+        "sessionKind"
+      ]
+    },
+    "AiThreadOperationKind": {
+      "type": "string",
+      "enum": [
+        "create",
+        "resume",
+        "fork",
+        "inject",
+        "send",
+        "steer",
+        "compact",
+        "delete"
+      ]
+    }
+  }
+}

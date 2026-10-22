@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationPrepareExecutionParams",
+  "type": "object",
+  "properties": {
+    "claimId": {
+      "type": "string"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "execution": {
+      "$ref": "#/$defs/ModelExecutionPrepareParams"
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "claimId",
+    "owner",
+    "clientOperationId",
+    "execution"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionPrepareParams": {
+      "type": "object",
+      "properties": {
+        "bindingId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conversationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "launchProtocol": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelExecutionOwner"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "purpose": {
+          "$ref": "#/$defs/ModelPurpose"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "purpose"
+      ]
+    },
+    "ModelPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation",
+        "review",
+        "memory",
+        "page_ai"
+      ]
+    },
+    "ModelSelection": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "modelId"
+      ]
+    }
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelPurposeBinding",
+  "type": "object",
+  "properties": {
+    "bindingId": {
+      "type": "string"
+    },
+    "consent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelHistoryConsent"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "policy": {
+      "$ref": "#/$defs/ModelSelectionPolicy"
+    },
+    "purpose": {
+      "$ref": "#/$defs/ModelPurpose"
+    },
+    "revision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "scopeId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "selection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelSelection"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "bindingId",
+    "purpose",
+    "policy",
+    "enabled",
+    "revision"
+  ],
+  "$defs": {
+    "ModelHistoryConsent": {
+      "type": "object",
+      "properties": {
+        "confirmedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "historyScope": {
+          "type": "string"
+        },
+        "mayIncurCost": {
+          "type": "boolean"
+        },
+        "serviceName": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serviceName",
+        "historyScope",
+        "mayIncurCost",
+        "confirmedAt"
+      ]
+    },
+    "ModelPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation",
+        "review",
+        "memory",
+        "page_ai"
+      ]
+    },
+    "ModelSelection": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "modelId"
+      ]
+    },
+    "ModelSelectionPolicy": {
+      "type": "string",
+      "enum": [
+        "explicit",
+        "inherit_default"
+      ]
+    }
+  }
+}

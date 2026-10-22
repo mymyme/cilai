@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMemoryEnableConfirmation",
+  "type": "object",
+  "properties": {
+    "confirmedAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "consentDigest": {
+      "type": "string"
+    },
+    "fromToolChats": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "consentDigest",
+    "fromToolChats",
+    "confirmedAt"
+  ]
+}

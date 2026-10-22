@@ -1,0 +1,10 @@
+schemas/jsonrpc/*.json text eol=lf
+/LICENSE text eol=lf
+/NOTICE text eol=lf
+/packages/app-ui/LICENSE text eol=lf
+/packages/app-ui/NOTICE text eol=lf
+crates/workbench-runtime/src/memory_prompts/* text eol=lf
+apps/desktop-ui/src/generated/protocol.ts text eol=lf
+# 1–32 号迁移随已发布客户端使用 LF，自动换行不能改变其冻结校验值。
+migrations/00[0-2][0-9]_*.sql text eol=lf
+migrations/003[0-2]_*.sql text eol=lf

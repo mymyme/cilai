@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReadTextDiffResult",
+  "type": "object",
+  "properties": {
+    "cursor": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "nextCursor": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TextDiffRow"
+      }
+    }
+  },
+  "required": [
+    "cursor",
+    "rows"
+  ],
+  "$defs": {
+    "TextDiffRow": {
+      "type": "object",
+      "properties": {
+        "hasLineTerminator": {
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/TextDiffRowKind"
+        },
+        "leftLine": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "rightLine": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "hasLineTerminator"
+      ]
+    },
+    "TextDiffRowKind": {
+      "type": "string",
+      "enum": [
+        "equal",
+        "delete",
+        "insert"
+      ]
+    }
+  }
+}

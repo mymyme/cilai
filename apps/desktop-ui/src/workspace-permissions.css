@@ -1,0 +1,5 @@
+.workspace-permissions-directory { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); font-size: var(--text-xs); line-height: 1.6; }
+.workspace-permissions-directory > span:first-child { color: var(--text-tertiary); }
+.workspace-permissions-directory > span:last-child { color: var(--text-secondary); overflow-wrap: anywhere; }
+.runtime-status-card.workspace-permissions-compact { margin: 0 0 12px; }
+.confirm-body code { display: block; white-space: normal; overflow-wrap: anywhere; }

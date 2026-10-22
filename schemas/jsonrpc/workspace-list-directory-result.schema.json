@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceListDirectoryResult",
+  "type": "object",
+  "properties": {
+    "entries": {
+      "description": "目录在前、同类按名称排序。",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/WorkspaceDirectoryEntry"
+      }
+    },
+    "issueCount": {
+      "description": "这一层里读不到的条目数。非零时界面要提示这一层不完整。",
+      "type": "integer",
+      "format": "int64"
+    },
+    "relativePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "entries",
+    "issueCount"
+  ],
+  "$defs": {
+    "WorkspaceDirectoryEntry": {
+      "type": "object",
+      "properties": {
+        "fileType": {
+          "description": "`file`、`directory` 或 `symlink`。",
+          "type": "string"
+        },
+        "modifiedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      },
+      "required": [
+        "relativePath",
+        "name",
+        "fileType"
+      ]
+    }
+  }
+}

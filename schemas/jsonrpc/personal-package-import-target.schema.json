@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPackageImportTarget",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "new"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "creationProjectId": {
+          "type": "string"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "mode": {
+          "type": "string",
+          "const": "upgrade"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "creationProjectId",
+        "expectedRevision"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiStateApplyParams",
+  "type": "object",
+  "properties": {
+    "delta": {
+      "$ref": "#/$defs/AiStateDelta"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "expectedRevision",
+    "delta"
+  ],
+  "$defs": {
+    "AiStateDelta": {
+      "description": "AI 运行状态的一次变更。\n\n`full` 为真时各类条目必须完整给出，库里不在其中的条目一律删除，`payload` 必填；\n为假时只给出变化的条目，`payload` 为空表示其余字段未变。",
+      "type": "object",
+      "properties": {
+        "conversations": {
+          "$ref": "#/$defs/AiStateEntityDelta"
+        },
+        "full": {
+          "type": "boolean"
+        },
+        "messages": {
+          "$ref": "#/$defs/AiStateEntityDelta"
+        },
+        "payload": true,
+        "runs": {
+          "$ref": "#/$defs/AiStateEntityDelta"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "full",
+        "conversations",
+        "messages",
+        "runs"
+      ]
+    },
+    "AiStateEntityDelta": {
+      "description": "同一类条目相对上次提交的变化。\n\n`total` 是应用变化后该类条目应有的总数，服务端据此核对双方基线是否一致：\n不一致说明本地记忆的\"上次已保存\"与库里实际不同，按增量写入只会把错误固化下来。",
+      "type": "object",
+      "properties": {
+        "removedIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "upserts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AiStateEntityUpsert"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "upserts",
+        "removedIds",
+        "total"
+      ]
+    },
+    "AiStateEntityUpsert": {
+      "description": "一个会话、消息或运行条目在列表中的位置与完整内容。",
+      "type": "object",
+      "properties": {
+        "position": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": true
+      },
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "value"
+      ]
+    }
+  }
+}

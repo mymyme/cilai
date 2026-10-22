@@ -1,0 +1,17 @@
+[package]
+name = "contexthub-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+contexthub-domain = { path = "../domain", version = "=0.1.0" }
+schemars = "=1.2.2"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+ts-rs = { version = "=12.0.1", features = ["serde-compat", "serde-json-impl"] }
+
+[lints]
+workspace = true

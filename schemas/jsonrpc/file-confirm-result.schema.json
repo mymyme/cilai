@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfirmFileResult",
+  "type": "object",
+  "properties": {
+    "baselineVersionId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checksumAlgorithm": {
+      "type": "string"
+    },
+    "checksumValue": {
+      "type": "string"
+    },
+    "confirmationId": {
+      "type": "string"
+    },
+    "confirmedAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "confirmedBy": {
+      "type": "string"
+    },
+    "localFileId": {
+      "type": "string"
+    },
+    "replayed": {
+      "type": "boolean"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "confirmationId",
+    "workspaceId",
+    "localFileId",
+    "checksumAlgorithm",
+    "checksumValue",
+    "confirmedBy",
+    "confirmedAt",
+    "replayed"
+  ]
+}

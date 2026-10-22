@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceFilesResult",
+  "type": "object",
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/WorkspaceFileItem"
+      }
+    },
+    "hasMore": {
+      "type": "boolean"
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "workspaceRevision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "workspaceRevision",
+    "files",
+    "hasMore"
+  ],
+  "$defs": {
+    "WorkspaceFileItem": {
+      "type": "object",
+      "properties": {
+        "baselineRelation": {
+          "description": "本地基线相对平台最新已发布版本的关系。界面据此区分\"只有本地改了\"和\"云端也改了\"。",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "baselineVersionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checksumAlgorithm": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checksumValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confirmationState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conflictState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "displayState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fileType": {
+          "type": "string"
+        },
+        "localChangeState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "localFileId": {
+          "type": "string"
+        },
+        "presenceState": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      },
+      "required": [
+        "localFileId",
+        "relativePath",
+        "fileType",
+        "presenceState"
+      ]
+    }
+  }
+}

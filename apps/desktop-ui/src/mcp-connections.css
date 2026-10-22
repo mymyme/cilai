@@ -1,0 +1,32 @@
+.mcp-settings { box-sizing:border-box; height:100%; overflow:auto; padding:clamp(24px,4vw,48px); font-size:var(--text-xs); }
+.mcp-settings header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.mcp-settings h1 { margin:0; font-size:26px; }
+.mcp-settings h2 { margin:0; font-size:var(--text-md); }
+.mcp-settings button,.mcp-settings input,.mcp-settings select,.mcp-settings textarea { font:inherit; color:var(--text-primary); border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); padding:8px 10px; }
+.mcp-settings button { cursor:pointer; }
+.mcp-settings button:disabled { opacity:.5; cursor:default; }
+.mcp-settings header > div,.mcp-settings footer { display:flex; gap:8px; flex-wrap:wrap; }
+.mcp-settings p { color:var(--text-secondary); line-height:1.7; }
+.mcp-settings [role=alert] { color:var(--danger-text); }
+.mcp-list { display:grid; gap:16px; margin-top:24px; }
+.mcp-list > article,.mcp-editor,.mcp-pending { min-width:0; padding:20px; border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--bg-surface); }
+.mcp-list code { display:block; margin-top:12px; overflow-wrap:anywhere; font-size:11px; }
+.mcp-editor { margin-top:24px; }
+.mcp-editor fieldset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:16px 0; padding:0; border:0; }
+.mcp-editor label { display:grid; gap:8px; min-width:0; }
+.mcp-editor textarea { resize:vertical; }
+.mcp-inline { display:flex; align-items:center; flex-wrap:wrap; gap:18px; }
+.mcp-inline label,.mcp-grant label { display:flex; align-items:center; gap:8px; }
+.mcp-credentials p,.mcp-editor .mcp-inline { grid-column:1/-1; }
+.mcp-grant { display:grid; gap:14px; margin-top:18px; padding-top:18px; border-top:1px solid var(--border-default); }
+.mcp-grant > div > p { margin:6px 0; overflow-wrap:anywhere; }
+.mcp-grant pre { max-height:180px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+.mcp-grant > button { justify-self:start; }
+.mcp-pending { margin-top:24px; }
+.mcp-pending article { margin-top:16px; padding-top:16px; border-top:1px solid var(--border-subtle); }
+.mcp-pending button { margin-right:8px; }
+.mcp-source-preview { display:grid; gap:12px; }
+.mcp-source-preview > div { display:grid; grid-template-columns:70px minmax(0,1fr); gap:16px; }
+.mcp-source-preview dt { color:var(--text-secondary); }
+.mcp-source-preview dd { margin:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+@media(max-width:850px) { .mcp-editor fieldset {grid-template-columns:minmax(0,1fr);} }

@@ -1,0 +1,9 @@
+.search-field { min-width: 0; }
+.search-field[data-focus-frame="wrapper"] > input { appearance: none; -webkit-appearance: none; box-sizing: border-box; min-width: 0; min-height: 0; width: 100%; padding: 0; border: 0; border-radius: 0; outline: 0; box-shadow: none; color: inherit; background: transparent; font: inherit; }
+.search-field[data-focus-frame="wrapper"] > input:focus { border: 0; outline: 0; box-shadow: none; background: transparent; }
+.search-field > input::-webkit-search-cancel-button { display: none; }
+.search-field > svg { flex: 0 0 auto; }
+.search-field-clear { display: grid; flex: 0 0 auto; padding: 0; border: 0; color: var(--text-tertiary); background: transparent; cursor: pointer; place-items: center; }
+.search-field-clear:hover { color: var(--text-primary); background: var(--bg-hover); }
+.search-field-clear:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 1px; }
+.search-field-clear svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }

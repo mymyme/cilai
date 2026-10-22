@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMaintenanceDrainStatus",
+  "type": "object",
+  "properties": {
+    "activeModelLeases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelExecutionLease"
+      }
+    },
+    "activeWriters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalWriterLease"
+      }
+    },
+    "fence": {
+      "$ref": "#/$defs/PersonalMaintenanceFence"
+    },
+    "writerRegistryDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "fence",
+    "activeModelLeases",
+    "activeWriters",
+    "writerRegistryDigest"
+  ],
+  "$defs": {
+    "LocalModelRuntime": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "lmstudio"
+      ]
+    },
+    "ModelAuthMode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "api_key",
+        "runtime_managed_chatgpt"
+      ]
+    },
+    "ModelCapabilityEvidence": {
+      "type": "object",
+      "properties": {
+        "evidenceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/ModelEvidenceSource"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelCapabilityState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "source"
+      ]
+    },
+    "ModelCapabilityState": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "supported",
+        "unsupported"
+      ]
+    },
+    "ModelConnectionKind": {
+      "type": "string",
+      "enum": [
+        "openai_key",
+        "chatgpt",
+        "custom_responses",
+        "local"
+      ]
+    },
+    "ModelEvidenceSource": {
+      "type": "string",
+      "enum": [
+        "user_declared",
+        "service_declared",
+        "runtime_catalog",
+        "observed"
+      ]
+    },
+    "ModelExecutionLease": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "executionStarted": {
+          "type": "boolean"
+        },
+        "launchProtocol": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "leaseId": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelExecutionProcess"
+          }
+        },
+        "released": {
+          "type": "boolean"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/ModelExecutionSnapshot"
+        },
+        "snapshotDigest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "leaseId",
+        "snapshot",
+        "snapshotDigest",
+        "released",
+        "owner",
+        "processes",
+        "executionStarted",
+        "launchProtocol",
+        "createdAt"
+      ]
+    },
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionProcess": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionSnapshot": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "authMode": {
+          "$ref": "#/$defs/ModelAuthMode"
+        },
+        "baseUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bindingId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bindingRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ModelCapabilityEvidence"
+          }
+        },
+        "configRevision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "contextWindowTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "conversationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "defaultReasoningEffort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "descriptorRevision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "inputModalities": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "instanceFence": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ModelConnectionKind"
+        },
+        "localRuntime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalModelRuntime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "network": {
+          "$ref": "#/$defs/ModelNetworkConfig"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/ModelPurpose"
+        },
+        "reasoningEffort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtimeHomeScope": {
+          "type": "string"
+        },
+        "runtimeKind": {
+          "$ref": "#/$defs/ModelRuntimeKind"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supportedReasoningEfforts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "validationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runtimeKind",
+        "profileId",
+        "instanceFence",
+        "connectionId",
+        "kind",
+        "configRevision",
+        "authGeneration",
+        "purpose",
+        "modelId",
+        "authMode",
+        "network",
+        "runtimeHomeScope",
+        "descriptorRevision",
+        "capabilities"
+      ]
+    },
+    "ModelNetworkAuthentication": {
+      "type": "string",
+      "enum": [
+        "none",
+        "basic"
+      ]
+    },
+    "ModelNetworkConfig": {
+      "type": "object",
+      "properties": {
+        "caCertificatePem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headerNames": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "$ref": "#/$defs/ModelNetworkMode",
+          "default": "direct"
+        },
+        "proxyAuth": {
+          "$ref": "#/$defs/ModelNetworkAuthentication",
+          "default": "none"
+        },
+        "proxySecretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proxyUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serviceAuth": {
+          "$ref": "#/$defs/ModelNetworkAuthentication",
+          "default": "none"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ModelNetworkMode": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "system_proxy",
+        "custom_proxy"
+      ]
+    },
+    "ModelPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation",
+        "review",
+        "memory",
+        "page_ai"
+      ]
+    },
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    },
+    "ModelSecretRef": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "account"
+      ]
+    },
+    "PersonalMaintenanceFence": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "fenceId": {
+          "type": "string"
+        },
+        "instanceFence": {
+          "type": "string"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalMaintenanceState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "fenceId",
+        "operationId",
+        "profileId",
+        "instanceFence",
+        "owner",
+        "state",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonalMaintenanceState": {
+      "type": "string",
+      "enum": [
+        "draining",
+        "released"
+      ]
+    },
+    "PersonalWriterLease": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "instanceFence": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "launchProtocol": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "leaseId": {
+          "type": "string"
+        },
+        "localTransportFinished": {
+          "type": "boolean"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "processMode": {
+          "$ref": "#/$defs/PersonalWriterMode"
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelExecutionProcess"
+          }
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "remoteOutcomeUnconfirmed": {
+          "type": "boolean"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "resourceRevision": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalWriterState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "leaseId",
+        "profileId",
+        "instanceFence",
+        "kind",
+        "resourceId",
+        "resourceRevision",
+        "owner",
+        "launchProtocol",
+        "processMode",
+        "processes",
+        "state",
+        "localTransportFinished",
+        "remoteOutcomeUnconfirmed",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonalWriterMode": {
+      "type": "string",
+      "enum": [
+        "local_process",
+        "remote_request"
+      ]
+    },
+    "PersonalWriterState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "active",
+        "released"
+      ]
+    }
+  }
+}

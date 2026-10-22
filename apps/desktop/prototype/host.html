@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>宿主窗口</title>
+<style>
+  body { margin: 0; font: 13px -apple-system, sans-serif; background: #f4f6f8; }
+  #stage { position: relative; width: 800px; height: 400px; margin: 16px; background: #fff; box-shadow: 0 2px 12px rgb(0 0 0 / 12%); }
+  canvas { display: block; width: 100%; height: 100%; }
+  /* 承接输入法组合事件：覆盖在画面之上，视觉透明但可聚焦 */
+  #ime { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent; outline: none; resize: none; }
+  #log { margin: 16px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; color: #333; }
+</style>
+<div id="stage">
+  <canvas id="screen" width="800" height="400"></canvas>
+  <textarea id="ime" autocomplete="off" spellcheck="false"></textarea>
+</div>
+<div id="log">等待帧…</div>
+<script>
+  const canvas = document.getElementById("screen");
+  const context = canvas.getContext("2d");
+  const ime = document.getElementById("ime");
+  const log = document.getElementById("log");
+  let frames = 0;
+
+  window.bridge.onFrame((dataUrl) => {
+    const image = new Image();
+    image.onload = () => {
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      frames += 1;
+      log.textContent = `已渲染帧数：${frames}`;
+    };
+    image.src = dataUrl;
+  });
+
+  // 指针事件按画布坐标换算后转发
+  const toPagePoint = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: Math.round((event.clientX - rect.left) * (canvas.width / rect.width)),
+      y: Math.round((event.clientY - rect.top) * (canvas.height / rect.height)),
+    };
+  };
+  ime.addEventListener("mousedown", (event) => {
+    ime.focus();
+    window.bridge.pointer({ type: "down", ...toPagePoint(event) });
+  });
+  ime.addEventListener("mouseup", (event) => window.bridge.pointer({ type: "up", ...toPagePoint(event) }));
+
+  // 输入法组合：起止之间只上报组合串，结束时提交
+  ime.addEventListener("compositionupdate", (event) => window.bridge.composition({ phase: "update", text: event.data ?? "" }));
+  ime.addEventListener("compositionend", (event) => {
+    window.bridge.composition({ phase: "commit", text: event.data ?? "" });
+    ime.value = "";
+  });
+  // 非组合输入（英文、数字）直接提交
+  ime.addEventListener("beforeinput", (event) => {
+    if (event.isComposing || event.inputType !== "insertText" || !event.data) return;
+    event.preventDefault();
+    window.bridge.composition({ phase: "commit", text: event.data });
+  });
+</script>

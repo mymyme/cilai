@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceStorageKind",
+  "type": "string",
+  "enum": [
+    "host_service_logs",
+    "test_diagnostics_logs",
+    "browser_http_cache"
+  ]
+}

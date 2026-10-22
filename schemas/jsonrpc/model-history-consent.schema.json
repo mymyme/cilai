@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelHistoryConsent",
+  "type": "object",
+  "properties": {
+    "confirmedAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "historyScope": {
+      "type": "string"
+    },
+    "mayIncurCost": {
+      "type": "boolean"
+    },
+    "serviceName": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "serviceName",
+    "historyScope",
+    "mayIncurCost",
+    "confirmedAt"
+  ]
+}

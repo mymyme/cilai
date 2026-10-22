@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpToolDefinition",
+  "type": "object",
+  "properties": {
+    "annotations": true,
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inputSchema": true,
+    "name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "inputSchema"
+  ]
+}

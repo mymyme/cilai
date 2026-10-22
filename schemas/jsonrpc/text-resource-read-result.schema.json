@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReadTextResourceResult",
+  "type": "object",
+  "properties": {
+    "contentRevision": {
+      "type": "string"
+    },
+    "endOfResource": {
+      "type": "boolean"
+    },
+    "nextOffset": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "offset": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "text": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "offset",
+    "nextOffset",
+    "endOfResource",
+    "contentRevision",
+    "text"
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PhasePlanActivateResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "$ref": "#/$defs/PhasePlanItem"
+    }
+  },
+  "required": [
+    "plan"
+  ],
+  "$defs": {
+    "BusinessTaskItem": {
+      "type": "object",
+      "properties": {
+        "assigneeLabel": {
+          "type": "string"
+        },
+        "assigneeType": {
+          "type": "string"
+        },
+        "attemptNo": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "businessTaskId": {
+          "type": "string"
+        },
+        "completionCriteria": {
+          "type": "string"
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "expectedOutput": {
+          "type": "string"
+        },
+        "inputContext": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "businessTaskId",
+        "projectId",
+        "title",
+        "objective",
+        "inputContext",
+        "expectedOutput",
+        "completionCriteria",
+        "assigneeType",
+        "assigneeLabel",
+        "priority",
+        "attemptNo",
+        "status",
+        "stateRevision",
+        "updatedAt"
+      ]
+    },
+    "PhasePlanItem": {
+      "type": "object",
+      "properties": {
+        "activatedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProjectPhaseItem"
+          }
+        },
+        "planId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "versionNo": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "planId",
+        "projectId",
+        "versionNo",
+        "status",
+        "summary",
+        "stateRevision",
+        "createdAt",
+        "phases"
+      ]
+    },
+    "ProjectPhaseItem": {
+      "type": "object",
+      "properties": {
+        "acceptanceCriteria": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "isMain": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "planId": {
+          "type": "string"
+        },
+        "predecessorPhaseIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "requiredDeliverableId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requiredDeliverableTitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requiredDeliverableVersionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BusinessTaskItem"
+          }
+        }
+      },
+      "required": [
+        "phaseId",
+        "planId",
+        "projectId",
+        "name",
+        "goal",
+        "acceptanceCriteria",
+        "sortOrder",
+        "predecessorPhaseIds",
+        "isMain",
+        "status",
+        "stateRevision",
+        "tasks"
+      ]
+    }
+  }
+}

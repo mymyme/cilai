@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CapabilityCreationGetResult",
+  "type": "object",
+  "properties": {
+    "project": {
+      "$ref": "#/$defs/CapabilityCreationProject"
+    }
+  },
+  "required": [
+    "project"
+  ],
+  "$defs": {
+    "CapabilityCreationAcceptanceExample": {
+      "type": "object",
+      "properties": {
+        "expected": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "expected"
+      ]
+    },
+    "CapabilityCreationProject": {
+      "type": "object",
+      "properties": {
+        "acceptanceExamples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CapabilityCreationAcceptanceExample"
+          }
+        },
+        "businessGoal": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "creationProjectId": {
+          "type": "string"
+        },
+        "errorReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "managedRelativePath": {
+          "type": "string"
+        },
+        "packageDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requestedPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceFileCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "targetType": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "creationProjectId",
+        "title",
+        "businessGoal",
+        "targetType",
+        "status",
+        "managedRelativePath",
+        "requestedPermissions",
+        "acceptanceExamples",
+        "sourceFileCount",
+        "stateRevision",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  }
+}

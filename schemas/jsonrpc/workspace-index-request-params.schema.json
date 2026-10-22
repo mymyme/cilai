@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceIndexRequestParams",
+  "description": "请求后台立即为工作区建一次索引。",
+  "type": "object",
+  "properties": {
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ]
+}

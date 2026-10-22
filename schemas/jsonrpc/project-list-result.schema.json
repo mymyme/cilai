@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectListResult",
+  "type": "object",
+  "properties": {
+    "projects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProjectSummary"
+      }
+    }
+  },
+  "required": [
+    "projects"
+  ],
+  "$defs": {
+    "ProjectSummary": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "primaryWorkspaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "projectId",
+        "displayName",
+        "goal",
+        "status",
+        "stateRevision",
+        "updatedAt"
+      ]
+    }
+  }
+}

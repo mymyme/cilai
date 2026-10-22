@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalBackupArtifact",
+  "type": "object",
+  "properties": {
+    "bytes": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "digest": {
+      "type": "string"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "path",
+    "digest",
+    "bytes"
+  ]
+}

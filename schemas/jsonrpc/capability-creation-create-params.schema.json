@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CapabilityCreationCreateParams",
+  "type": "object",
+  "properties": {
+    "acceptanceExamples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilityCreationAcceptanceExample"
+      }
+    },
+    "businessGoal": {
+      "type": "string"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "conversationId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "requestedPermissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sourceFiles": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CapabilityCreationSourceFile"
+      }
+    },
+    "targetType": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "businessGoal",
+    "targetType",
+    "requestedPermissions",
+    "acceptanceExamples",
+    "clientOperationId",
+    "requestFingerprint"
+  ],
+  "$defs": {
+    "CapabilityCreationAcceptanceExample": {
+      "type": "object",
+      "properties": {
+        "expected": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "expected"
+      ]
+    },
+    "CapabilityCreationSourceFile": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  }
+}

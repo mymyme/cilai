@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationAdmitResult",
+  "type": "object",
+  "properties": {
+    "admissionRuleRecord": {
+      "$ref": "#/$defs/PersonalAutomationRuleRecord"
+    },
+    "claim": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalAutomationClaim"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "replayed": {
+      "type": "boolean"
+    },
+    "ruleRecord": {
+      "$ref": "#/$defs/PersonalAutomationRuleRecord"
+    },
+    "trigger": {
+      "$ref": "#/$defs/PersonalAutomationTriggerRecord"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "trigger",
+    "admissionRuleRecord",
+    "ruleRecord",
+    "replayed"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalAutomationClaim": {
+      "type": "object",
+      "properties": {
+        "claimId": {
+          "type": "string"
+        },
+        "modelLeaseIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "released": {
+          "type": "boolean"
+        },
+        "ruleId": {
+          "type": "string"
+        },
+        "ruleVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "triggerId": {
+          "type": "string"
+        },
+        "writerLeaseId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "claimId",
+        "profileId",
+        "ruleId",
+        "ruleVersion",
+        "triggerId",
+        "owner",
+        "writerLeaseId",
+        "modelLeaseIds",
+        "released"
+      ]
+    },
+    "PersonalAutomationRuleRecord": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": true
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position",
+        "digest",
+        "value"
+      ]
+    },
+    "PersonalAutomationTriggerOutcome": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "skipped",
+        "completed",
+        "failed",
+        "cancelled",
+        "outcome_unconfirmed"
+      ]
+    },
+    "PersonalAutomationTriggerRecord": {
+      "type": "object",
+      "properties": {
+        "claimId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "finishedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "outcome": {
+          "$ref": "#/$defs/PersonalAutomationTriggerOutcome"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "readOnlyAfterRestore": {
+          "type": "boolean"
+        },
+        "reasonCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ruleId": {
+          "type": "string"
+        },
+        "ruleVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scheduledDueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "triggerId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "triggerId",
+        "profileId",
+        "ruleId",
+        "ruleVersion",
+        "createdAt",
+        "outcome",
+        "readOnlyAfterRestore"
+      ]
+    }
+  }
+}

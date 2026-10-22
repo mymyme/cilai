@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceListDirectoryParams",
+  "description": "读取本地工作区里一个目录的直接子项。只读磁盘、不读文件内容，不依赖索引。",
+  "type": "object",
+  "properties": {
+    "relativePath": {
+      "description": "相对工作区根的目录路径；为空表示根目录。",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ]
+}

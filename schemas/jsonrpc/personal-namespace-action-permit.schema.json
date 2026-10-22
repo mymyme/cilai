@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceActionPermit",
+  "type": "object",
+  "properties": {
+    "actionId": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/PersonalNamespaceStorageKind"
+    },
+    "permitToken": {
+      "type": "string"
+    },
+    "shellOwner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "actionId",
+    "permitToken",
+    "kind",
+    "shellOwner"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalNamespaceStorageKind": {
+      "type": "string",
+      "enum": [
+        "host_service_logs",
+        "test_diagnostics_logs",
+        "browser_http_cache"
+      ]
+    }
+  }
+}

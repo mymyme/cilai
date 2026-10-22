@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelAuthLogoutPrepareParams",
+  "type": "object",
+  "properties": {
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedConfigRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "launchProtocol": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "owner": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "connectionId",
+    "expectedConfigRevision",
+    "launchProtocol"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

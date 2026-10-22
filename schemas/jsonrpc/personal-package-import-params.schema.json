@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPackageImportParams",
+  "type": "object",
+  "properties": {
+    "importId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "importId"
+  ]
+}

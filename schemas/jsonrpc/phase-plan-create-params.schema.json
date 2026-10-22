@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PhasePlanCreateParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PhaseDraftItem"
+      }
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "summary",
+    "phases",
+    "clientOperationId",
+    "requestFingerprint"
+  ],
+  "$defs": {
+    "PhaseDraftItem": {
+      "type": "object",
+      "properties": {
+        "acceptanceCriteria": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "predecessorIndexes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          }
+        },
+        "requiredDeliverableId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "goal",
+        "acceptanceCriteria",
+        "predecessorIndexes"
+      ]
+    }
+  }
+}

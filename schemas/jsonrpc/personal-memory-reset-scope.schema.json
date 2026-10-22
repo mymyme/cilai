@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMemoryResetScope",
+  "type": "object",
+  "properties": {
+    "inspectionIssue": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nativeHomeRelativePath": {
+      "type": "string"
+    },
+    "retainedNativePaths": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "scopeId": {
+      "type": "string"
+    },
+    "scopeKind": {
+      "type": "string"
+    },
+    "visibleMemoryFileCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "visibleMemoryLogicalBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "scopeId",
+    "nativeHomeRelativePath",
+    "scopeKind"
+  ]
+}

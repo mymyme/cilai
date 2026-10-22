@@ -1,0 +1,39 @@
+{
+  "name": "@cilai/personal-workbench-desktop",
+  "version": "0.3.2",
+  "private": true,
+  "description": "词来个人工作台本地优先桌面客户端。",
+  "author": "词来",
+  "main": "shell/main.js",
+  "scripts": {
+    "package": "node scripts/package.mjs electron-builder.yml --local",
+    "package:release": "node scripts/package.mjs electron-builder.release.yml",
+    "prepackage": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile debug",
+    "prepackage:release": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile release",
+    "prototype": "electron prototype/main.js",
+    "publish:release": "node scripts/publish-release.mjs",
+    "shell": "electron .",
+    "shell:check": "electron . --headless-check",
+    "spike:webview": "electron prototype/webview-spike.js",
+    "test:shell": "node --test shell/*.test.js",
+    "test:update": "node --test shell/updater.test.js shell/update-channels.test.js shell/update-preferences.test.js shell/update-install-guard.test.js shell/portable-update.test.js shell/portable-helper.test.js",
+    "verify:ime": "electron prototype/main.js --verify-ime",
+    "verify:perf": "electron prototype/main.js --verify-perf",
+    "verify:background": "electron prototype/background-lifecycle-check.js",
+    "verify:webview": "electron prototype/webview-spike.js --verify-webview",
+    "package:portable": "node scripts/package.mjs electron-builder.portable.yml",
+    "prepackage:portable": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile release",
+    "publish:portable": "node scripts/publish-portable.mjs",
+    "package:local": "node scripts/package.mjs electron-builder.yml --local",
+    "prepackage:local": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile debug"
+  },
+  "devDependencies": {
+    "electron": "44.4.4",
+    "electron-builder": "^26.0.12"
+  },
+  "productName": "词来个人工作台",
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpValidationReportParams",
+  "type": "object",
+  "properties": {
+    "leaseId": {
+      "type": "string"
+    },
+    "protocolVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "serverName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "serverVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "snapshotDigest": {
+      "type": "string"
+    },
+    "sourceFingerprint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "$ref": "#/$defs/McpValidationState"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/McpToolDefinition"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "snapshotDigest",
+    "state",
+    "tools"
+  ],
+  "$defs": {
+    "McpToolDefinition": {
+      "type": "object",
+      "properties": {
+        "annotations": true,
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "inputSchema"
+      ]
+    },
+    "McpValidationState": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    }
+  }
+}

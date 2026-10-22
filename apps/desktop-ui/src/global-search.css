@@ -1,0 +1,10 @@
+.global-search-sources { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 20px; }
+.global-search-sources button { min-height: 34px; padding: 6px 12px; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--text-secondary); background: transparent; font-size: var(--text-xs); }
+.global-search-sources button:hover { color: var(--text-primary); background: var(--bg-hover); }
+.global-search-sources button[aria-pressed="true"] { border-color: var(--accent-border-subtle); color: var(--accent-text); background: var(--bg-selected); }
+.global-search-sources button:focus-visible, .global-search-range button:focus-visible, .global-search-failures button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.global-search-range { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 18px 0; color: var(--text-secondary); font-size: var(--text-xs); }
+.global-search-range button, .global-search-failures button { padding: 6px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--accent-text); background: var(--bg-surface); font-size: var(--text-xs); }
+.global-search-range button:hover, .global-search-failures button:hover { background: var(--bg-hover); }
+
+.global-search-more { display: flex; align-items: center; gap: 8px; margin: 8px 0; }

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiLedgerApplyParams",
+  "type": "object",
+  "properties": {
+    "commandId": {
+      "type": "string"
+    },
+    "deliveryInputs": {
+      "type": "array",
+      "default": [],
+      "items": true
+    },
+    "pendingInputs": {
+      "type": "array",
+      "default": [],
+      "items": true
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AiLedgerRecordMutation"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "commandId",
+    "records"
+  ],
+  "$defs": {
+    "AiLedgerRecordMutation": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "expectedDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": true
+      },
+      "additionalProperties": false,
+      "required": [
+        "collection",
+        "id",
+        "position",
+        "value"
+      ]
+    }
+  }
+}

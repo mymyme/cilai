@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalApplicationDataAction",
+  "type": "string",
+  "enum": [
+    "upgrade",
+    "import_upgrade",
+    "rollback"
+  ]
+}

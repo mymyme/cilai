@@ -1,0 +1,12 @@
+{
+  "name": "@cilai/app-ui",
+  "version": "1.1.0",
+  "archive": "cilai-app-ui-1.1.0.tgz",
+  "sha256": "9233c57c0fd19584c813377220adf28d0067bf5a3628f03b882d4826628ecf01",
+  "sources": {
+    "package.json": "ce7778d6cde7d602500f9b19e3de9ea0f0c818f4e562e6106a75b9921b82d9ea",
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "NOTICE": "5d5df523ba75de228558fdf449f045f917f57e5f735ebb957d0691ecf9886c82",
+    "src/conversation/index.tsx": "74b5f483292a3b35c0669f2779bc42ae51099bd0ef0e77b4a8c70a0de1fbe874"
+  }
+}

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">词来工作台 应用图标</title>
+  <desc id="description">由相互连接的文档层组成的 词来工作台 标志</desc>
+  <defs>
+    <linearGradient id="background" x1="128" y1="96" x2="896" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22324A"/>
+      <stop offset="1" stop-color="#101823"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="330" y1="236" x2="708" y2="778" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9FC1FF"/>
+      <stop offset="1" stop-color="#4F7BD1"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="212" fill="url(#background)"/>
+  <path d="M319 244h308l112 112v424H319V244Z" fill="url(#paper)"/>
+  <path d="M627 244v112h112" fill="#C8DAFF"/>
+  <path d="M409 449h240M409 544h206M409 639h160" fill="none" stroke="#17253A" stroke-linecap="round" stroke-width="34"/>
+  <circle cx="291" cy="687" r="78" fill="#F5F8FF" stroke="#6F9AE7" stroke-width="30"/>
+  <circle cx="733" cy="687" r="78" fill="#F5F8FF" stroke="#6F9AE7" stroke-width="30"/>
+  <path d="M369 687h286" fill="none" stroke="#F5F8FF" stroke-linecap="round" stroke-width="30"/>
+</svg>

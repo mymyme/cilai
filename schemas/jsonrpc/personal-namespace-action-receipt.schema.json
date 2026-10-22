@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceActionReceipt",
+  "type": "object",
+  "properties": {
+    "acknowledgedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "actionId": {
+      "type": "string"
+    },
+    "afterCacheBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "kind": {
+      "$ref": "#/$defs/PersonalNamespaceStorageKind"
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalNamespaceActionOutcome"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "startedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "state": {
+      "$ref": "#/$defs/PersonalNamespaceActionState"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "actionId",
+    "kind",
+    "state"
+  ],
+  "$defs": {
+    "PersonalNamespaceActionOutcome": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "PersonalNamespaceActionState": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "started",
+        "acknowledged",
+        "unconfirmed"
+      ]
+    },
+    "PersonalNamespaceStorageKind": {
+      "type": "string",
+      "enum": [
+        "host_service_logs",
+        "test_diagnostics_logs",
+        "browser_http_cache"
+      ]
+    }
+  }
+}

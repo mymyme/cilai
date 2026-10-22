@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiThreadAcknowledgeParams",
+  "type": "object",
+  "properties": {
+    "conversationId": {
+      "type": "string"
+    },
+    "event": {
+      "$ref": "#/$defs/AiThreadOperationEvent"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "ownerInstanceId": {
+      "type": "string"
+    },
+    "receipt": true,
+    "runId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "conversationId",
+    "operationId",
+    "runId",
+    "ownerInstanceId",
+    "event",
+    "receipt"
+  ],
+  "$defs": {
+    "AiThreadOperationEvent": {
+      "type": "string",
+      "enum": [
+        "dispatch",
+        "acknowledge",
+        "reject",
+        "uncertain"
+      ]
+    }
+  }
+}

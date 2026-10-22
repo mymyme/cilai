@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMemoryAuthorization",
+  "type": "object",
+  "properties": {
+    "confirmation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalMemoryEnableConfirmation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "preferences": {
+      "$ref": "#/$defs/PersonalMemoryPreferences"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "preferences"
+  ],
+  "$defs": {
+    "PersonalMemoryEnableConfirmation": {
+      "type": "object",
+      "properties": {
+        "confirmedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "consentDigest": {
+          "type": "string"
+        },
+        "fromToolChats": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "consentDigest",
+        "fromToolChats",
+        "confirmedAt"
+      ]
+    },
+    "PersonalMemoryPreferences": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "fromToolChats": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "fromToolChats"
+      ]
+    }
+  }
+}

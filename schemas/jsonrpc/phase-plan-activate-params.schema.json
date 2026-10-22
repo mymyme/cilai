@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PhasePlanActivateParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "planId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "planId",
+    "expectedRevision",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

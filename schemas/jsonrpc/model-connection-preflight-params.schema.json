@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelConnectionPreflightParams",
+  "type": "object",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/ModelConnectionMutation"
+    },
+    "connectionId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "action"
+  ],
+  "$defs": {
+    "ModelConnectionMutation": {
+      "type": "string",
+      "enum": [
+        "disable",
+        "delete",
+        "disconnect"
+      ]
+    }
+  }
+}

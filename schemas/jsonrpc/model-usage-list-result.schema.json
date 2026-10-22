@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelUsageListResult",
+  "type": "object",
+  "properties": {
+    "nextBeforeSequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelUsageRecord"
+      }
+    },
+    "snapshotSequence": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "records",
+    "snapshotSequence"
+  ],
+  "$defs": {
+    "ModelPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation",
+        "review",
+        "memory",
+        "page_ai"
+      ]
+    },
+    "ModelUsageCost": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "amount",
+        "currency",
+        "source"
+      ]
+    },
+    "ModelUsageRecord": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "configRevision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelUsageCost"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finishedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "leaseId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/ModelPurpose"
+        },
+        "readOnlyAfterRestore": {
+          "type": "boolean"
+        },
+        "reasonCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "responseIdSha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scopeId": {
+          "type": "string"
+        },
+        "snapshotDigest": {
+          "type": "string"
+        },
+        "sourceProfileId": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelUsageState"
+        },
+        "tokens": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelUsageTokens"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "sourceProfileId",
+        "leaseId",
+        "snapshotDigest",
+        "connectionId",
+        "configRevision",
+        "authGeneration",
+        "modelId",
+        "purpose",
+        "scopeId",
+        "state",
+        "startedAt",
+        "readOnlyAfterRestore"
+      ]
+    },
+    "ModelUsageState": {
+      "type": "string",
+      "enum": [
+        "started",
+        "completed",
+        "failed",
+        "unconfirmed"
+      ]
+    },
+    "ModelUsageTokens": {
+      "type": "object",
+      "properties": {
+        "cacheWriteInputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "cachedInputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "reasoningOutputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "totalTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

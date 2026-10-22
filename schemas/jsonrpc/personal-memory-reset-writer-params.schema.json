@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMemoryResetWriterParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "permit": {
+      "$ref": "#/$defs/PersonalMemoryResetPermit"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "permit",
+    "clientOperationId"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalMemoryResetPermit": {
+      "type": "object",
+      "properties": {
+        "nativeHomeFingerprint": {
+          "type": "string"
+        },
+        "nativeHomeRelativePath": {
+          "type": "string"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "permitToken": {
+          "type": "string"
+        },
+        "previewDigest": {
+          "type": "string"
+        },
+        "scopeId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "previewDigest",
+        "scopeId",
+        "nativeHomeRelativePath",
+        "nativeHomeFingerprint",
+        "permitToken",
+        "owner"
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@cilai/app-ui",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "词来工作台内嵌业务应用公共组件与设计规范",
+  "exports": {
+    "./conversation": "./src/conversation/index.tsx"
+  },
+  "files": [
+    "src/conversation",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "sideEffects": [
+    "./src/*.css"
+  ],
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "license": "Apache-2.0"
+}

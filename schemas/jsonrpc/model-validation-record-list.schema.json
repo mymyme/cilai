@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_ModelValidationRecord",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/ModelValidationRecord"
+  },
+  "$defs": {
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    },
+    "ModelValidationLayer": {
+      "type": "string",
+      "enum": [
+        "configuration",
+        "network",
+        "authentication",
+        "protocol",
+        "catalog",
+        "inference",
+        "streaming",
+        "tools"
+      ]
+    },
+    "ModelValidationOutcome": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "ModelValidationRecord": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "completionRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "configRevision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/ModelValidationLayer"
+        },
+        "modelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelValidationOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtimeKind": {
+          "$ref": "#/$defs/ModelRuntimeKind"
+        },
+        "runtimeVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serviceVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "validationId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runtimeKind",
+        "validationId",
+        "connectionId",
+        "layer",
+        "configRevision",
+        "authGeneration",
+        "updatedAt"
+      ]
+    }
+  }
+}

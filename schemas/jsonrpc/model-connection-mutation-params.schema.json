@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelConnectionMutationParams",
+  "type": "object",
+  "properties": {
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedConfigRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "impactDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "expectedConfigRevision",
+    "impactDigest"
+  ]
+}

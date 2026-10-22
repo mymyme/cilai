@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceScanResult",
+  "type": "object",
+  "properties": {
+    "generation": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "observedCount": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "stateRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "generation",
+    "observedCount",
+    "stateRevision"
+  ]
+}

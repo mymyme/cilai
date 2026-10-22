@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationAdmitParams",
+  "type": "object",
+  "properties": {
+    "expectedRuleDigest": {
+      "type": "string"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    },
+    "ruleId": {
+      "type": "string"
+    },
+    "scheduledDueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "triggerId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "triggerId",
+    "ruleId",
+    "expectedRuleDigest",
+    "owner"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

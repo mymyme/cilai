@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceIndexPathParams",
+  "description": "优先为单个条目建立索引记录，不等整个工作区的索引。",
+  "type": "object",
+  "properties": {
+    "relativePath": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspaceId",
+    "relativePath"
+  ]
+}

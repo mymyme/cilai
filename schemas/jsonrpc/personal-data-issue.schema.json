@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalDataIssue",
+  "type": "object",
+  "properties": {
+    "category": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalDataCategory"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "code": {
+      "type": "string"
+    },
+    "objectId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "relativePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "code"
+  ],
+  "$defs": {
+    "PersonalDataCategory": {
+      "type": "string",
+      "enum": [
+        "business_database",
+        "native_history",
+        "native_memory",
+        "skills",
+        "applications",
+        "application_data",
+        "attachments",
+        "configuration",
+        "workspace_originals"
+      ]
+    }
+  }
+}

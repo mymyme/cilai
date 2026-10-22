@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelNetworkConfig",
+  "type": "object",
+  "properties": {
+    "caCertificatePem": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "headerNames": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "$ref": "#/$defs/ModelNetworkMode",
+      "default": "direct"
+    },
+    "proxyAuth": {
+      "$ref": "#/$defs/ModelNetworkAuthentication",
+      "default": "none"
+    },
+    "proxySecretRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelSecretRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proxyUrl": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "serviceAuth": {
+      "$ref": "#/$defs/ModelNetworkAuthentication",
+      "default": "none"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ModelNetworkAuthentication": {
+      "type": "string",
+      "enum": [
+        "none",
+        "basic"
+      ]
+    },
+    "ModelNetworkMode": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "system_proxy",
+        "custom_proxy"
+      ]
+    },
+    "ModelSecretRef": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "account"
+      ]
+    }
+  }
+}

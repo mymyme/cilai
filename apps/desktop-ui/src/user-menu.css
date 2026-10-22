@@ -1,0 +1,43 @@
+.activity-user { position: relative; min-width: 0; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--chrome-border); }
+.activity-user-trigger { display: grid; width: 34px; height: 36px; grid-template-columns: 22px 0 0; align-items: center; gap: 0; overflow: hidden; padding: 0 6px; border: 0; border-radius: var(--radius-md); color: var(--chrome-text); background: transparent; cursor: pointer; text-align: left; }
+.activity-user-trigger:hover, .activity-user-trigger[aria-expanded="true"] { color: var(--chrome-text-strong); background: var(--chrome-bg-hover); }
+.activity-user-trigger:focus-visible { outline: 2px solid var(--chrome-accent); outline-offset: -2px; }
+.activity-user-avatar { display: grid; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%; color: var(--text-inverse); background: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: -.02em; place-items: center; }
+.activity-user-copy { display: grid; min-width: 0; gap: 1px; opacity: 0; }
+.activity-user-copy strong, .activity-user-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-user-copy strong { font-size: var(--text-xs); font-weight: 600; }
+.activity-user-copy small { color: var(--chrome-text-muted); font-size: var(--text-2xs); }
+.activity-user-chevron { width: 13px; opacity: 0; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.navigation-expanded .activity-user-trigger { width: 100%; grid-template-columns: 22px minmax(0, 1fr) 14px; gap: 7px; }
+.navigation-expanded .activity-user-copy, .navigation-expanded .activity-user-chevron { opacity: 1; }
+
+/*两种形态共用同一套内部视觉：分区、留白、描边和交互反馈都写在这里，差异只剩原生浮层
+  画不出来的圆角与外阴影，所以圆角取中档而不是最大档，让两者摆在一起不至于像两个控件。*/
+.activity-user-menu { position: fixed; z-index: 100; display: grid; gap: 3px; padding: 6px; border: 1px solid var(--chrome-border); border-radius: var(--radius-md); color: var(--chrome-text); background: var(--chrome-bg-alt); box-shadow: var(--shadow-sm), var(--shadow-lg); }
+/*浮层作为独立子 WebView 时四角由原生视图切出来，画不出圆角和外阴影；描边也换成浅一档，
+  免得在 WebView 自身的边界上再压一条深线，看起来像套了两层框。高度不能写死成满格，
+  宿主要靠量这块面板的实际高度来决定 WebView 开多大。*/
+.activity-user-menu > header { display: grid; min-width: 0; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 9px; margin: -6px -6px 0; padding: 11px 14px 10px; border-bottom: 1px solid var(--chrome-border); border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0; background: var(--chrome-bg); }
+.activity-user-menu > .activity-user-identity .activity-user-avatar { width: 28px; height: 28px; font-size: 10px; }
+.activity-user-menu > .activity-user-identity > span:nth-child(2) { display: grid; min-width: 0; gap: 2px; }
+.activity-user-menu header strong, .activity-user-menu header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-user-menu header strong { color: var(--chrome-text-strong); font-size: var(--text-sm); }
+.activity-user-menu header small { color: var(--chrome-text-muted); font-size: var(--text-2xs); }
+.activity-user-menu > button { display: grid; min-width: 0; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 9px; padding: 8px 9px; border: 0; border-radius: var(--radius-sm); color: var(--chrome-text-muted); background: transparent; cursor: pointer; text-align: left; transition: background-color 120ms ease, color 120ms ease; }
+.activity-user-menu > button:hover, .activity-user-menu > button:focus-visible { outline: none; color: var(--chrome-text-strong); background: var(--chrome-bg-hover); }
+.activity-user-menu > button:active { background: var(--chrome-bg-active); }
+.activity-user-menu > button > svg { width: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.55; }
+.activity-user-menu > button > span { display: grid; min-width: 0; gap: 2px; }
+.activity-user-menu button strong, .activity-user-menu button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-user-menu button strong { font-size: var(--text-xs); font-weight: 600; }
+.activity-user-menu button small { color: var(--chrome-text-muted); font-size: var(--text-2xs); }
+.activity-user-theme { display: grid; gap: 5px; padding: 6px 4px 7px; border-bottom: 1px solid var(--chrome-border); }
+.activity-user-section-label { padding: 0 5px; color: var(--chrome-text-quiet); font-size: var(--text-2xs); font-weight: 650; }
+.activity-user-theme > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.activity-user-theme button { display: grid; min-width: 0; height: 32px; grid-template-columns: 17px minmax(0, 1fr) 14px; align-items: center; gap: 5px; padding: 0 7px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--chrome-text-muted); background: var(--chrome-bg); cursor: pointer; text-align: left; }
+.activity-user-theme button:hover { color: var(--chrome-text-strong); background: var(--chrome-bg-hover); }
+.activity-user-theme button[aria-pressed="true"] { border-color: var(--chrome-accent); color: var(--chrome-text-strong); background: var(--chrome-accent-bg); }
+.activity-user-theme button:focus-visible { outline: 2px solid var(--chrome-accent); outline-offset: -2px; }
+.activity-user-theme button svg { width: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.55; }
+.activity-user-theme button svg:last-child { width: 13px; color: var(--chrome-accent-text); }
+.activity-user-theme button span { overflow: hidden; font-size: var(--text-xs); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
