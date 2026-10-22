@@ -2,6 +2,7 @@
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 npm-debug.log*
 
 # 本机构建配置：target-dir 是各自机器的绝对路径，不进版本控制

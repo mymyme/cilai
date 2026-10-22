@@ -8,6 +8,18 @@ Bring projects, files, persistent conversations, tools, and personal apps into o
 
 [简体中文](README.md) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Enterprise website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 
+## Screenshots
+
+Actual macOS interface with temporary demo data. The conversation view shows an unsent task draft. Demo data was removed after capture; no private business data is shown.
+
+**Workbench**
+
+![Workbench with demo tasks organized by status and recent conversations](docs/screenshots/workbench.jpg)
+
+**Conversations**
+
+![Conversation view with demo sessions and an unsent task draft](docs/screenshots/conversation.jpg)
+
 ## Highlights
 
 - **A local workspace without product registration.** Manage local projects, files, history, and settings before connecting a model.

@@ -8,6 +8,18 @@
 
 [English](README.en.md) · [构建指南](docs/BUILDING.md) · [兼容状态](docs/COMPATIBILITY.md) · [企业版官网](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 
+## 界面预览
+
+macOS 实际界面，使用临时演示资料；对话页展示尚未发送的任务草稿。截图完成后已清理演示资料，不包含真实业务数据。
+
+**工作台**
+
+![工作台：按状态整理演示任务与近期对话](docs/screenshots/workbench.jpg)
+
+**对话**
+
+![对话页：演示会话与未发送的任务草稿](docs/screenshots/conversation.jpg)
+
 ## 特点
 
 - **打开即用的本地工作台**：无需注册产品账号。本地项目、文件、历史和配置不依赖模型连接即可管理。
