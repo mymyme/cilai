@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = [
+  "apps/desktop/host-service",
+  "apps/cli",
+  "crates/workbench-runtime",
+  "crates/app-server",
+  "crates/protocol",
+  "crates/domain",
+  "crates/application",
+  "crates/manifest",
+  "crates/persistence-sqlite",
+  "crates/workspace-fs",
+  "crates/local-transport",
+  "crates/platform-adapter",
+  "crates/observability",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+libc = "=0.2.189"
+
+[workspace.lints.rust]
+# 默认拒绝 unsafe；仅 crates/local-transport 与 crates/platform-adapter 的 Windows 私有模块
+# 通过局部 #[allow(unsafe_code)] 使用最小范围 unsafe（DACL、SID、Job Object 等 Win32 调用），
+# 对外只暴露安全接口。其余目录出现 unsafe 属于架构违规。见词来工作台 Windows 端适配技术方案 第 2 节。
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[profile.dev]
+debug = "limited"
+incremental = false
+
+[profile.dev.package."*"]
+debug = "none"
+
+[profile.test]
+debug = "limited"
+incremental = false
+
+[profile.test.package."*"]
+debug = "none"

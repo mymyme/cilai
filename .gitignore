@@ -1,0 +1,48 @@
+# JavaScript
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# 本机构建配置：target-dir 是各自机器的绝对路径，不进版本控制
+/.cargo/config.toml
+
+# Rust and Tauri
+target/
+**/target/
+*.app
+*.dmg
+
+# Runtime data must not live beside source
+*.db
+*.db-shm
+*.db-wal
+/runtime/
+/logs/
+/cache/
+/generated-fixtures/
+
+# Local environment
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# 个人版专用构建和运行目录
+/.personal-build/
+**/.venv/
+**/__pycache__/
+
+# Local agent configuration and personal state
+/.codex/
+/.agents/
+/.aws/
+/.personal-run/
+/.personal-validation/
+
+# Tool caches and editor-local state
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+*.pyc
+.vscode/

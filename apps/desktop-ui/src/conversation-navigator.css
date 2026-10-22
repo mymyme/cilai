@@ -1,0 +1,146 @@
+/*
+ * 对话导航条。贴在消息滚动区的左缘，不占版面宽度——它是一层索引，不该把正文挤窄。
+ *
+ * 刻度的选择器一律带上 .conversation-navigator 这一层。对话页有一条
+ * `.ai-workbench button` 给页内所有按钮加边框、圆角和底色，权重比单独的类名高一档；
+ * 不带作用域的话，2 像素的细线会被套成一颗胶囊——源码上写着 border: 0 却不生效，
+ * 只有在真界面上才看得出来。
+ */
+
+/*
+ * 轨道高度按"最多同时露出多少条"定，而不是铺满整个滚动区：一次长对话能有上百轮，
+ * 铺满的话这条索引会从窗口顶拉到底，反而看不出自己停在哪一段。超出的部分在轨道内滚。
+ *
+ * 用 height 配 max-height，而不是 top/bottom 两端撑开再限高——同时给出 top、bottom
+ * 和高度是过约束，浏览器会丢掉 bottom，轨道就从垂直居中变成贴着顶部。
+ */
+.conversation-navigator {
+  /*
+   * 一条刻度占的高度：线本身 2 像素，余下的是它与下一条之间的空白。
+   * 取 10 即空白 8 像素。间距不写成 gap——刻度之间留真空隙的话，指针沿轨道移动时
+   * 会掉进缝里，鱼眼放大跟着一闪一闪，点击也会落空。
+   */
+  --navigator-tick-height: 10px;
+  --navigator-visible-ticks: 40;
+
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 0;
+  display: flex;
+  width: 34px;
+  height: calc(var(--navigator-tick-height) * var(--navigator-visible-ticks));
+  max-height: calc(100% - 46px);
+  flex-direction: column;
+  /*
+   * safe：内容溢出时退回从头排列。普通的 center 会把溢出均分到两端，而滚动到不了
+   * 起始方向那一侧——最早的几条刻度会永远够不着。
+   */
+  justify-content: safe center;
+  /* 刻度多到放不下时自己滚，不撑破容器也不压住输入框 */
+  overflow-y: auto;
+  gap: 0;
+  /* top 的百分比定的是上边缘，不回拉半个自身高度，整条会往下掉一半 */
+  transform: translateY(-50%);
+  scrollbar-width: none;
+}
+
+.conversation-navigator::-webkit-scrollbar { display: none; }
+
+.conversation-navigator .conversation-navigator__tick {
+  display: flex;
+  height: var(--navigator-tick-height);
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 2px 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+}
+
+/* 按钮本身不带任何视觉：悬停时变的是里面那条线，不该浮出一块底色 */
+.conversation-navigator .conversation-navigator__tick:hover,
+.conversation-navigator .conversation-navigator__tick:active {
+  border: 0;
+  background: transparent;
+  transform: none;
+}
+
+/*
+ * 真正画出来的是里面这条线，按钮本身只是把热区撑到一条刻度的高度——
+ * 一条 2 像素的线用鼠标够不着，而加高按钮不会让线本身变粗。
+ * 刻度之间不留间隙：热区首尾相接，指针沿轨道移动时不会掉进缝里。
+ *
+ * 所有刻度基准长度一致，长短变化全部来自鱼眼放大。
+ *
+ * 基准取 8：放到最大是 3.3 倍即 26 像素，正好等于轨道去掉内边距后的可用宽度。
+ * 轨道的 overflow-y 会让横向也一并裁剪，基准写大了放大后的那条会被切掉一截。
+ */
+.conversation-navigator .conversation-navigator__tick > span {
+  /* 不收缩：作为弹性子项它会被轨道宽度压扁 */
+  width: 8px;
+  height: 2px;
+  flex: 0 0 auto;
+  transform-origin: left center;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+/*
+ * 放大的倍数由组件按"与悬停项的距离"算出，写在行内样式上——CSS 选择器表达不了这种
+ * 相对关系。这里只管颜色：被指的那一条提亮，邻近几条只变长不变色。
+ */
+.conversation-navigator .conversation-navigator__tick:hover > span,
+.conversation-navigator .conversation-navigator__tick:focus-visible > span {
+  background: var(--text-inverse);
+}
+
+/* 当前停留的那一条给强调色，整条导航上只会有一处 */
+.conversation-navigator .conversation-navigator__tick[data-active="true"] > span { background: var(--accent); }
+
+.conversation-navigator .conversation-navigator__tick:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: var(--focus-ring-accent);
+}
+
+/*
+ * 预览卡经传送门挂在文档根部：滚动区有 overflow 裁剪，挂在里面会被裁掉。
+ */
+.conversation-navigator__preview {
+  position: fixed;
+  z-index: 40;
+  width: min(320px, 42vw);
+  padding: 12px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.conversation-navigator__preview strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.conversation-navigator__preview p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 6px 0 0;
+  color: var(--text-quiet);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}

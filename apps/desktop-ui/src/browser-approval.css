@@ -1,0 +1,39 @@
+/* AI 浏览器写操作的确认卡片。沿用确认弹窗的外框，只补参数列表的排布。 */
+
+.browser-approval__summary {
+  margin: 0 0 12px;
+}
+
+.browser-approval__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+/* 参数逐行排布，键与值分列，长值换行不挤压键 */
+.browser-approval__row {
+  display: contents;
+}
+
+.browser-approval__facts dt {
+  opacity: 0.7;
+}
+
+.browser-approval__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 还有待确认项时给出计数：员工需要知道这不是最后一张 */
+.browser-approval__queue {
+  margin: 12px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.browser-approval .confirm-body {
+  max-height: 46vh;
+  overflow-y: auto;
+}

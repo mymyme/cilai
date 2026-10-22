@@ -1,0 +1,35 @@
+.context-menu {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  min-width: 208px;
+  gap: 0;
+  padding: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+}
+.context-menu button {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+.context-menu button:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.context-menu button.danger:hover:not(:disabled) { color: var(--danger-text); background: var(--danger-bg); }
+.context-menu button:disabled { cursor: not-allowed; opacity: .45; }
+.context-menu svg { width: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+
+/* Rules group the actions the way the menu is read: open, collaborate, copy, inspect, system. */
+.context-menu hr { height: 1px; margin: 5px 8px; border: 0; background: var(--border-subtle); }

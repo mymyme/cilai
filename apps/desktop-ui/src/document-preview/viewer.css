@@ -1,0 +1,28 @@
+.office-docx-frame { border: 0; width: 100%; height: 100%; min-height: 400px; background: #f4f4f3; }
+.office-slides,.office-workbook,.office-mindmap { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.office-toolbar { display:flex; align-items:center; flex-shrink:0; gap:10px; min-height:42px; padding:6px 12px; border-bottom:1px solid var(--border-default); font-size:12px; }
+.office-toolbar button,.office-toolbar select { font:inherit; color:inherit; border:1px solid var(--border-default); border-radius:5px; padding:4px 8px; background:var(--bg-surface); }
+.office-toolbar button:disabled { opacity:.4; }
+.office-slide-scroll { overflow:auto; flex:1; padding:20px; background:#ececea; }
+.office-slide { display:block; min-width:320px; max-width:none; box-shadow:0 1px 4px #0002; }
+.office-slide-text { box-sizing:border-box; width:100%; height:100%; color:#111; padding:3px 5px; overflow:hidden; font-family:Arial,"Microsoft YaHei",sans-serif; }
+.office-slide-text p,.office-slide-table p { margin:0; white-space:pre-wrap; line-height:1.2; }
+.office-slide-placeholder { box-sizing:border-box; display:flex; align-items:center; justify-content:center; width:100%; height:100%; color:#667; font:12px sans-serif; }
+.office-slide-table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; color:#111; background:white; font:12px sans-serif; }
+.office-slide-table td { padding:3px; border:1px solid #bbb; overflow-wrap:anywhere; }
+.office-formula { display:flex; flex-shrink:0; min-height:28px; border-bottom:1px solid #ccc; font:12px monospace; white-space:pre; overflow:auto; }
+.office-formula span:first-child { width:80px; flex-shrink:0; border-right:1px solid #ccc; padding:5px; }
+.office-formula span:last-child { padding:5px; }
+.office-grid { flex:1; overflow:auto; min-height:200px; background:white; color:#222; font:12px sans-serif; }
+.office-cell,.office-row-header,.office-column-header { position:absolute; box-sizing:border-box; border-bottom:1px solid #ddd; border-right:1px solid #ddd; padding:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.office-cell { cursor:cell; background:white; }
+.office-cell:hover { outline:1px solid #527968; outline-offset:-1px; }
+.office-row-header,.office-column-header { z-index:2; height:28px; background:#f3f4f3; text-align:center; }
+.office-row-header { width:48px; } .office-column-header { width:120px; }
+.office-topic-scroll { overflow:auto; padding:24px; flex:1; }
+.office-topic { margin:10px 0; width:max-content; max-width:100%; }
+.office-topic > summary { padding:8px 14px; border:1px solid var(--border-default); border-radius:6px; cursor:pointer; }
+.office-topic > div { margin-left:26px; padding-left:16px; border-left:1px solid var(--border-default); }
+.office-topic-notes { max-width:540px; white-space:pre-wrap; margin:6px 12px; opacity:.75; font-size:12px; }
+.preview-image-document { display:flex; justify-content:center; align-items:center; height:100%; padding:20px; overflow:auto; box-sizing:border-box; background:var(--bg-surface); }
+.preview-image-document img { max-width:100%; max-height:100%; object-fit:contain; }
