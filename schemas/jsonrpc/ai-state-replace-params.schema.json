@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiStateReplaceParams",
+  "type": "object",
+  "properties": {
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "state": true
+  },
+  "additionalProperties": false,
+  "required": [
+    "expectedRevision",
+    "state"
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalApplicationDataOperation",
+  "type": "object",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/PersonalApplicationDataAction"
+    },
+    "activatedRevision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "creationProjectId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "packageDigest": {
+      "type": "string"
+    },
+    "previewDigest": {
+      "type": "string"
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "readOnlyAfterRestore": {
+      "type": "boolean",
+      "default": false
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "snapshotDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourcePackageDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourceProfileId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "sourceSlotId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "$ref": "#/$defs/PersonalApplicationDataState"
+    },
+    "targetSlotId": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "profileId",
+    "creationProjectId",
+    "clientOperationId",
+    "expectedRevision",
+    "packageDigest",
+    "targetSlotId",
+    "action",
+    "state",
+    "previewDigest",
+    "createdAt",
+    "updatedAt"
+  ],
+  "$defs": {
+    "PersonalApplicationDataAction": {
+      "type": "string",
+      "enum": [
+        "upgrade",
+        "import_upgrade",
+        "rollback"
+      ]
+    },
+    "PersonalApplicationDataState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "applying",
+        "completed",
+        "incomplete",
+        "cancelled"
+      ]
+    }
+  }
+}

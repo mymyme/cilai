@@ -1,0 +1,35 @@
+{
+  "name": "contexthub-desktop-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/desktop-ui"
+  ],
+  "engines": {
+    "node": "24.18.x"
+  },
+  "scripts": {
+    "check:toolchain": "node scripts/check-toolchain.mjs",
+    "dev": "npm run dev --workspace @contexthub/desktop-ui",
+    "build": "npm run build --workspace @contexthub/desktop-ui",
+    "fixtures:generate": "node scripts/generate-fixtures.mjs",
+    "typecheck": "npm run typecheck --workspace @contexthub/desktop-ui",
+    "test:toolchain": "node --test scripts/check-toolchain.test.mjs",
+    "test:platform-boundary": "node --test scripts/platform-boundary.test.mjs",
+    "test": "npm run test:toolchain && npm run test:conversation-package && npm run test:build-config && npm run test:build-lock && npm run test:stage-build && npm run test:stage-binaries && npm run test:platform-boundary && npm --prefix apps/desktop run test:shell && npm run test --workspace @contexthub/desktop-ui",
+    "test:stage-build": "node --test scripts/stage-build.test.mjs",
+    "test:stage-binaries": "node --test apps/desktop/scripts/stage-binaries.test.mjs apps/desktop/scripts/verify-package-layout.test.mjs scripts/prepare-git-runtime.test.mjs scripts/prepare-codex-runtime.test.mjs scripts/macos-binary-integrity.test.mjs",
+    "package": "node scripts/package-entry.mjs",
+    "package:release": "node scripts/package-entry.mjs --release",
+    "launch": "node scripts/package-entry.mjs --launch",
+    "test:build-config": "node --test scripts/personal-build.test.mjs scripts/package-processes.test.mjs scripts/build-config.test.mjs scripts/pdf-assets.test.mjs apps/desktop/scripts/windows-resource-retry.test.mjs apps/desktop/scripts/windows-electron-distribution.test.mjs apps/desktop/scripts/verify-public-artifact.test.mjs apps/desktop/scripts/portable-package.test.mjs apps/desktop/scripts/update-configuration.test.mjs apps/desktop/scripts/package-output.test.mjs apps/desktop/scripts/local-macos-signing.test.mjs apps/desktop/scripts/package-runtime-notices.test.mjs apps/desktop/scripts/package-pdf-notices.test.mjs apps/desktop/scripts/package-workbench-notices.test.mjs",
+    "package:portable": "node scripts/package-entry.mjs --portable",
+    "package:online-test": "node scripts/package-entry.mjs --online-test",
+    "sync:conversation-package": "node scripts/conversation-package.mjs --sync",
+    "check:conversation-package": "node scripts/conversation-package.mjs",
+    "test:conversation-package": "node --test scripts/conversation-package.test.mjs",
+    "test:build-lock": "node --test scripts/build-lock.test.mjs",
+    "test:native-extensions": "node scripts/test-native-extensions.mjs"
+  },
+  "license": "Apache-2.0"
+}

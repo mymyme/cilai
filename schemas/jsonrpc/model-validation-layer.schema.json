@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelValidationLayer",
+  "type": "string",
+  "enum": [
+    "configuration",
+    "network",
+    "authentication",
+    "protocol",
+    "catalog",
+    "inference",
+    "streaming",
+    "tools"
+  ]
+}

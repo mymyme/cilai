@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiConversationSetArchivedResult",
+  "type": "object",
+  "properties": {
+    "changedConversationIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "conversations": {
+      "type": "array",
+      "items": true
+    },
+    "stateRevision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "required": [
+    "stateRevision",
+    "conversations",
+    "changedConversationIds"
+  ]
+}

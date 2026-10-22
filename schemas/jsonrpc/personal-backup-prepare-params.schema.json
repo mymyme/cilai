@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalBackupPrepareParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "selection": {
+      "$ref": "#/$defs/PersonalBackupSelection"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "selection",
+    "clientOperationId"
+  ],
+  "$defs": {
+    "PersonalBackupSelection": {
+      "type": "object",
+      "properties": {
+        "includeWorkspaceFiles": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

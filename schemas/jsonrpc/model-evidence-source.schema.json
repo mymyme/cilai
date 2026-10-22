@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelEvidenceSource",
+  "type": "string",
+  "enum": [
+    "user_declared",
+    "service_declared",
+    "runtime_catalog",
+    "observed"
+  ]
+}

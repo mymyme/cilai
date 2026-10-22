@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelConnectionPreflight",
+  "type": "object",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/ModelConnectionMutation"
+    },
+    "activeLeaseIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "configRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "impactDigest": {
+      "type": "string"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelConnectionReference"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "action",
+    "configRevision",
+    "impactDigest",
+    "references",
+    "activeLeaseIds"
+  ],
+  "$defs": {
+    "ModelConnectionMutation": {
+      "type": "string",
+      "enum": [
+        "disable",
+        "delete",
+        "disconnect"
+      ]
+    },
+    "ModelConnectionReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ]
+    }
+  }
+}

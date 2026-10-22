@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EventReplayResult",
+  "type": "object",
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DurableEventItem"
+      }
+    },
+    "hasMore": {
+      "type": "boolean"
+    },
+    "nextSequence": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "required": [
+    "events",
+    "nextSequence",
+    "hasMore"
+  ],
+  "$defs": {
+    "DurableEventItem": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "eventId": {
+          "type": "string"
+        },
+        "eventType": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objectType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "occurredAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "payloadJson": {
+          "type": "string"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "workspaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "sequence",
+        "eventId",
+        "eventType",
+        "payloadJson",
+        "occurredAt"
+      ]
+    }
+  }
+}

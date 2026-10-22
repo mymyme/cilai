@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalApplicationOpenResult",
+  "type": "object",
+  "properties": {
+    "contentDigest": {
+      "type": "string"
+    },
+    "creationProjectId": {
+      "type": "string"
+    },
+    "html": {
+      "type": "string"
+    },
+    "installationRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "creationProjectId",
+    "title",
+    "html",
+    "contentDigest",
+    "installationRevision"
+  ]
+}

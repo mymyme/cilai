@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_PersonalMaintenanceFence",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/PersonalMaintenanceFence"
+  },
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalMaintenanceFence": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "fenceId": {
+          "type": "string"
+        },
+        "instanceFence": {
+          "type": "string"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalMaintenanceState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "fenceId",
+        "operationId",
+        "profileId",
+        "instanceFence",
+        "owner",
+        "state",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonalMaintenanceState": {
+      "type": "string",
+      "enum": [
+        "draining",
+        "released"
+      ]
+    }
+  }
+}

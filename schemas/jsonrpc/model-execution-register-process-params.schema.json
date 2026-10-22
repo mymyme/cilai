@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelExecutionRegisterProcessParams",
+  "type": "object",
+  "properties": {
+    "leaseId": {
+      "type": "string"
+    },
+    "process": {
+      "$ref": "#/$defs/ModelExecutionProcess"
+    },
+    "snapshotDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "snapshotDigest",
+    "process"
+  ],
+  "$defs": {
+    "ModelExecutionProcess": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

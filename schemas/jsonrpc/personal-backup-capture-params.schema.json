@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalBackupCaptureParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "previewDigest": {
+      "type": "string"
+    },
+    "quiescence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalDataQuiescence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "previewDigest",
+    "clientOperationId"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalBackupNativeHome": {
+      "type": "object",
+      "properties": {
+        "relativePath": {
+          "type": "string"
+        },
+        "runtimeVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "relativePath"
+      ]
+    },
+    "PersonalDataQuiescence": {
+      "description": "只由持有 Runtime 不透明维护 guard 的 Host 构造，不接受普通桌面透传。",
+      "type": "object",
+      "properties": {
+        "coveredWriters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nativeHomes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalBackupNativeHome"
+          }
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "protocolVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "token": {
+          "type": "string"
+        },
+        "writerRegistryDigest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "profileId",
+        "owner",
+        "token",
+        "writerRegistryDigest",
+        "coveredWriters",
+        "nativeHomes"
+      ]
+    }
+  }
+}

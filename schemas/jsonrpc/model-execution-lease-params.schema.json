@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelExecutionLeaseParams",
+  "type": "object",
+  "properties": {
+    "leaseId": {
+      "type": "string"
+    },
+    "snapshotDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "snapshotDigest"
+  ]
+}

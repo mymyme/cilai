@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MyWorkGetResult",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MyWorkItem"
+      }
+    },
+    "total": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "items",
+    "total"
+  ],
+  "$defs": {
+    "MyWorkItem": {
+      "type": "object",
+      "properties": {
+        "actionType": {
+          "type": "string"
+        },
+        "attentionCaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockingReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "blockingRunId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "deliverableId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deliverableTitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "focusGroup": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phaseName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryWorkspaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "projectName": {
+          "type": "string"
+        },
+        "responsibilityLabel": {
+          "type": "string"
+        },
+        "responsibilityType": {
+          "type": "string"
+        },
+        "sourceId": {
+          "type": "string"
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sourceType": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "workItemId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workItemId",
+        "sourceType",
+        "sourceId",
+        "projectId",
+        "projectName",
+        "title",
+        "actionType",
+        "focusGroup",
+        "responsibilityType",
+        "responsibilityLabel",
+        "priority",
+        "sourceRevision",
+        "updatedAt"
+      ]
+    }
+  }
+}

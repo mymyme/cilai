@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelAuthStep",
+  "type": "object",
+  "properties": {
+    "authGeneration": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "loginId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtimeKind": {
+      "$ref": "#/$defs/ModelRuntimeKind"
+    },
+    "state": {
+      "$ref": "#/$defs/ModelAuthStepState"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "runtimeKind",
+    "authGeneration",
+    "state"
+  ],
+  "$defs": {
+    "ModelAuthStepState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "started",
+        "confirmed",
+        "signed_out",
+        "failed",
+        "uncertain"
+      ]
+    },
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    }
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_PersonalMemoryResetOperation",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/PersonalMemoryResetOperation"
+  },
+  "$defs": {
+    "PersonalMemoryResetOperation": {
+      "type": "object",
+      "properties": {
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "previewDigest": {
+          "type": "string"
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "scopeResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalMemoryResetScopeResult"
+          }
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalMemoryResetScope"
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/PersonalMemoryResetState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "profileId",
+        "state",
+        "previewDigest",
+        "createdAt",
+        "updatedAt",
+        "scopes",
+        "scopeResults",
+        "blockers"
+      ]
+    },
+    "PersonalMemoryResetOutcome": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "reset",
+        "failed",
+        "unconfirmed"
+      ]
+    },
+    "PersonalMemoryResetScope": {
+      "type": "object",
+      "properties": {
+        "inspectionIssue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nativeHomeRelativePath": {
+          "type": "string"
+        },
+        "retainedNativePaths": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "scopeId": {
+          "type": "string"
+        },
+        "scopeKind": {
+          "type": "string"
+        },
+        "visibleMemoryFileCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "visibleMemoryLogicalBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scopeId",
+        "nativeHomeRelativePath",
+        "scopeKind"
+      ]
+    },
+    "PersonalMemoryResetScopeResult": {
+      "type": "object",
+      "properties": {
+        "officialResponseReceived": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "$ref": "#/$defs/PersonalMemoryResetOutcome"
+        },
+        "processExitConfirmed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scopeId": {
+          "type": "string"
+        },
+        "writerLeaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scopeId",
+        "outcome",
+        "officialResponseReceived",
+        "processExitConfirmed"
+      ]
+    },
+    "PersonalMemoryResetState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "applying",
+        "completed",
+        "incomplete",
+        "cancelled"
+      ]
+    }
+  }
+}

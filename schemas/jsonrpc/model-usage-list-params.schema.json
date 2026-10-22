@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelUsageListParams",
+  "type": "object",
+  "properties": {
+    "beforeSequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "limit": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "throughSequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "limit"
+  ]
+}

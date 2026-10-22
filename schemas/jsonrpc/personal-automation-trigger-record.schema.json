@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationTriggerRecord",
+  "type": "object",
+  "properties": {
+    "claimId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "createdAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "finishedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "outcome": {
+      "$ref": "#/$defs/PersonalAutomationTriggerOutcome"
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "readOnlyAfterRestore": {
+      "type": "boolean"
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ruleId": {
+      "type": "string"
+    },
+    "ruleVersion": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "runId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scheduledDueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "triggerId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "triggerId",
+    "profileId",
+    "ruleId",
+    "ruleVersion",
+    "createdAt",
+    "outcome",
+    "readOnlyAfterRestore"
+  ],
+  "$defs": {
+    "PersonalAutomationTriggerOutcome": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "skipped",
+        "completed",
+        "failed",
+        "cancelled",
+        "outcome_unconfirmed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeliverableVersionReviewParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "comment": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "string"
+    },
+    "deliverableId": {
+      "type": "string"
+    },
+    "expectedDeliverableRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "reviewerLabel": {
+      "type": "string"
+    },
+    "versionId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "deliverableId",
+    "versionId",
+    "decision",
+    "reviewerLabel",
+    "comment",
+    "expectedDeliverableRevision",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

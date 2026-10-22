@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiThreadMutationResult",
+  "type": "object",
+  "properties": {
+    "binding": true,
+    "operation": true,
+    "replayed": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "binding"
+  ]
+}

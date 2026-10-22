@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelExecutionProcess",
+  "type": "object",
+  "properties": {
+    "pid": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "startFingerprint": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "pid",
+    "startFingerprint"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiApplicationParams",
+  "type": "object",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/AiApplicationAction"
+    },
+    "payload": true
+  },
+  "additionalProperties": false,
+  "required": [
+    "action",
+    "payload"
+  ],
+  "$defs": {
+    "AiApplicationAction": {
+      "type": "string",
+      "enum": [
+        "open",
+        "openReport",
+        "openPage",
+        "listInstance",
+        "restartBlockers",
+        "read",
+        "usage",
+        "reserve",
+        "update",
+        "close",
+        "beginCleanup",
+        "finishCleanup",
+        "listPending",
+        "attach",
+        "discardAttachment"
+      ]
+    }
+  }
+}

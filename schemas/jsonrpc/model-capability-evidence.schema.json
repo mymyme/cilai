@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelCapabilityEvidence",
+  "type": "object",
+  "properties": {
+    "evidenceId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "$ref": "#/$defs/ModelEvidenceSource"
+    },
+    "state": {
+      "$ref": "#/$defs/ModelCapabilityState"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "source"
+  ],
+  "$defs": {
+    "ModelCapabilityState": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "supported",
+        "unsupported"
+      ]
+    },
+    "ModelEvidenceSource": {
+      "type": "string",
+      "enum": [
+        "user_declared",
+        "service_declared",
+        "runtime_catalog",
+        "observed"
+      ]
+    }
+  }
+}

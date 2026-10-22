@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiWorkTaskCandidatesResult",
+  "type": "object",
+  "properties": {
+    "projectId": {
+      "type": "string"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AiWorkTaskCandidate"
+      }
+    }
+  },
+  "required": [
+    "projectId",
+    "tasks"
+  ],
+  "$defs": {
+    "AiWorkTaskCandidate": {
+      "type": "object",
+      "properties": {
+        "completionCriteria": {
+          "type": "string"
+        },
+        "expectedOutput": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "taskId",
+        "title",
+        "objective",
+        "expectedOutput",
+        "completionCriteria",
+        "stage",
+        "stateRevision"
+      ]
+    }
+  }
+}

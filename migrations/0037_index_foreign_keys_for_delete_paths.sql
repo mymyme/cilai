@@ -1,0 +1,50 @@
+-- 删除工作区与删除项目时，下列父表会被逐行删除，SQLite 每删一行都按外键查一遍引用它的
+-- 子表。0036 已补齐文件记录与扫描快照这两张最大的表；这里补齐两条删除路径上其余引用
+-- 字段的索引，避免文档、同步计划、交付物、阶段、任务等数据增长后重演整表扫描。
+-- 从不删除的父表（账号等）不在此列，免得平白增加写入开销。
+CREATE INDEX idx_fk_attention_cases_deliverable_id ON attention_cases(deliverable_id);
+CREATE INDEX idx_fk_attention_cases_task_id ON attention_cases(task_id);
+CREATE INDEX idx_fk_business_task_moves_from_phase_id ON business_task_moves(from_phase_id);
+CREATE INDEX idx_fk_business_task_moves_to_phase_id ON business_task_moves(to_phase_id);
+CREATE INDEX idx_fk_checksum_cache_workspace_id ON checksum_cache(workspace_id);
+CREATE INDEX idx_fk_cloud_workspace_operations_source_workspace_id ON cloud_workspace_operations(source_workspace_id);
+CREATE INDEX idx_fk_cloud_workspace_operations_workspace_id ON cloud_workspace_operations(workspace_id);
+CREATE INDEX idx_fk_conflict_resolutions_conflict_id ON conflict_resolutions(conflict_id);
+CREATE INDEX idx_fk_conflict_resolutions_new_baseline_version_id ON conflict_resolutions(new_baseline_version_id);
+CREATE INDEX idx_fk_conflicts_baseline_version_id ON conflicts(baseline_version_id);
+CREATE INDEX idx_fk_conflicts_document_id ON conflicts(document_id);
+CREATE INDEX idx_fk_conflicts_platform_version_id ON conflicts(platform_version_id);
+CREATE INDEX idx_fk_conflicts_workspace_id ON conflicts(workspace_id);
+CREATE INDEX idx_fk_conversation_task_bindings_project_id ON conversation_task_bindings(project_id);
+CREATE INDEX idx_fk_conversation_work_classifications_project_id ON conversation_work_classifications(project_id);
+CREATE INDEX idx_fk_deliverable_acceptances_deliverable_id ON deliverable_acceptances(deliverable_id);
+CREATE INDEX idx_fk_deliverable_file_bindings_version_id ON deliverable_file_bindings(version_id);
+CREATE INDEX idx_fk_deliverable_file_bindings_workspace_id ON deliverable_file_bindings(workspace_id);
+CREATE INDEX idx_fk_deliverable_version_carriers_source_deliverable_id ON deliverable_version_carriers(source_deliverable_id);
+CREATE INDEX idx_fk_deliverable_version_carriers_source_project_id ON deliverable_version_carriers(source_project_id);
+CREATE INDEX idx_fk_direct_cloud_workspace_operations_workspace_id ON direct_cloud_workspace_operations(workspace_id);
+CREATE INDEX idx_fk_documents_parent_document_id ON documents(parent_document_id);
+CREATE INDEX idx_fk_file_confirmations_baseline_version_id ON file_confirmations(baseline_version_id);
+CREATE INDEX idx_fk_file_confirmations_document_id ON file_confirmations(document_id);
+CREATE INDEX idx_fk_file_confirmations_workspace_id ON file_confirmations(workspace_id);
+CREATE INDEX idx_fk_file_states_baseline_version_id ON file_states(baseline_version_id);
+CREATE INDEX idx_fk_my_work_items_attention_case_id ON my_work_items(attention_case_id);
+CREATE INDEX idx_fk_my_work_items_deliverable_id ON my_work_items(deliverable_id);
+CREATE INDEX idx_fk_my_work_items_phase_id ON my_work_items(phase_id);
+CREATE INDEX idx_fk_my_work_items_primary_workspace_id ON my_work_items(primary_workspace_id);
+CREATE INDEX idx_fk_my_work_items_task_id ON my_work_items(task_id);
+CREATE INDEX idx_fk_phase_dependencies_plan_id ON phase_dependencies(plan_id);
+CREATE INDEX idx_fk_phase_dependencies_predecessor_phase_id ON phase_dependencies(predecessor_phase_id);
+CREATE INDEX idx_fk_phase_dependencies_successor_phase_id ON phase_dependencies(successor_phase_id);
+CREATE INDEX idx_fk_phase_transitions_accepted_deliverable_version_id ON phase_transitions(accepted_deliverable_version_id);
+CREATE INDEX idx_fk_project_phases_project_id ON project_phases(project_id);
+CREATE INDEX idx_fk_project_phases_required_deliverable_id ON project_phases(required_deliverable_id);
+CREATE INDEX idx_fk_project_workspaces_project_id ON project_workspaces(project_id);
+CREATE INDEX idx_fk_sync_execution_items_plan_item_id ON sync_execution_items(plan_item_id);
+CREATE INDEX idx_fk_sync_execution_items_result_version_id ON sync_execution_items(result_version_id);
+CREATE INDEX idx_fk_sync_executions_plan_id ON sync_executions(plan_id);
+CREATE INDEX idx_fk_sync_plan_items_baseline_version_id ON sync_plan_items(baseline_version_id);
+CREATE INDEX idx_fk_sync_plan_items_document_id ON sync_plan_items(document_id);
+CREATE INDEX idx_fk_sync_plan_items_target_version_id ON sync_plan_items(target_version_id);
+CREATE INDEX idx_fk_attention_cases_phase_id ON attention_cases(phase_id);
+CREATE INDEX idx_fk_deliverable_version_carriers_source_version_id ON deliverable_version_carriers(source_version_id);

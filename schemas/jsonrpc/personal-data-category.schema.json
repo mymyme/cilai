@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalDataCategory",
+  "type": "string",
+  "enum": [
+    "business_database",
+    "native_history",
+    "native_memory",
+    "skills",
+    "applications",
+    "application_data",
+    "attachments",
+    "configuration",
+    "workspace_originals"
+  ]
+}

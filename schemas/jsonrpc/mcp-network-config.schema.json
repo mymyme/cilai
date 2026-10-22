@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpNetworkConfig",
+  "type": "object",
+  "properties": {
+    "mode": {
+      "$ref": "#/$defs/ModelNetworkMode"
+    },
+    "proxyUrl": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "mode"
+  ],
+  "$defs": {
+    "ModelNetworkMode": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "system_proxy",
+        "custom_proxy"
+      ]
+    }
+  }
+}

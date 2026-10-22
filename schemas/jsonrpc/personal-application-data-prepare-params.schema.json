@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalApplicationDataPrepareParams",
+  "type": "object",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/PersonalApplicationDataAction"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "creationProjectId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "packageDigest": {
+      "type": "string"
+    },
+    "targetOperationId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "creationProjectId",
+    "expectedRevision",
+    "packageDigest",
+    "clientOperationId",
+    "action"
+  ],
+  "$defs": {
+    "PersonalApplicationDataAction": {
+      "type": "string",
+      "enum": [
+        "upgrade",
+        "import_upgrade",
+        "rollback"
+      ]
+    }
+  }
+}

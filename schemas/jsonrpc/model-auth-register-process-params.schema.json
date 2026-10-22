@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelAuthRegisterProcessParams",
+  "type": "object",
+  "properties": {
+    "authGeneration": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "process": {
+      "$ref": "#/$defs/ModelExecutionProcess"
+    },
+    "runtimeKind": {
+      "$ref": "#/$defs/ModelRuntimeKind"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "runtimeKind",
+    "authGeneration",
+    "process"
+  ],
+  "$defs": {
+    "ModelExecutionProcess": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    }
+  }
+}

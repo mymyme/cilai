@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceActionAckParams",
+  "type": "object",
+  "properties": {
+    "actionId": {
+      "type": "string"
+    },
+    "afterCacheBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/PersonalNamespaceActionOutcome"
+    },
+    "permitToken": {
+      "type": "string"
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "shellOwner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "actionId",
+    "permitToken",
+    "shellOwner",
+    "outcome"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalNamespaceActionOutcome": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    }
+  }
+}

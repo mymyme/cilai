@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelAuthScope",
+  "type": "object",
+  "properties": {
+    "authGeneration": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "runtimeKind": {
+      "$ref": "#/$defs/ModelRuntimeKind"
+    },
+    "state": {
+      "$ref": "#/$defs/ModelAuthScopeState"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "runtimeKind",
+    "authGeneration",
+    "state",
+    "operationId"
+  ],
+  "$defs": {
+    "ModelAuthScopeState": {
+      "type": "string",
+      "enum": [
+        "active",
+        "retired",
+        "signed_out"
+      ]
+    },
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    }
+  }
+}

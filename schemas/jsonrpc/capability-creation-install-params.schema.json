@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CapabilityCreationInstallParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "creationProjectId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "packageDigest": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "creationProjectId",
+    "expectedRevision",
+    "packageDigest",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

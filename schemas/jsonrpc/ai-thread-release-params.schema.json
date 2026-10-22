@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiThreadReleaseParams",
+  "type": "object",
+  "properties": {
+    "conversationId": {
+      "type": "string"
+    },
+    "ownerInstanceId": {
+      "type": "string"
+    },
+    "processReaped": {
+      "type": "boolean"
+    },
+    "retainWriter": {
+      "description": "原生线程已空闲且后台任务已收尾，保留写入者身份供同一进程独占交接。",
+      "type": "boolean"
+    },
+    "runId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "conversationId",
+    "runId",
+    "ownerInstanceId",
+    "processReaped"
+  ]
+}

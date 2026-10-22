@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationRuleRecord",
+  "type": "object",
+  "properties": {
+    "digest": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "position": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "value": true
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "position",
+    "digest",
+    "value"
+  ]
+}

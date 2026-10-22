@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiTurnFinalizeParams",
+  "type": "object",
+  "properties": {
+    "agentLabel": {
+      "type": "string"
+    },
+    "classification": {
+      "$ref": "#/$defs/AiTurnClassification"
+    },
+    "conversationId": {
+      "type": "string"
+    },
+    "ledger": {
+      "$ref": "#/$defs/AiLedgerApplyParams"
+    },
+    "newTaskId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "previousTaskId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "projectId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "ledger",
+    "conversationId",
+    "runId",
+    "agentLabel",
+    "classification"
+  ],
+  "$defs": {
+    "AiLedgerApplyParams": {
+      "type": "object",
+      "properties": {
+        "commandId": {
+          "type": "string"
+        },
+        "deliveryInputs": {
+          "type": "array",
+          "default": [],
+          "items": true
+        },
+        "pendingInputs": {
+          "type": "array",
+          "default": [],
+          "items": true
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AiLedgerRecordMutation"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "commandId",
+        "records"
+      ]
+    },
+    "AiLedgerRecordMutation": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string"
+        },
+        "expectedDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": true
+      },
+      "additionalProperties": false,
+      "required": [
+        "collection",
+        "id",
+        "position",
+        "value"
+      ]
+    },
+    "AiTurnClassification": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "completionCriteria": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        },
+        "conversationStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expectedOutput": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objective": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcomeSummary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcomeTitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "raw": true,
+        "reason": {
+          "type": "string"
+        },
+        "stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "taskAction": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "taskTitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "taskAction",
+        "reason",
+        "confidence",
+        "raw"
+      ]
+    }
+  }
+}

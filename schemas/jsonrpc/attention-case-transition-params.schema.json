@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AttentionCaseTransitionParams",
+  "type": "object",
+  "properties": {
+    "actorLabel": {
+      "type": "string"
+    },
+    "attentionCaseId": {
+      "type": "string"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "decisionAction": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "delegatedTo": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "resolutionSummary": {
+      "type": "string"
+    },
+    "targetStatus": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "attentionCaseId",
+    "targetStatus",
+    "expectedRevision",
+    "actorLabel",
+    "resolutionSummary",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

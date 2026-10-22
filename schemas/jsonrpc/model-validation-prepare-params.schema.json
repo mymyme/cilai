@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelValidationPrepareParams",
+  "type": "object",
+  "properties": {
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedAuthGeneration": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "expectedConfigRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "layer": {
+      "$ref": "#/$defs/ModelValidationLayer"
+    },
+    "modelId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtimeKind": {
+      "$ref": "#/$defs/ModelRuntimeKind",
+      "default": "workbench"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "layer",
+    "expectedConfigRevision",
+    "expectedAuthGeneration"
+  ],
+  "$defs": {
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    },
+    "ModelValidationLayer": {
+      "type": "string",
+      "enum": [
+        "configuration",
+        "network",
+        "authentication",
+        "protocol",
+        "catalog",
+        "inference",
+        "streaming",
+        "tools"
+      ]
+    }
+  }
+}

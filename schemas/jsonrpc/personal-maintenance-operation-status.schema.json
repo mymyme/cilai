@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMaintenanceOperationStatus",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "previewDigest": {
+      "type": "string"
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "profileId",
+    "kind",
+    "state",
+    "previewDigest"
+  ]
+}

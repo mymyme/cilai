@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalBackupFile",
+  "type": "object",
+  "properties": {
+    "archivePath": {
+      "type": "string"
+    },
+    "bytes": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "category": {
+      "$ref": "#/$defs/PersonalDataCategory"
+    },
+    "digest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "archivePath",
+    "category",
+    "digest",
+    "bytes"
+  ],
+  "$defs": {
+    "PersonalDataCategory": {
+      "type": "string",
+      "enum": [
+        "business_database",
+        "native_history",
+        "native_memory",
+        "skills",
+        "applications",
+        "application_data",
+        "attachments",
+        "configuration",
+        "workspace_originals"
+      ]
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpExecutionPrepareParams",
+  "type": "object",
+  "properties": {
+    "catalogDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "intent": {
+      "$ref": "#/$defs/McpExecutionIntent"
+    },
+    "launchProtocol": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    },
+    "purpose": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/McpPurpose"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceConsent": {
+      "type": "boolean"
+    },
+    "toolName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "expectedRevision",
+    "intent",
+    "sourceConsent",
+    "owner",
+    "launchProtocol"
+  ],
+  "$defs": {
+    "McpExecutionIntent": {
+      "type": "string",
+      "enum": [
+        "validation",
+        "tool_call"
+      ]
+    },
+    "McpPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation"
+      ]
+    },
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

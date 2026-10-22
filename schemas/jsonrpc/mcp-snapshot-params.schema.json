@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpSnapshotParams",
+  "type": "object",
+  "properties": {
+    "connectionIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "purpose": {
+      "$ref": "#/$defs/McpPurpose"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "purpose",
+    "connectionIds"
+  ],
+  "$defs": {
+    "McpPurpose": {
+      "type": "string",
+      "enum": [
+        "foreground",
+        "automation"
+      ]
+    }
+  }
+}

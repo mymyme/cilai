@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalNamespaceStoragePrepareParams",
+  "type": "object",
+  "properties": {
+    "browserSession": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalNamespaceBrowserSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "itemKinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalNamespaceStorageKind"
+      }
+    },
+    "logFiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalNamespaceLogSnapshot"
+      }
+    },
+    "logSegmentId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "namespacePath": {
+      "type": "string"
+    },
+    "shellOwner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "clientOperationId",
+    "itemKinds",
+    "shellOwner",
+    "namespacePath",
+    "logFiles"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "PersonalNamespaceBrowserSnapshot": {
+      "type": "object",
+      "properties": {
+        "cacheBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "partition": {
+          "type": "string"
+        },
+        "storagePath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "partition",
+        "storagePath",
+        "cacheBytes"
+      ]
+    },
+    "PersonalNamespaceLogFile": {
+      "type": "string",
+      "enum": [
+        "host_service_current",
+        "host_service_previous",
+        "test_diagnostics_current",
+        "test_diagnostics_previous"
+      ]
+    },
+    "PersonalNamespaceLogSnapshot": {
+      "type": "object",
+      "properties": {
+        "changedNanoseconds": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "device": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/PersonalNamespaceLogFile"
+        },
+        "inode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logicalBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "mode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modifiedNanoseconds": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "exists"
+      ]
+    },
+    "PersonalNamespaceStorageKind": {
+      "type": "string",
+      "enum": [
+        "host_service_logs",
+        "test_diagnostics_logs",
+        "browser_http_cache"
+      ]
+    }
+  }
+}

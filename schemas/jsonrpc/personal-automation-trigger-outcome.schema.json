@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalAutomationTriggerOutcome",
+  "type": "string",
+  "enum": [
+    "admitted",
+    "skipped",
+    "completed",
+    "failed",
+    "cancelled",
+    "outcome_unconfirmed"
+  ]
+}

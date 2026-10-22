@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InitializeParams",
+  "type": "object",
+  "properties": {
+    "capabilities": {
+      "$ref": "#/$defs/ClientCapabilities",
+      "default": {
+        "deepLinks": false,
+        "eventReplay": false,
+        "interactive": false,
+        "notifications": false,
+        "osNotifications": false,
+        "resourceTickets": false,
+        "richDiff": false
+      }
+    },
+    "client": {
+      "$ref": "#/$defs/ClientInfo"
+    },
+    "protocol": {
+      "$ref": "#/$defs/ProtocolRange"
+    },
+    "resume": {
+      "$ref": "#/$defs/ResumeCursor",
+      "default": {
+        "lastDurableEventSequence": null
+      }
+    }
+  },
+  "required": [
+    "client",
+    "protocol"
+  ],
+  "$defs": {
+    "ClientCapabilities": {
+      "type": "object",
+      "properties": {
+        "deepLinks": {
+          "type": "boolean",
+          "default": false
+        },
+        "eventReplay": {
+          "type": "boolean",
+          "default": false
+        },
+        "interactive": {
+          "type": "boolean",
+          "default": false
+        },
+        "notifications": {
+          "type": "boolean",
+          "default": false
+        },
+        "osNotifications": {
+          "type": "boolean",
+          "default": false
+        },
+        "resourceTickets": {
+          "type": "boolean",
+          "default": false
+        },
+        "richDiff": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "ClientInfo": {
+      "type": "object",
+      "properties": {
+        "arch": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "platform",
+        "arch"
+      ]
+    },
+    "ProtocolRange": {
+      "type": "object",
+      "properties": {
+        "maxVersion": {
+          "type": "string"
+        },
+        "minVersion": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "minVersion",
+        "maxVersion"
+      ]
+    },
+    "ResumeCursor": {
+      "type": "object",
+      "properties": {
+        "lastDurableEventSequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

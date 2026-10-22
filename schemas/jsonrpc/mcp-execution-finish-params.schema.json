@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpExecutionFinishParams",
+  "type": "object",
+  "properties": {
+    "leaseId": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string"
+    },
+    "reasonCode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requestSent": {
+      "type": "boolean"
+    },
+    "snapshotDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "leaseId",
+    "snapshotDigest",
+    "outcome",
+    "requestSent"
+  ]
+}

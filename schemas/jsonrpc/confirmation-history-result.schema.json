@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfirmationHistoryResult",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConfirmationHistoryItem"
+      }
+    },
+    "localFileId": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "localFileId",
+    "items"
+  ],
+  "$defs": {
+    "ConfirmationHistoryItem": {
+      "type": "object",
+      "properties": {
+        "baselineVersionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checksumAlgorithm": {
+          "type": "string"
+        },
+        "checksumValue": {
+          "type": "string"
+        },
+        "confirmationId": {
+          "type": "string"
+        },
+        "confirmedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "confirmedBy": {
+          "type": "string"
+        },
+        "invalidatedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "invalidationReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "confirmationId",
+        "checksumAlgorithm",
+        "checksumValue",
+        "confirmedBy",
+        "confirmedAt"
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelExecutionRecoveryState",
+  "type": "string",
+  "enum": [
+    "released",
+    "owner_alive",
+    "process_alive",
+    "unconfirmed"
+  ]
+}

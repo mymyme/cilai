@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelAuthMode",
+  "type": "string",
+  "enum": [
+    "none",
+    "api_key",
+    "runtime_managed_chatgpt"
+  ]
+}

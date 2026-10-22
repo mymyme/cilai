@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelAuthAbortUnlaunchedParams",
+  "type": "object",
+  "properties": {
+    "launchProtocol": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "operationId": {
+      "type": "string"
+    },
+    "owner": {
+      "$ref": "#/$defs/ModelExecutionOwner"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "owner",
+    "launchProtocol"
+  ],
+  "$defs": {
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    }
+  }
+}

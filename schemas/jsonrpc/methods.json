@@ -1,0 +1,1509 @@
+{
+  "methods": [
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/readPrepare",
+      "paramsSchema": "model-auth-start-prepare-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/catalogPrepare",
+      "paramsSchema": "model-auth-start-prepare-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/abortUnlaunched",
+      "paramsSchema": "model-auth-abort-unlaunched-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/startPrepare",
+      "paramsSchema": "model-auth-start-prepare-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/logoutPrepare",
+      "paramsSchema": "model-auth-logout-prepare-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/registerProcess",
+      "paramsSchema": "model-auth-register-process-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/recover",
+      "paramsSchema": "model-auth-recover-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/step",
+      "paramsSchema": "model-auth-step-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/finish",
+      "paramsSchema": "model-operation-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/cancel",
+      "paramsSchema": "model-operation-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/get",
+      "paramsSchema": "model-operation-params.schema.json",
+      "resultSchema": "root-auth-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelAuth/list",
+      "paramsSchema": "model-connection-params.schema.json",
+      "resultSchema": "root-auth-change-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelValidation/prepareExecution",
+      "paramsSchema": "model-validation-execution-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/abortUnlaunched",
+      "paramsSchema": "model-execution-abort-unlaunched-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/list",
+      "paramsSchema": "model-execution-list-params.schema.json",
+      "resultSchema": "model-execution-lease-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/list",
+      "resultSchema": "model-connection-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/get",
+      "paramsSchema": "model-connection-params.schema.json",
+      "resultSchema": "model-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/changeList",
+      "resultSchema": "model-connection-change-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/changeStatus",
+      "paramsSchema": "model-operation-params.schema.json",
+      "resultSchema": "model-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/savePrepare",
+      "paramsSchema": "model-connection-save-prepare-params.schema.json",
+      "resultSchema": "model-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/saveCommit",
+      "paramsSchema": "model-connection-commit-params.schema.json",
+      "resultSchema": "model-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/saveAbort",
+      "paramsSchema": "model-operation-params.schema.json",
+      "resultSchema": "model-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/credentialCleanupAck",
+      "paramsSchema": "model-credential-cleanup-ack-params.schema.json",
+      "resultSchema": "model-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/list",
+      "resultSchema": "mcp-connection-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/get",
+      "paramsSchema": "mcp-connection-params.schema.json",
+      "resultSchema": "mcp-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/changeList",
+      "resultSchema": "mcp-connection-change-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/changeStatus",
+      "paramsSchema": "mcp-operation-params.schema.json",
+      "resultSchema": "mcp-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/savePrepare",
+      "paramsSchema": "mcp-save-prepare-params.schema.json",
+      "resultSchema": "mcp-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/saveCommit",
+      "paramsSchema": "mcp-save-commit-params.schema.json",
+      "resultSchema": "mcp-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/saveAbort",
+      "paramsSchema": "mcp-operation-params.schema.json",
+      "resultSchema": "mcp-connection-change.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/grant",
+      "paramsSchema": "mcp-grant-params.schema.json",
+      "resultSchema": "mcp-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/disable",
+      "paramsSchema": "mcp-mutation-params.schema.json",
+      "resultSchema": "mcp-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpConnection/delete",
+      "paramsSchema": "mcp-mutation-params.schema.json",
+      "resultSchema": "mcp-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpTool/snapshot",
+      "paramsSchema": "mcp-snapshot-params.schema.json",
+      "resultSchema": "mcp-tool-snapshot.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/list",
+      "resultSchema": "mcp-execution-lease-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/prepare",
+      "paramsSchema": "mcp-execution-prepare-params.schema.json",
+      "resultSchema": "mcp-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/registerProcess",
+      "paramsSchema": "mcp-execution-register-params.schema.json",
+      "resultSchema": "mcp-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/validate",
+      "paramsSchema": "mcp-execution-params.schema.json",
+      "resultSchema": "mcp-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/finish",
+      "paramsSchema": "mcp-execution-finish-params.schema.json",
+      "resultSchema": "mcp-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/abortUnlaunched",
+      "paramsSchema": "mcp-execution-params.schema.json",
+      "resultSchema": "mcp-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpExecution/reportValidation",
+      "paramsSchema": "mcp-validation-report-params.schema.json",
+      "resultSchema": "mcp-validation-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpCredentialCleanup/list",
+      "resultSchema": "mcp-credential-cleanup-plan-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpCredentialCleanup/prepare",
+      "paramsSchema": "mcp-credential-cleanup-params.schema.json",
+      "resultSchema": "mcp-credential-cleanup-plan.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "mcpCredentialCleanup/confirm",
+      "paramsSchema": "mcp-credential-cleanup-confirm-params.schema.json",
+      "resultSchema": "mcp-credential-cleanup-plan.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/recover",
+      "paramsSchema": "personal-maintenance-params.schema.json",
+      "resultSchema": "personal-maintenance-fence.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalApplicationData/prepare",
+      "paramsSchema": "personal-application-data-prepare-params.schema.json",
+      "resultSchema": "personal-application-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalApplicationData/get",
+      "paramsSchema": "personal-application-data-params.schema.json",
+      "resultSchema": "personal-application-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalApplicationData/list",
+      "resultSchema": "personal-application-data-operation-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalApplicationData/cancel",
+      "paramsSchema": "personal-application-data-confirm-params.schema.json",
+      "resultSchema": "personal-application-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalApplicationData/rollback",
+      "paramsSchema": "personal-application-data-execute-params.schema.json",
+      "resultSchema": "personal-application-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalApplicationData/resolveInterrupted",
+      "paramsSchema": "personal-application-data-confirm-params.schema.json",
+      "resultSchema": "personal-application-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemory/authorization",
+      "paramsSchema": "personal-memory-params.schema.json",
+      "resultSchema": "personal-memory-authorization.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/prepare",
+      "paramsSchema": "personal-memory-reset-prepare-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/start",
+      "paramsSchema": "personal-memory-reset-start-params.schema.json",
+      "resultSchema": "personal-memory-reset-start-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/prepareWriter",
+      "paramsSchema": "personal-memory-reset-writer-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/scopeComplete",
+      "paramsSchema": "personal-memory-reset-scope-complete-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/finish",
+      "paramsSchema": "personal-memory-reset-finish-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/get",
+      "paramsSchema": "personal-memory-reset-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/list",
+      "paramsSchema": "personal-memory-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/reconcile",
+      "paramsSchema": "personal-memory-reset-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/cancel",
+      "paramsSchema": "personal-memory-reset-confirm-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMemoryReset/resolveInterrupted",
+      "paramsSchema": "personal-memory-reset-confirm-params.schema.json",
+      "resultSchema": "personal-memory-reset-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/operationStatus",
+      "paramsSchema": "personal-data-params.schema.json",
+      "resultSchema": "personal-maintenance-operation-status.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/prepare",
+      "paramsSchema": "personal-namespace-storage-prepare-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/start",
+      "paramsSchema": "personal-namespace-storage-start-params.schema.json",
+      "resultSchema": "personal-namespace-storage-start-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/beginAction",
+      "paramsSchema": "personal-namespace-action-params.schema.json",
+      "resultSchema": "personal-namespace-action-receipt.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/ackAction",
+      "paramsSchema": "personal-namespace-action-ack-params.schema.json",
+      "resultSchema": "personal-namespace-action-receipt.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/get",
+      "paramsSchema": "personal-namespace-storage-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/reconcile",
+      "paramsSchema": "personal-namespace-storage-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/finish",
+      "paramsSchema": "personal-namespace-storage-confirm-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/cancel",
+      "paramsSchema": "personal-namespace-storage-confirm-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/resolveInterrupted",
+      "paramsSchema": "personal-namespace-storage-confirm-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalNamespaceStorage/list",
+      "paramsSchema": "personal-storage-inventory-params.schema.json",
+      "resultSchema": "personal-namespace-storage-operation-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPage/binding",
+      "paramsSchema": "personal-page-binding-params.schema.json",
+      "resultSchema": "personal-page-binding-snapshot.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPage/auditPrepare",
+      "paramsSchema": "personal-page-audit-prepare-params.schema.json",
+      "resultSchema": "personal-page-audit-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPage/auditFinish",
+      "paramsSchema": "personal-page-audit-finish-params.schema.json",
+      "resultSchema": "personal-page-audit-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPage/auditList",
+      "paramsSchema": "personal-page-audit-list-params.schema.json",
+      "resultSchema": "personal-page-audit-list-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/inventory",
+      "paramsSchema": "personal-storage-inventory-params.schema.json",
+      "resultSchema": "personal-storage-inventory.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/prepare",
+      "paramsSchema": "personal-storage-prepare-params.schema.json",
+      "resultSchema": "personal-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/execute",
+      "paramsSchema": "personal-storage-execute-params.schema.json",
+      "resultSchema": "personal-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/get",
+      "paramsSchema": "personal-storage-params.schema.json",
+      "resultSchema": "personal-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/list",
+      "paramsSchema": "personal-storage-inventory-params.schema.json",
+      "resultSchema": "personal-storage-operation-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/reconcile",
+      "paramsSchema": "personal-storage-params.schema.json",
+      "resultSchema": "personal-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/cancel",
+      "paramsSchema": "personal-storage-confirm-params.schema.json",
+      "resultSchema": "personal-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalStorage/resolveInterrupted",
+      "paramsSchema": "personal-storage-confirm-params.schema.json",
+      "resultSchema": "personal-storage-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/backupPrepare",
+      "paramsSchema": "personal-backup-prepare-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/backupCapture",
+      "paramsSchema": "personal-backup-capture-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/backupArtifact",
+      "paramsSchema": "personal-data-params.schema.json",
+      "resultSchema": "personal-backup-artifact.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/restorePrepare",
+      "paramsSchema": "personal-restore-prepare-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/restoreWorkspacePlan",
+      "paramsSchema": "personal-restore-workspace-plan-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/restoreApplyPrepare",
+      "paramsSchema": "personal-restore-apply-prepare-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/restoreAbortBeforeHelper",
+      "paramsSchema": "personal-restore-abort-before-helper-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/get",
+      "paramsSchema": "personal-data-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/list",
+      "paramsSchema": "personal-data-list-params.schema.json",
+      "resultSchema": "personal-data-operation-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/cancel",
+      "paramsSchema": "personal-data-cancel-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/resolveInterrupted",
+      "paramsSchema": "personal-data-cancel-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalData/reconcile",
+      "paramsSchema": "personal-data-params.schema.json",
+      "resultSchema": "personal-data-operation.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/acquire",
+      "paramsSchema": "personal-maintenance-acquire-params.schema.json",
+      "resultSchema": "personal-maintenance-fence.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/release",
+      "paramsSchema": "personal-maintenance-params.schema.json",
+      "resultSchema": "personal-maintenance-fence.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/list",
+      "paramsSchema": "personal-maintenance-list-params.schema.json",
+      "resultSchema": "personal-maintenance-fence-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/drainStatus",
+      "paramsSchema": "personal-maintenance-params.schema.json",
+      "resultSchema": "personal-maintenance-drain-status.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalMaintenance/read",
+      "paramsSchema": "personal-maintenance-params.schema.json",
+      "resultSchema": "personal-maintenance-fence.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/prepare",
+      "paramsSchema": "personal-writer-prepare-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/registerProcess",
+      "paramsSchema": "personal-writer-register-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/abortUnlaunched",
+      "paramsSchema": "personal-writer-abort-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/release",
+      "paramsSchema": "personal-writer-lease-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/read",
+      "paramsSchema": "personal-writer-lease-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/list",
+      "paramsSchema": "personal-writer-list-params.schema.json",
+      "resultSchema": "personal-writer-lease-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "profileWriter/recover",
+      "paramsSchema": "personal-writer-lease-params.schema.json",
+      "resultSchema": "personal-writer-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPackage/importPrepare",
+      "paramsSchema": "personal-package-import-prepare-params.schema.json",
+      "resultSchema": "personal-package-import-preview.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPackage/importCommit",
+      "paramsSchema": "personal-package-import-commit-params.schema.json",
+      "resultSchema": "personal-package-import-commit-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPackage/importGet",
+      "paramsSchema": "personal-package-import-params.schema.json",
+      "resultSchema": "personal-package-import-preview.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPackage/importList",
+      "paramsSchema": "personal-package-import-list-params.schema.json",
+      "resultSchema": "personal-package-import-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalPackage/importCancel",
+      "paramsSchema": "personal-package-import-cancel-params.schema.json",
+      "resultSchema": "personal-package-import-preview.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalAutomation/admit",
+      "paramsSchema": "personal-automation-admit-params.schema.json",
+      "resultSchema": "personal-automation-admit-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalAutomation/prepareExecution",
+      "paramsSchema": "personal-automation-prepare-execution-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalAutomation/bind",
+      "paramsSchema": "personal-automation-bind-params.schema.json",
+      "resultSchema": "personal-automation-bind-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalAutomation/finish",
+      "paramsSchema": "personal-automation-finish-params.schema.json",
+      "resultSchema": "personal-automation-finish-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalAutomation/listTriggers",
+      "paramsSchema": "personal-automation-list-triggers-params.schema.json",
+      "resultSchema": "personal-automation-trigger-page.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "personalAutomation/resolveInterrupted",
+      "paramsSchema": "personal-automation-resolve-interrupted-params.schema.json",
+      "resultSchema": "personal-automation-finish-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelUsage/begin",
+      "paramsSchema": "model-usage-begin-params.schema.json",
+      "resultSchema": "model-usage-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelUsage/finish",
+      "paramsSchema": "model-usage-finish-params.schema.json",
+      "resultSchema": "model-usage-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelUsage/get",
+      "paramsSchema": "model-usage-params.schema.json",
+      "resultSchema": "model-usage-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelUsage/list",
+      "paramsSchema": "model-usage-list-params.schema.json",
+      "resultSchema": "model-usage-list-result.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelCredentialCleanup/list",
+      "resultSchema": "model-credential-cleanup-candidate-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelCredentialCleanup/prepare",
+      "paramsSchema": "model-credential-cleanup-prepare-params.schema.json",
+      "resultSchema": "model-credential-cleanup-plan.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelCredentialCleanup/ack",
+      "paramsSchema": "model-credential-cleanup-confirm-params.schema.json",
+      "resultSchema": "model-credential-cleanup-plan.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/preflight",
+      "paramsSchema": "model-connection-preflight-params.schema.json",
+      "resultSchema": "model-connection-preflight.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/setEnabled",
+      "paramsSchema": "model-connection-set-enabled-params.schema.json",
+      "resultSchema": "model-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/deleteCommit",
+      "paramsSchema": "model-connection-mutation-params.schema.json",
+      "resultSchema": "model-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelConnection/disconnectCommit",
+      "paramsSchema": "model-connection-mutation-params.schema.json",
+      "resultSchema": "model-connection.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelCatalog/read",
+      "paramsSchema": "model-connection-params.schema.json",
+      "resultSchema": "model-descriptor-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelDescriptor/save",
+      "paramsSchema": "model-descriptor-save-params.schema.json",
+      "resultSchema": "model-descriptor.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelDescriptor/observe",
+      "paramsSchema": "model-descriptor-observe-params.schema.json",
+      "resultSchema": "model-descriptor-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelPurpose/list",
+      "resultSchema": "model-purpose-binding-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelPurpose/save",
+      "paramsSchema": "model-purpose-save-params.schema.json",
+      "resultSchema": "model-purpose-binding.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelValidation/list",
+      "paramsSchema": "model-connection-params.schema.json",
+      "resultSchema": "model-validation-record-list.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelValidation/prepare",
+      "paramsSchema": "model-validation-prepare-params.schema.json",
+      "resultSchema": "model-validation-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelValidation/report",
+      "paramsSchema": "model-validation-report-params.schema.json",
+      "resultSchema": "model-validation-record.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/resolve",
+      "paramsSchema": "model-execution-prepare-params.schema.json",
+      "resultSchema": "model-execution-snapshot.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/prepare",
+      "paramsSchema": "model-execution-prepare-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/validate",
+      "paramsSchema": "model-execution-lease-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/validateForRequest",
+      "paramsSchema": "model-execution-lease-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/registerProcess",
+      "paramsSchema": "model-execution-register-process-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/release",
+      "paramsSchema": "model-execution-lease-params.schema.json",
+      "resultSchema": "model-execution-lease.schema.json"
+    },
+    {
+      "audience": "host_internal",
+      "kind": "request",
+      "name": "modelExecution/recover",
+      "paramsSchema": "model-execution-recover-params.schema.json",
+      "resultSchema": "model-execution-recover-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "initialize",
+      "paramsSchema": "initialize-params.schema.json",
+      "resultSchema": "initialize-result.schema.json"
+    },
+    {
+      "kind": "notification",
+      "name": "initialized"
+    },
+    {
+      "kind": "request",
+      "name": "ping"
+    },
+    {
+      "kind": "request",
+      "name": "preview/open",
+      "paramsSchema": "preview-open-params.schema.json",
+      "resultSchema": "preview-open-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "textResource/read",
+      "paramsSchema": "text-resource-read-params.schema.json",
+      "resultSchema": "text-resource-read-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "textDiff/compute",
+      "paramsSchema": "text-diff-compute-params.schema.json",
+      "resultSchema": "text-diff-compute-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "textDiff/read",
+      "paramsSchema": "text-diff-read-params.schema.json",
+      "resultSchema": "text-diff-read-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "file/confirm",
+      "paramsSchema": "file-confirm-params.schema.json",
+      "resultSchema": "file-confirm-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "file/confirmationHistory",
+      "paramsSchema": "confirmation-history-params.schema.json",
+      "resultSchema": "confirmation-history-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/list",
+      "paramsSchema": "workspace-list-params.schema.json",
+      "resultSchema": "workspace-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/runList",
+      "paramsSchema": "skill-run-list-params.schema.json",
+      "resultSchema": "skill-run-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/runRetry",
+      "paramsSchema": "skill-run-retry-params.schema.json",
+      "resultSchema": "skill-run-installation.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/list",
+      "paramsSchema": "skill-list-params.schema.json",
+      "resultSchema": "skill-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/get",
+      "paramsSchema": "skill-get-params.schema.json",
+      "resultSchema": "skill-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/save",
+      "paramsSchema": "skill-save-params.schema.json",
+      "resultSchema": "skill-save-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/import",
+      "paramsSchema": "skill-import-params.schema.json",
+      "resultSchema": "skill-import-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/importDirectory",
+      "paramsSchema": "skill-import-directory-params.schema.json",
+      "resultSchema": "skill-import-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/setState",
+      "paramsSchema": "skill-set-state-params.schema.json",
+      "resultSchema": "skill-set-state-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/delete",
+      "paramsSchema": "skill-delete-params.schema.json",
+      "resultSchema": "skill-delete-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/conversationCatalog",
+      "paramsSchema": "skill-conversation-catalog-params.schema.json",
+      "resultSchema": "skill-conversation-catalog-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "skill/runtimeCatalog",
+      "paramsSchema": "skill-runtime-catalog-params.schema.json",
+      "resultSchema": "skill-runtime-catalog-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "capabilityCreation/create",
+      "paramsSchema": "capability-creation-create-params.schema.json",
+      "resultSchema": "capability-creation-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "capabilityCreation/list",
+      "paramsSchema": "capability-creation-list-params.schema.json",
+      "resultSchema": "capability-creation-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "capabilityCreation/get",
+      "paramsSchema": "capability-creation-get-params.schema.json",
+      "resultSchema": "capability-creation-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "capabilityCreation/preview",
+      "paramsSchema": "capability-creation-preview-params.schema.json",
+      "resultSchema": "capability-creation-preview-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "personalApplication/open",
+      "paramsSchema": "personal-application-open-params.schema.json",
+      "resultSchema": "personal-application-open-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/createDirectory",
+      "paramsSchema": "workspace-directory-create-params.schema.json",
+      "resultSchema": "workspace-directory-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "file/hydrate",
+      "paramsSchema": "file-hydration-params.schema.json",
+      "resultSchema": "file-hydration-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "preview/readBinary",
+      "paramsSchema": "read-binary-preview-params.schema.json",
+      "resultSchema": "read-binary-preview-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/create",
+      "paramsSchema": "workspace-create-params.schema.json",
+      "resultSchema": "workspace-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/targetValidate",
+      "paramsSchema": "workspace-target-validate-params.schema.json",
+      "resultSchema": "workspace-target-validate-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/scan",
+      "paramsSchema": "workspace-scan-params.schema.json",
+      "resultSchema": "workspace-scan-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/delete",
+      "paramsSchema": "workspace-delete-params.schema.json",
+      "resultSchema": "workspace-delete-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/files",
+      "paramsSchema": "workspace-files-params.schema.json",
+      "resultSchema": "workspace-files-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/listDirectory",
+      "paramsSchema": "workspace-list-directory-params.schema.json",
+      "resultSchema": "workspace-list-directory-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/indexRequest",
+      "paramsSchema": "workspace-index-request-params.schema.json",
+      "resultSchema": "workspace-index-request-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/indexStatus",
+      "paramsSchema": "workspace-index-status-params.schema.json",
+      "resultSchema": "workspace-index-status-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "workspace/indexPath",
+      "paramsSchema": "workspace-index-path-params.schema.json",
+      "resultSchema": "workspace-index-path-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiConversation/setArchived",
+      "paramsSchema": "ai-conversation-set-archived-params.schema.json",
+      "resultSchema": "ai-conversation-set-archived-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiThread/get",
+      "paramsSchema": "ai-thread-get-params.schema.json",
+      "resultSchema": "ai-thread-state.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiThread/prepare",
+      "paramsSchema": "ai-thread-prepare-params.schema.json",
+      "resultSchema": "ai-thread-mutation-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiThread/acknowledge",
+      "paramsSchema": "ai-thread-acknowledge-params.schema.json",
+      "resultSchema": "ai-thread-mutation-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiThread/reconcile",
+      "paramsSchema": "ai-thread-acknowledge-params.schema.json",
+      "resultSchema": "ai-thread-mutation-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiThread/cleanup",
+      "paramsSchema": "ai-thread-cleanup-params.schema.json",
+      "resultSchema": "ai-thread-mutation-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiThread/release",
+      "paramsSchema": "ai-thread-release-params.schema.json",
+      "resultSchema": "ai-thread-mutation-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiHistory/execute",
+      "paramsSchema": "ai-history-params.schema.json",
+      "resultSchema": "ai-history-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiLedger/get",
+      "paramsSchema": "ai-ledger-get-params.schema.json",
+      "resultSchema": "ai-ledger-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiLedger/apply",
+      "paramsSchema": "ai-ledger-apply-params.schema.json",
+      "resultSchema": "ai-ledger-apply-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiState/get",
+      "paramsSchema": "ai-state-get-params.schema.json",
+      "resultSchema": "ai-state-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiState/replace",
+      "paramsSchema": "ai-state-replace-params.schema.json",
+      "resultSchema": "ai-state-replace-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiState/apply",
+      "paramsSchema": "ai-state-apply-params.schema.json",
+      "resultSchema": "ai-state-apply-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiWork/taskCandidates",
+      "paramsSchema": "ai-work-task-candidates-params.schema.json",
+      "resultSchema": "ai-work-task-candidates-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "aiTurn/finalize",
+      "paramsSchema": "ai-turn-finalize-params.schema.json",
+      "resultSchema": "ai-turn-finalize-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "project/list",
+      "paramsSchema": "project-list-params.schema.json",
+      "resultSchema": "project-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "project/create",
+      "paramsSchema": "project-create-params.schema.json",
+      "resultSchema": "project-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "project/get",
+      "paramsSchema": "project-get-params.schema.json",
+      "resultSchema": "project-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "project/attachWorkspace",
+      "paramsSchema": "project-attach-workspace-params.schema.json",
+      "resultSchema": "project-attach-workspace-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "project/detachWorkspace",
+      "paramsSchema": "project-detach-workspace-params.schema.json",
+      "resultSchema": "project-detach-workspace-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "project/delete",
+      "paramsSchema": "project-delete-params.schema.json",
+      "resultSchema": "project-delete-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "projectPortfolio/list",
+      "paramsSchema": "project-portfolio-list-params.schema.json",
+      "resultSchema": "project-portfolio-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "deliverable/list",
+      "paramsSchema": "deliverable-list-params.schema.json",
+      "resultSchema": "deliverable-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "deliverable/create",
+      "paramsSchema": "deliverable-create-params.schema.json",
+      "resultSchema": "deliverable-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "deliverable/version/create",
+      "paramsSchema": "deliverable-version-create-params.schema.json",
+      "resultSchema": "deliverable-version-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "deliverable/version/review",
+      "paramsSchema": "deliverable-version-review-params.schema.json",
+      "resultSchema": "deliverable-version-review-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "myWork/get",
+      "paramsSchema": "my-work-get-params.schema.json",
+      "resultSchema": "my-work-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "globalSearch/query",
+      "paramsSchema": "global-search-params.schema.json",
+      "resultSchema": "global-search-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "unifiedSearch/query",
+      "paramsSchema": "unified-search-params.schema.json",
+      "resultSchema": "unified-search-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "attentionCase/list",
+      "paramsSchema": "attention-case-list-params.schema.json",
+      "resultSchema": "attention-case-list-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "projectBlocker/create",
+      "paramsSchema": "project-blocker-create-params.schema.json",
+      "resultSchema": "project-blocker-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "decisionRequest/create",
+      "paramsSchema": "decision-request-create-params.schema.json",
+      "resultSchema": "decision-request-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "agentIncident/report",
+      "paramsSchema": "agent-incident-report-params.schema.json",
+      "resultSchema": "agent-incident-report-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "attentionCase/transition",
+      "paramsSchema": "attention-case-transition-params.schema.json",
+      "resultSchema": "attention-case-transition-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "projectProgress/get",
+      "paramsSchema": "project-progress-get-params.schema.json",
+      "resultSchema": "project-progress-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "phasePlan/create",
+      "paramsSchema": "phase-plan-create-params.schema.json",
+      "resultSchema": "phase-plan-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "phasePlan/activate",
+      "paramsSchema": "phase-plan-activate-params.schema.json",
+      "resultSchema": "phase-plan-activate-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "projectPhase/transition",
+      "paramsSchema": "project-phase-transition-params.schema.json",
+      "resultSchema": "project-phase-transition-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "businessTask/create",
+      "paramsSchema": "business-task-create-params.schema.json",
+      "resultSchema": "business-task-create-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "businessTask/get",
+      "paramsSchema": "business-task-get-params.schema.json",
+      "resultSchema": "business-task-get-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "businessTask/transition",
+      "paramsSchema": "business-task-transition-params.schema.json",
+      "resultSchema": "business-task-transition-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "businessTask/move",
+      "paramsSchema": "business-task-move-params.schema.json",
+      "resultSchema": "business-task-move-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "event/replay",
+      "paramsSchema": "event-replay-params.schema.json",
+      "resultSchema": "event-replay-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "shutdown/prepare"
+    },
+    {
+      "kind": "request",
+      "name": "shutdown/execute"
+    }
+  ],
+  "protocolVersion": "1.0",
+  "standardErrorSchema": "error-response.schema.json"
+}

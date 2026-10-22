@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InitializeResult",
+  "type": "object",
+  "properties": {
+    "capabilities": {
+      "$ref": "#/$defs/ServerCapabilities"
+    },
+    "limits": {
+      "$ref": "#/$defs/ProtocolLimits"
+    },
+    "protocolVersion": {
+      "type": "string"
+    },
+    "resume": {
+      "$ref": "#/$defs/ResumeResult"
+    },
+    "server": {
+      "$ref": "#/$defs/ServerInfo"
+    },
+    "session": {
+      "$ref": "#/$defs/SessionInfo"
+    }
+  },
+  "required": [
+    "server",
+    "protocolVersion",
+    "capabilities",
+    "session",
+    "limits",
+    "resume"
+  ],
+  "$defs": {
+    "ProtocolLimits": {
+      "type": "object",
+      "properties": {
+        "maxMessageBytes": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "maxPageSize": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "maxMessageBytes",
+        "maxPageSize"
+      ]
+    },
+    "ResumeResult": {
+      "type": "object",
+      "properties": {
+        "replayAvailable": {
+          "type": "boolean"
+        },
+        "requestedLastDurableEventSequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "replayAvailable"
+      ]
+    },
+    "ServerCapabilities": {
+      "type": "object",
+      "properties": {
+        "eventReplay": {
+          "type": "boolean"
+        },
+        "fileConfirmation": {
+          "type": "boolean"
+        },
+        "interactiveRequests": {
+          "type": "boolean"
+        },
+        "localIpc": {
+          "type": "boolean"
+        },
+        "modelConnectionProtocol": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "personalDataVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "personalProfileId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "resourceTickets": {
+          "type": "boolean"
+        },
+        "richTextDiff": {
+          "type": "boolean"
+        },
+        "supportedChecksumAlgorithms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "localIpc",
+        "eventReplay",
+        "interactiveRequests",
+        "resourceTickets",
+        "richTextDiff",
+        "fileConfirmation",
+        "supportedChecksumAlgorithms"
+      ]
+    },
+    "ServerInfo": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "instanceId"
+      ]
+    },
+    "SessionInfo": {
+      "type": "object",
+      "properties": {
+        "clientSessionId": {
+          "type": "string"
+        },
+        "connectionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectionId",
+        "clientSessionId"
+      ]
+    }
+  }
+}

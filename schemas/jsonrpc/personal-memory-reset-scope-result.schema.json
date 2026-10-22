@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalMemoryResetScopeResult",
+  "type": "object",
+  "properties": {
+    "officialResponseReceived": {
+      "type": "boolean"
+    },
+    "outcome": {
+      "$ref": "#/$defs/PersonalMemoryResetOutcome"
+    },
+    "processExitConfirmed": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scopeId": {
+      "type": "string"
+    },
+    "writerLeaseId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "scopeId",
+    "outcome",
+    "officialResponseReceived",
+    "processExitConfirmed"
+  ],
+  "$defs": {
+    "PersonalMemoryResetOutcome": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "reset",
+        "failed",
+        "unconfirmed"
+      ]
+    }
+  }
+}

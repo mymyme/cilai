@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModelUsageCost",
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "amount",
+    "currency",
+    "source"
+  ]
+}
