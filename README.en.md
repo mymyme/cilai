@@ -6,7 +6,15 @@
 
 Bring projects, files, persistent conversations, tools, and personal apps into one workspace, so AI can help carry work through to completion.
 
-[简体中文](README.md) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Enterprise website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
+[简体中文](README.md) · [Download v0.1.0](https://github.com/mymyme/cilai/releases/tag/v0.1.0) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Enterprise website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
+
+## Download the developer preview
+
+**[v0.1.0 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.0)** requires macOS 13.5 or later on arm64. Download `cilai-personal-workbench-0.1.0-macos-arm64.zip`, extract it, and open the app. The release also includes `SHA256SUMS` for verification. macOS 13.5 is the minimum deployment target; acceptance on an actual 13.5 system remains pending.
+
+The package includes the pinned official Codex CLI / App Server **0.163.0** runtime. A separate Codex installation or an existing `~/.codex` profile is not required. Configure your own model authorization inside the workbench.
+
+This is a **developer preview** with ad-hoc signing, without a Developer ID signature or Apple notarization. macOS may block the first launch. Automatic updates are disabled. Windows and Intel Mac packages are not provided in this release. See the [release notes](docs/releases/v0.1.0.md) for contents and limitations.
 
 ## Screenshots
 
@@ -46,7 +54,7 @@ Model calls require your own valid authorization. Catalog access, text inference
 
 ## Build from source
 
-This repository contains a **developer preview**. The standard build produces a local testing package. Install these prerequisites first:
+You can also build a local testing package from source. Install these prerequisites first:
 
 | Tool | Version or requirement |
 | --- | --- |
@@ -81,7 +89,7 @@ Use `npm run launch` to build and open the personal testing package. Quit a runn
 
 ## Current status
 
-The project is a **developer preview** with first-release acceptance work still in progress. No formally signed distribution is available from this submission.
+The project is a **developer preview**, with a v0.1.0 download for macOS arm64. First-release acceptance work is still in progress. A Developer ID-signed or Apple-notarized distribution is not available.
 
 | Area | Current evidence |
 | --- | --- |

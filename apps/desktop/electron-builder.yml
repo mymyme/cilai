@@ -26,6 +26,7 @@ extraResources:
 
 # 图标取自现有资源，不另存一份，避免同一产品维护两套图标事实源。
 mac:
+  minimumSystemVersion: '13.5'
   signIgnore:
     - /Contents/Resources/sidecar/codex-runtime(/|$)
   # 应用元信息按实际需要收敛。打包工具的模板会带上摄像头、麦克风、蓝牙等权限声明，

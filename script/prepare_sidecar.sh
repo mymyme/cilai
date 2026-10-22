@@ -17,6 +17,7 @@ touch "$BUILD_ROOT/config/npmrc" "$BUILD_ROOT/config/npmrc-global"
 export npm_config_userconfig="$BUILD_ROOT/config/npmrc"
 export npm_config_globalconfig="$BUILD_ROOT/config/npmrc-global"
 TARGET_TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+export MACOSX_DEPLOYMENT_TARGET=13.5
 
 if [[ "$PROJECT_ROOT" != "$BUILD_ROOT" ]]; then
   echo "sidecar 只能在统一构建目录中通过 npm run package 调用" >&2
@@ -28,7 +29,8 @@ fi
 # 架构」，不承载 Windows 分支——按词来工作台 Windows 端适配技术方案第 2 节，条件分支
 # 一律正向列举，缺失分支应当报错而不是静默落入否定分支。
 case "$TARGET_TRIPLE" in
-  aarch64-apple-darwin | x86_64-apple-darwin) ;;
+  aarch64-apple-darwin) SWIFT_TARGET="arm64-apple-macosx$MACOSX_DEPLOYMENT_TARGET" ;;
+  x86_64-apple-darwin) SWIFT_TARGET="x86_64-apple-macosx$MACOSX_DEPLOYMENT_TARGET" ;;
   *)
     echo "本脚本（bash）仅支持 macOS 宿主（aarch64-apple-darwin / x86_64-apple-darwin），当前为 $TARGET_TRIPLE；Windows 原生构建请使用 script/prepare_sidecar.ps1" >&2
     exit 1
@@ -49,6 +51,22 @@ case "$PROFILE" in
 esac
 
 cd "$PROJECT_ROOT"
+if [[ -z "${CARGO_ENCODED_RUSTFLAGS:-}" && -n "${RUSTFLAGS:-}" ]]; then
+  read -r -a USER_RUST_FLAGS <<< "$RUSTFLAGS"
+  printf -v CARGO_ENCODED_RUSTFLAGS '%s\x1f' "${USER_RUST_FLAGS[@]}"
+  CARGO_ENCODED_RUSTFLAGS="${CARGO_ENCODED_RUSTFLAGS%$'\x1f'}"
+fi
+RUST_SYSROOT="$(rustc --print sysroot)"
+for mapping in "$BUILD_ROOT=/cilai/build" "$CARGO_HOME=/cilai/cargo" "$RUST_SYSROOT=/cilai/toolchain"; do
+  CARGO_ENCODED_RUSTFLAGS="${CARGO_ENCODED_RUSTFLAGS:+${CARGO_ENCODED_RUSTFLAGS}$'\x1f'}--remap-path-prefix=$mapping"
+done
+export CARGO_ENCODED_RUSTFLAGS
+export CARGO_PROFILE_DEV_STRIP=debuginfo
+export CARGO_PROFILE_RELEASE_STRIP=debuginfo
+export CC_SHELL_ESCAPED_FLAGS=1
+NATIVE_PATH_MAP="$(node -e 'console.log(JSON.stringify("-ffile-prefix-map=" + process.argv[1] + "=/cilai/build"))' "$BUILD_ROOT")"
+export CFLAGS="${CFLAGS:+$CFLAGS }$NATIVE_PATH_MAP"
+export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }$NATIVE_PATH_MAP"
 # 宿主服务与应用服务一并构建。此前它不在这里：暂存只做取件不做编译，于是改了宿主服务
 # 也进不了安装包，除非恰好手工构建过——表现为新命令在包里报"命令未迁移到宿主服务"。
 if [[ "$PROFILE" == "debug" ]]; then
@@ -69,14 +87,16 @@ node scripts/prepare-codex-runtime.mjs "$SIDECAR_DIR"
 test -x "$SIDECAR_DIR/codex-runtime/bin/codex-app-server"
 
 PDF_RENDERER="$SIDECAR_DIR/cilai-pdf-renderer-$TARGET_TRIPLE"
-SWIFT_FLAGS=(-framework PDFKit -framework AppKit)
+SWIFT_FLAGS=(-target "$SWIFT_TARGET" -framework PDFKit -framework AppKit -debug-prefix-map "$BUILD_ROOT=/cilai/build" -file-prefix-map "$BUILD_ROOT=/cilai/build")
 if [[ "$PROFILE" == "release" ]]; then
   SWIFT_FLAGS=(-O "${SWIFT_FLAGS[@]}")
 else
-  SWIFT_FLAGS=(-g "${SWIFT_FLAGS[@]}")
+  SWIFT_FLAGS=(-Onone "${SWIFT_FLAGS[@]}")
 fi
 SWIFT_CACHE="$BUILD_ROOT/tmp/swift-module-cache"
 mkdir -p "$SWIFT_CACHE"
 CLANG_MODULE_CACHE_PATH="$SWIFT_CACHE" SWIFT_MODULE_CACHE_PATH="$SWIFT_CACHE" \
   /usr/bin/xcrun swiftc "${SWIFT_FLAGS[@]}" script/pdf_renderer.swift -o "$PDF_RENDERER"
 test -x "$PDF_RENDERER"
+node scripts/verify-native-build-paths.mjs "$BUILD_ROOT" "$RUST_SYSROOT" \
+  "$SIDECAR_DIR/cilai-app-server-$TARGET_TRIPLE" "target/$PROFILE_DIR/cilai-host-service" "$PDF_RENDERER"

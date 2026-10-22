@@ -64,6 +64,10 @@ async function offlineAfterPack(fixtureRoot) {
     await mkdir(dirname(packaged), { recursive: true });
     await writeFile(packaged, 'fixture ' + name);
   }
+  // This fixture isolates Windows resource editing; dependency notice collection
+  // is exercised with real file and archive checks in package-dependency-notices.test.mjs.
+  await write('apps/desktop/scripts/package-dependency-notices.mjs',
+    'export function installDependencyNotices({ platform, arch }) { if (platform !== "win32" || arch !== "x64") throw new Error("fixture target mismatch"); return { components: 0, files: 0 }; }\n');
   return (await import(pathToFileURL(join(fixtureSource, 'apps/desktop/scripts/after-pack.mjs')))).default;
 }
 

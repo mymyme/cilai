@@ -11,7 +11,7 @@ First-party source and resources are licensed under [Apache-2.0](../LICENSE), wi
 | PDF.js | pdfjs-dist 6.3.289 | Original top-level and used no-WASM decoder licenses are preserved in `licenses/pdfjs-dist/`; assets and matching versions are checked |
 | Shared UI | `@cilai/app-ui` 1.1.0 | First-party source in `packages/app-ui/` and a matching local tarball, both with LICENSE/NOTICE |
 | Windows Git runtime | MinGit 2.56.0.windows.2 | Preparation records the archive and source URLs and requires upstream notices. Full Windows distribution/source-offer review remains pending |
-| Other Rust and npm dependencies | Cargo.lock and the two npm lockfiles | Individual component licenses apply; locks are reproducibility inputs rather than a complete redistribution notice bundle |
+| Other Rust and npm dependencies | Cargo.lock and the two npm lockfiles | The package includes original license, copyright and notice files with a resolved manifest under `licenses/dependencies/`; individual component licenses apply |
 
 Source references:
 
@@ -21,7 +21,13 @@ Source references:
 - [Shared UI archive consistency manifest](../packages/conversation-package.json)
 - [Cargo lockfile](../Cargo.lock), [workspace npm lockfile](../package-lock.json), [desktop npm lockfile](../apps/desktop/package-lock.json)
 
-The build checks the pinned official Codex notices, first-party notices, and selected packaged runtime notices. This source submission does not claim that every future binary redistribution condition has been completed. Before distributing installers, finish the full dependency/asset notice inventory, any corresponding-source obligations, and native platform validation described in [compatibility](COMPATIBILITY.md).
+The build verifies the pinned official Codex notices, first-party notices, selected runtime notices, and the dependency notice bundle. The dependency bundle covers the installed production npm lock graph for the frontend and Electron main process, plus the target-specific Cargo dependency closure of the host and app servers. Build-time and installed optional components are included conservatively. Each component is recorded with its declared license, source, version and notice file hashes; Cargo notice text is compared byte for byte with the registry archive whose checksum is fixed in Cargo.lock. Missing notices, version drift or modified files stop packaging.
+
+For the first macOS arm64 preview, this closure contains 238 frontend npm packages, 16 Electron-main npm packages and 193 registry crates. The final package manifest is the authoritative inventory. Ten optional npm packages for other targets are absent from this installed graph. This does not establish Windows or Intel Mac distribution readiness; native platform validation remains separately recorded in [compatibility](COMPATIBILITY.md).
+
+Some registry packages omit their license files. The build includes original README license sections where provided, and fixed same-release upstream materials under [supplemental notices](../third_party/dependency-notices/README.md). `lazy-val` 1.0.5 declares MIT in its original package metadata, with its author, but publishes no standalone license text. Several `objc2` crates likewise refer to MIT without reproducing its text. Their original declarations are preserved alongside the unmodified SPDX MIT standard template; its placeholders are not presented as upstream copyright information. The `objc2` upstream notice's discussion of Apple SDK-derived bindings is also retained. This notice inventory is not a new legal determination of that upstream qualification.
+
+The current macOS package contains no MinGit runtime. A future Windows package still requires the separate MinGit corresponding-source and distribution review, its native platform checks, and any additional obligations introduced by that target's resolved dependencies.
 
 Model service authorization, account access, usage charges, and service terms are separate from the source license.
 

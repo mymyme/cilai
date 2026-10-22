@@ -1,15 +1,17 @@
 # 兼容状态 / Compatibility
 
-Recorded: **2026-10-22**. This is a developer preview. Source implementation, simulated tests, native builds, real service calls, and formal releases are separate validation levels.
+Updated: **2026-10-23**. Model-validation and dependency-audit evidence below was recorded on **2026-10-22**; this document update is not a new acceptance run. This is a developer preview. Source implementation, simulated tests, native builds, real service calls, and formal releases are separate validation levels.
 
 ## Platforms
 
 | Platform | Current evidence | Remaining work |
 | --- | --- | --- |
-| macOS arm64 | Local Electron 44.4.4 package built; isolated startup without a model; model-setting and receipt recovery after restart | Broader first-release business acceptance, native notification delivery/click, clean-machine build, formal signing |
+| macOS 13.5+ arm64 | v0.1.0 preview ZIP available; local Electron 44.4.4 package built; isolated startup without a model; model-setting and receipt recovery after restart | Broader first-release business acceptance, native notification delivery/click, clean-machine build, formal signing |
 | macOS x64 | Source and official runtime target present | Native package and business validation |
 | Windows 10 22H2 x64 and later client x64, including Windows 11 | Shared source and selected platform contracts exist | Native build, launch, security and complete business validation |
 | Linux | No desktop packaging target registered | Outside the current desktop platform scope |
+
+macOS 13.5 is the package's minimum deployment target. Acceptance on an actual macOS 13.5 system remains pending.
 
 Windows and macOS results are recorded independently. A passing macOS build or static Windows contract is not Windows native acceptance.
 
@@ -27,7 +29,7 @@ The runtime is the official **Codex App Server 0.163.0** distribution. The retai
 
 Earlier Agnes attempts produced HTTP 400 for empty-tool selection fields and separate empty-reply failures. The workbench normalizes the empty-tool fields before the initial request, preserves explicit/nonempty tool choices, and reports empty replies as failures. A later successful batch does not erase earlier failures or establish long-term provider reliability. No failed user task was automatically replayed.
 
-The latest local package changed documentation and licensing metadata after the real-model batch; restart restored its saved receipts without making another model call. Documentation changes are not a new provider acceptance run.
+The model evidence above was recorded before the v0.1.0 release packaging. A later local package restored saved receipts after restart without another model call. Documentation, version, and packaging changes are not a new provider acceptance run.
 
 ## Known gaps
 
@@ -45,4 +47,8 @@ Both npm locks passed the configured high-severity audit threshold. This is not 
 
 ## Source submission and releases
 
-Publishing this repository does not publish an application installer or enable online updates. The current testing package is local and ad-hoc signed on macOS. There is no formally signed or notarized release in this submission. The enterprise website is [www.cilai.com.cn](https://www.cilai.com.cn).
+The [v0.1.0 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.0) provides a ZIP for **macOS 13.5 or later on Apple Silicon (arm64)**, with a `SHA256SUMS` file. No Windows or macOS Intel package is included. See the [bilingual release notes](releases/v0.1.0.md).
+
+The package includes the pinned official Codex CLI / App Server **0.163.0** runtime and uses dedicated workbench configuration and state. It does not reuse an existing user's `~/.codex` profile. It is ad-hoc signed, without a Developer ID signature or Apple notarization; macOS may block the first launch. Online updates remain disabled.
+
+A public preview download does not mark the complete first-release scope as accepted or establish support for untested platforms and model combinations. The enterprise website is [www.cilai.com.cn](https://www.cilai.com.cn).
