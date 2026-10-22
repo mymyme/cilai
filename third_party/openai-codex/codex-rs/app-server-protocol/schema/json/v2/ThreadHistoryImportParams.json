@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ThreadHistoryImportMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/ThreadHistoryImportRole"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "text"
+      ],
+      "type": "object"
+    },
+    "ThreadHistoryImportRole": {
+      "enum": [
+        "user",
+        "assistant"
+      ],
+      "type": "string"
+    },
+    "ThreadHistoryImportTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "completedAt": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "displayNotes": {
+          "default": null,
+          "description": "Optional display-only migration notes. Not included in model context.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/definitions/ThreadHistoryImportMessage"
+          },
+          "type": "array"
+        },
+        "modelContext": {
+          "default": null,
+          "description": "File references kept apart from visible user input.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "completedAt",
+        "id",
+        "messages",
+        "startedAt"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Import visible, resumable history into a dedicated migration thread.",
+  "properties": {
+    "threadId": {
+      "type": "string"
+    },
+    "turns": {
+      "items": {
+        "$ref": "#/definitions/ThreadHistoryImportTurn"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "threadId",
+    "turns"
+  ],
+  "title": "ThreadHistoryImportParams",
+  "type": "object"
+}
