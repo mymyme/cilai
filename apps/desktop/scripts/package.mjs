@@ -15,6 +15,7 @@ import { verifyRuntimeNotices } from './package-runtime-notices.mjs';
 import { verifyPdfNotices } from './package-pdf-notices.mjs';
 import { verifyWorkbenchNotices } from './package-workbench-notices.mjs';
 import { verifyDependencyNotices } from './package-dependency-notices.mjs';
+import { verifyToolchainNotices } from './package-toolchain-notices.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const [config, ...requestedArgs] = process.argv.slice(2);
@@ -99,6 +100,7 @@ try {
   verifyPdfNotices({ desktopDir: projectDir, resources: packaged.resources });
   verifyWorkbenchNotices({ desktopDir: projectDir, resources: packaged.resources });
   verifyDependencyNotices({ desktopDir: projectDir, resources: packaged.resources, platform: process.platform, arch: process.arch });
+  verifyToolchainNotices({ desktopDir: projectDir, resources: packaged.resources });
 } catch (error) {
   console.error(error.message);
   process.exit(1);

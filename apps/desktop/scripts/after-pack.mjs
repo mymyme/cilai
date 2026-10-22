@@ -11,6 +11,7 @@ import { installRuntimeNotices } from './package-runtime-notices.mjs';
 import { installPdfNotices } from './package-pdf-notices.mjs';
 import { installWorkbenchNotices } from './package-workbench-notices.mjs';
 import { installDependencyNotices } from './package-dependency-notices.mjs';
+import { installToolchainNotices } from './package-toolchain-notices.mjs';
 
 /**
  * 打包后修正应用元信息。
@@ -40,6 +41,8 @@ export default async function afterPack(context) {
   installWorkbenchNotices({ desktopDir: projectDir, resources });
   const dependencies = installDependencyNotices({ desktopDir: projectDir, resources, platform, arch: process.env.CILAI_PACKAGE_ARCH });
   console.log(`依赖许可通知已复制：${dependencies.components} 个组件，${dependencies.files} 个文件`);
+  const toolchain = installToolchainNotices({ desktopDir: projectDir, resources });
+  console.log(`Rust工具链许可通知已复制：${toolchain.version}，${toolchain.files} 个文件`);
   const emptyDirectories = restoreEmptyDirectories(join(stagedDir, 'codex-runtime'), join(resources, 'sidecar', 'codex-runtime'));
   console.log(`官方 Codex 空目录结构已复制：${emptyDirectories} 项`);
   if (platform === 'darwin') {

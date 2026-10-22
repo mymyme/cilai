@@ -32,7 +32,7 @@ The commands work in a macOS terminal and Windows PowerShell. Git creates interm
 | Dependency | Required version / environment |
 | --- | --- |
 | Node.js + npm | 24.18.0; use this Node on PATH |
-| Rust | 1.97.1 with clippy and rustfmt |
+| Rust | 1.97.1 with clippy, rustfmt and rust-docs (official runtime copyright and license materials) |
 | macOS | Native arm64 or x64 host, Xcode Command Line Tools; Swift, PDFKit, AppKit |
 | Windows | Windows 10 22H2 x64 or a later client x64 release, PowerShell 5.1+, MSVC C++ Build Tools, Windows SDK, CMake, Rust MSVC x64 target |
 | cargo-deny | 0.20.2 for the full quality gate |
