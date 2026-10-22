@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillRunInstallation",
+  "type": "object",
+  "properties": {
+    "displayContent": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "errorDetail": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "errorReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messageId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "skillId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "runId",
+    "status",
+    "retryable"
+  ]
+}

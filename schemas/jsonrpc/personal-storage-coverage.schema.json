@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalStorageCoverage",
+  "type": "object",
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/PersonalStorageCategory"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scope": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/PersonalStorageCoverageState"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "category",
+    "scope",
+    "state"
+  ],
+  "$defs": {
+    "PersonalStorageCategory": {
+      "type": "string",
+      "enum": [
+        "cache",
+        "logs",
+        "attachments",
+        "application_data",
+        "skills",
+        "applications",
+        "native_history",
+        "native_memory",
+        "recovery_copies",
+        "business_database",
+        "configuration",
+        "project_originals",
+        "other_protected"
+      ]
+    },
+    "PersonalStorageCoverageState": {
+      "type": "string",
+      "enum": [
+        "covered",
+        "not_scanned",
+        "unavailable",
+        "external_reference"
+      ]
+    }
+  }
+}

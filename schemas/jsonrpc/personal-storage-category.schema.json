@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalStorageCategory",
+  "type": "string",
+  "enum": [
+    "cache",
+    "logs",
+    "attachments",
+    "application_data",
+    "skills",
+    "applications",
+    "native_history",
+    "native_memory",
+    "recovery_copies",
+    "business_database",
+    "configuration",
+    "project_originals",
+    "other_protected"
+  ]
+}

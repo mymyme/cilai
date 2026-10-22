@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillDeleteParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "skillId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "skillId",
+    "expectedRevision",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

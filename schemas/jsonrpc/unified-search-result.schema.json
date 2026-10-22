@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UnifiedSearchResult",
+  "type": "object",
+  "properties": {
+    "authorizationRevision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/UnifiedSearchGroup"
+      }
+    },
+    "partialFailures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/UnifiedSearchPartialFailure"
+      }
+    },
+    "requestId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "requestId",
+    "groups",
+    "partialFailures"
+  ],
+  "$defs": {
+    "UnifiedSearchDeepLink": {
+      "type": "object",
+      "properties": {
+        "applicationId": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "applicationId",
+        "target",
+        "objectId"
+      ]
+    },
+    "UnifiedSearchGroup": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnifiedSearchItem"
+          }
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "groupId",
+        "providerId",
+        "label",
+        "kind",
+        "items"
+      ]
+    },
+    "UnifiedSearchItem": {
+      "type": "object",
+      "properties": {
+        "businessReference": true,
+        "deepLink": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnifiedSearchDeepLink"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hitType": {
+          "type": "string"
+        },
+        "knowledgeReference": true,
+        "localTarget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnifiedSearchLocalTarget"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "matchReason": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": "string"
+        },
+        "objectType": {
+          "type": "string"
+        },
+        "providerId": {
+          "type": "string"
+        },
+        "sourceIdentity": true,
+        "summary": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "hitType",
+        "providerId",
+        "objectType",
+        "objectId",
+        "title",
+        "summary",
+        "matchReason",
+        "sourceIdentity"
+      ]
+    },
+    "UnifiedSearchLocalTarget": {
+      "type": "object",
+      "properties": {
+        "deliverableId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "localFileId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phaseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "UnifiedSearchPartialFailure": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "groupId": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "providerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "groupId",
+        "providerId",
+        "code",
+        "message"
+      ]
+    }
+  }
+}

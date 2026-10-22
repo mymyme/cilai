@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillSetStateResult",
+  "type": "object",
+  "properties": {
+    "skill": {
+      "$ref": "#/$defs/SkillSummary"
+    }
+  },
+  "required": [
+    "skill"
+  ],
+  "$defs": {
+    "SkillSummary": {
+      "type": "object",
+      "properties": {
+        "automatic": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "skillId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "skillId",
+        "name",
+        "description",
+        "source",
+        "enabled",
+        "automatic",
+        "stateRevision",
+        "updatedAt"
+      ]
+    }
+  }
+}

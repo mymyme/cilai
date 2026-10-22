@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReadBinaryPreviewResult",
+  "type": "object",
+  "properties": {
+    "contentBase64": {
+      "type": "string"
+    },
+    "contentRevision": {
+      "type": "string"
+    },
+    "contentType": {
+      "type": "string"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "contentBase64",
+    "contentRevision",
+    "contentType",
+    "sizeBytes"
+  ]
+}

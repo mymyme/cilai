@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ComputeTextDiffResult",
+  "type": "object",
+  "properties": {
+    "diffTicketId": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "left": {
+      "$ref": "#/$defs/DiffSourceRef"
+    },
+    "right": {
+      "$ref": "#/$defs/DiffSourceRef"
+    },
+    "summary": {
+      "$ref": "#/$defs/TextDiffSummary"
+    },
+    "totalRows": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "diffTicketId",
+    "expiresAt",
+    "left",
+    "right",
+    "summary",
+    "totalRows"
+  ],
+  "$defs": {
+    "DiffSourceRef": {
+      "type": "object",
+      "properties": {
+        "contentRevision": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "source": {
+          "$ref": "#/$defs/PreviewSource"
+        },
+        "ticketId": {
+          "type": "string"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "ticketId",
+        "source",
+        "contentRevision",
+        "label"
+      ]
+    },
+    "PreviewSource": {
+      "type": "string",
+      "enum": [
+        "local",
+        "cloud",
+        "baseline",
+        "platform_mock"
+      ]
+    },
+    "TextDiffSummary": {
+      "type": "object",
+      "properties": {
+        "addedLines": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "changeBlocks": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "deletedLines": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "unchangedLines": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "addedLines",
+        "deletedLines",
+        "unchangedLines",
+        "changeBlocks"
+      ]
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillRuntimeCatalogResult",
+  "type": "object",
+  "properties": {
+    "skills": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SkillRuntimeCatalogItem"
+      }
+    }
+  },
+  "required": [
+    "skills"
+  ],
+  "$defs": {
+    "SkillRuntimeCatalogItem": {
+      "type": "object",
+      "properties": {
+        "automatic": {
+          "type": "boolean"
+        },
+        "contentDigest": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "managedPath": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "skillId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "skillId",
+        "name",
+        "description",
+        "source",
+        "managedPath",
+        "automatic",
+        "stateRevision",
+        "contentDigest"
+      ]
+    }
+  }
+}

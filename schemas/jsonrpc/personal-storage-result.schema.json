@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalStorageResult",
+  "type": "object",
+  "properties": {
+    "deletedFileCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "deletedLogicalBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PersonalStorageItemResult"
+      }
+    },
+    "physicalSpaceReleased": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "items",
+    "issues"
+  ],
+  "$defs": {
+    "PersonalStorageItemResult": {
+      "type": "object",
+      "properties": {
+        "deletedFileCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "deletedLogicalBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/PersonalStorageOutcome"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retainedRelativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "itemId",
+        "outcome"
+      ]
+    },
+    "PersonalStorageOutcome": {
+      "type": "string",
+      "enum": [
+        "deleted",
+        "retained",
+        "unconfirmed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPackageImportCancelParams",
+  "type": "object",
+  "properties": {
+    "importId": {
+      "type": "string"
+    },
+    "previewDigest": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "importId",
+    "previewDigest"
+  ]
+}

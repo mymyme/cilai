@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceCreateParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "localRoot": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "localRoot",
+    "displayName",
+    "clientOperationId"
+  ]
+}

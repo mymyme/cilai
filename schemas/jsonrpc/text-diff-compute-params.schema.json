@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ComputeTextDiffParams",
+  "type": "object",
+  "properties": {
+    "left": {
+      "$ref": "#/$defs/DiffSourceRef"
+    },
+    "right": {
+      "$ref": "#/$defs/DiffSourceRef"
+    }
+  },
+  "required": [
+    "left",
+    "right"
+  ],
+  "$defs": {
+    "DiffSourceRef": {
+      "type": "object",
+      "properties": {
+        "contentRevision": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "source": {
+          "$ref": "#/$defs/PreviewSource"
+        },
+        "ticketId": {
+          "type": "string"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "ticketId",
+        "source",
+        "contentRevision",
+        "label"
+      ]
+    },
+    "PreviewSource": {
+      "type": "string",
+      "enum": [
+        "local",
+        "cloud",
+        "baseline",
+        "platform_mock"
+      ]
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalWorkspaceContentEntry",
+  "type": "object",
+  "properties": {
+    "bytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "fileIdentity": {
+      "type": "string"
+    },
+    "fileType": {
+      "type": "string"
+    },
+    "localFileId": {
+      "type": "string"
+    },
+    "modifiedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "relativePath": {
+      "type": "string"
+    },
+    "sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stateRevision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "localFileId",
+    "relativePath",
+    "fileType",
+    "fileIdentity",
+    "stateRevision"
+  ]
+}

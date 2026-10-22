@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectPortfolioListResult",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProjectPortfolioItem"
+      }
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "$defs": {
+    "ProjectPortfolioItem": {
+      "type": "object",
+      "properties": {
+        "activePhases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProjectPortfolioPhaseItem"
+          }
+        },
+        "blockerCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "decisionCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "deliverableAccepted": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "deliverableTotal": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "hasPlan": {
+          "type": "boolean"
+        },
+        "incidentCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nextPhaseName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "taskCompleted": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "taskTotal": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "workspaceDisplayName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspaceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "projectId",
+        "displayName",
+        "goal",
+        "status",
+        "workspaceIds",
+        "stateRevision",
+        "updatedAt",
+        "hasPlan",
+        "activePhases",
+        "taskTotal",
+        "taskCompleted",
+        "deliverableTotal",
+        "deliverableAccepted",
+        "blockerCount",
+        "decisionCount",
+        "incidentCount"
+      ]
+    },
+    "ProjectPortfolioPhaseItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "phaseId",
+        "name",
+        "status"
+      ]
+    }
+  }
+}

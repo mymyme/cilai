@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageAuditMethod",
+  "type": "string",
+  "enum": [
+    "session_open",
+    "session_read",
+    "session_close",
+    "context_publish",
+    "context_revoke",
+    "ui_actions_register",
+    "ui_action_invoke",
+    "model_session_create",
+    "model_session_read",
+    "model_message_read",
+    "model_run_create",
+    "model_run_read",
+    "model_run_cancel",
+    "model_write_resolve",
+    "conversation_handoff_prepare",
+    "conversation_handoff_commit",
+    "tool_read",
+    "tool_write"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillConversationCatalogResult",
+  "type": "object",
+  "properties": {
+    "skills": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SkillConversationCatalogItem"
+      }
+    }
+  },
+  "required": [
+    "skills"
+  ],
+  "$defs": {
+    "SkillConversationCatalogItem": {
+      "type": "object",
+      "properties": {
+        "automatic": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "skillId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "skillId",
+        "name",
+        "description",
+        "source",
+        "automatic",
+        "stateRevision"
+      ]
+    }
+  }
+}

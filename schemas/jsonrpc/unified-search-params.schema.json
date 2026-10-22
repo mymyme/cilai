@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UnifiedSearchParams",
+  "type": "object",
+  "properties": {
+    "cursors": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/UnifiedSearchCursor"
+      }
+    },
+    "limit": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "query": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "query",
+    "scope",
+    "limit"
+  ],
+  "$defs": {
+    "UnifiedSearchCursor": {
+      "type": "object",
+      "properties": {
+        "providerId": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerId",
+        "value"
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+import { assertPersonalBuildPath } from "./personal-build.mjs";
+import { cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+const [directory, name] = process.argv.slice(2);
+if (!directory || !/^cilai-node-[a-z0-9_-]+(?:\.exe)?$/.test(name ?? "")) throw new Error("受管 Node 暂存参数无效");
+if (process.versions.node !== "24.18.0") throw new Error("个人能力运行时必须使用 Node 24.18.0");
+if (!((process.platform === "darwin" && name.includes("apple-darwin")) || (process.platform === "win32" && name.includes("windows-msvc")))) throw new Error("受管 Node 必须在目标平台原生收集");
+if ((name.startsWith("cilai-node-aarch64") ? "arm64" : "x64") !== process.arch) throw new Error("受管 Node 架构不匹配");
+const license = process.platform === "win32" ? join(dirname(process.execPath), "LICENSE") : join(dirname(process.execPath), "..", "LICENSE");
+if (!existsSync(license) || !readFileSync(license, "utf8").includes("Node.js")) throw new Error("缺少 Node.js 随包许可证");
+assertPersonalBuildPath(directory);
+mkdirSync(resolve(directory), { recursive: true });
+cpSync(process.execPath, join(directory, name));
+cpSync(license, join(directory, "node-LICENSE.txt"));

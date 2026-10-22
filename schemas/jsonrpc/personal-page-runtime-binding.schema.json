@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageRuntimeBinding",
+  "type": "object",
+  "properties": {
+    "dataRoot": {
+      "type": "string"
+    },
+    "harnessHome": {
+      "type": "string"
+    },
+    "packageDigest": {
+      "type": "string"
+    },
+    "packageRoot": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "packageRoot",
+    "dataRoot",
+    "harnessHome",
+    "packageDigest",
+    "revision"
+  ]
+}

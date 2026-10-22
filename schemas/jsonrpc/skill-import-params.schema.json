@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillImportParams",
+  "type": "object",
+  "properties": {
+    "archivePath": {
+      "type": "string"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "archivePath",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillImportDirectoryParams",
+  "type": "object",
+  "properties": {
+    "clientOperationId": {
+      "type": "string"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "skillFilePath": {
+      "type": "string"
+    },
+    "workspaceRoot": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "skillFilePath",
+    "workspaceRoot",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

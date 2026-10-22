@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalStorageItemResult",
+  "type": "object",
+  "properties": {
+    "deletedFileCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "deletedLogicalBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "itemId": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/PersonalStorageOutcome"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "retainedRelativePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "itemId",
+    "outcome"
+  ],
+  "$defs": {
+    "PersonalStorageOutcome": {
+      "type": "string",
+      "enum": [
+        "deleted",
+        "retained",
+        "unconfirmed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalRestoredWorkspace",
+  "type": "object",
+  "properties": {
+    "contentSnapshotDigest": {
+      "type": "string"
+    },
+    "restoredPath": {
+      "type": "string"
+    },
+    "sourcePath": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "workspaceId",
+    "sourcePath",
+    "restoredPath",
+    "contentSnapshotDigest"
+  ]
+}

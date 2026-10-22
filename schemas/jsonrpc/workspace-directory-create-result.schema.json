@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceDirectoryCreateResult",
+  "type": "object",
+  "properties": {
+    "relativePath": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "relativePath"
+  ]
+}

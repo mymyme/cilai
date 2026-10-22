@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Array_of_RootAuthChange",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/RootAuthChange"
+  },
+  "$defs": {
+    "ModelAuthChangeState": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "uncertain"
+      ]
+    },
+    "ModelAuthIntent": {
+      "type": "string",
+      "enum": [
+        "chatgpt_login",
+        "chatgpt_logout",
+        "chatgpt_status",
+        "model_catalog"
+      ]
+    },
+    "ModelAuthProcess": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "process": {
+          "$ref": "#/$defs/ModelExecutionProcess"
+        },
+        "runtimeKind": {
+          "$ref": "#/$defs/ModelRuntimeKind"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runtimeKind",
+        "authGeneration",
+        "process"
+      ]
+    },
+    "ModelAuthScope": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "runtimeKind": {
+          "$ref": "#/$defs/ModelRuntimeKind"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelAuthScopeState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runtimeKind",
+        "authGeneration",
+        "state",
+        "operationId"
+      ]
+    },
+    "ModelAuthScopeState": {
+      "type": "string",
+      "enum": [
+        "active",
+        "retired",
+        "signed_out"
+      ]
+    },
+    "ModelAuthStep": {
+      "type": "object",
+      "properties": {
+        "authGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "loginId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtimeKind": {
+          "$ref": "#/$defs/ModelRuntimeKind"
+        },
+        "state": {
+          "$ref": "#/$defs/ModelAuthStepState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runtimeKind",
+        "authGeneration",
+        "state"
+      ]
+    },
+    "ModelAuthStepState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "started",
+        "confirmed",
+        "signed_out",
+        "failed",
+        "uncertain"
+      ]
+    },
+    "ModelExecutionOwner": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instanceId",
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelExecutionProcess": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startFingerprint": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "startFingerprint"
+      ]
+    },
+    "ModelRuntimeKind": {
+      "type": "string",
+      "enum": [
+        "workbench",
+        "application"
+      ]
+    },
+    "RootAuthChange": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string"
+        },
+        "expectedConfigRevision": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "instanceFence": {
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/ModelAuthIntent"
+        },
+        "launchProtocol": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "oldScopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelAuthScope"
+          }
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/ModelExecutionOwner"
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelAuthProcess"
+          }
+        },
+        "profileId": {
+          "type": "string"
+        },
+        "runtimeKind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelRuntimeKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/ModelAuthChangeState"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelAuthStep"
+          }
+        },
+        "targetGeneration": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "profileId",
+        "connectionId",
+        "intent",
+        "state",
+        "expectedConfigRevision",
+        "targetGeneration",
+        "oldScopes",
+        "steps",
+        "owner",
+        "instanceFence",
+        "launchProtocol",
+        "processes",
+        "updatedAt"
+      ]
+    }
+  }
+}

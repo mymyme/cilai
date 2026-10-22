@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceIndexPathResult",
+  "type": "object",
+  "properties": {
+    "localFileId": {
+      "type": "string"
+    },
+    "relativePath": {
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "localFileId",
+    "relativePath"
+  ]
+}

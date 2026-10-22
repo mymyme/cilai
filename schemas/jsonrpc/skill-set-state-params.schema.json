@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillSetStateParams",
+  "type": "object",
+  "properties": {
+    "automatic": {
+      "type": "boolean"
+    },
+    "clientOperationId": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "requestFingerprint": {
+      "type": "string"
+    },
+    "skillId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "skillId",
+    "enabled",
+    "automatic",
+    "expectedRevision",
+    "clientOperationId",
+    "requestFingerprint"
+  ]
+}

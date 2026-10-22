@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceIndexStatusResult",
+  "type": "object",
+  "properties": {
+    "batchesCommitted": {
+      "description": "写入阶段已提交的批数。",
+      "type": "integer",
+      "format": "int64"
+    },
+    "batchesTotal": {
+      "description": "写入阶段总批数。",
+      "type": "integer",
+      "format": "int64"
+    },
+    "entriesExamined": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "filesHashed": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "filesToHash": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "phase": {
+      "description": "`idle`、`queued`、`scanning`、`hashing`、`committing` 或 `failed`。",
+      "type": "string"
+    },
+    "reason": {
+      "description": "失败原因代码，仅 `failed` 时有值。",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "phase",
+    "entriesExamined",
+    "filesHashed",
+    "filesToHash",
+    "batchesCommitted",
+    "batchesTotal"
+  ]
+}

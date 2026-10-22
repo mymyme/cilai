@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectCreateResult",
+  "type": "object",
+  "properties": {
+    "project": {
+      "$ref": "#/$defs/ProjectSummary"
+    }
+  },
+  "required": [
+    "project"
+  ],
+  "$defs": {
+    "ProjectSummary": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "primaryWorkspaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "projectId",
+        "displayName",
+        "goal",
+        "status",
+        "stateRevision",
+        "updatedAt"
+      ]
+    }
+  }
+}

@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalPageBindingSnapshot",
+  "type": "object",
+  "properties": {
+    "activeDataSlotId": {
+      "type": "string"
+    },
+    "applicationId": {
+      "type": "string"
+    },
+    "creationProjectId": {
+      "type": "string"
+    },
+    "dataRevision": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "installationRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "name": {
+      "type": "string"
+    },
+    "packageDigest": {
+      "type": "string"
+    },
+    "pageAi": {
+      "$ref": "#/$defs/PersonalPageAiManifest"
+    },
+    "permissionDigest": {
+      "type": "string"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "profileId": {
+      "type": "string"
+    },
+    "projectRevision": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "runtimeBinding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonalPageRuntimeBinding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceDigest": {
+      "type": "string"
+    },
+    "targetType": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "profileId",
+    "creationProjectId",
+    "applicationId",
+    "name",
+    "version",
+    "packageDigest",
+    "permissionDigest",
+    "sourceDigest",
+    "targetType",
+    "permissions",
+    "enabled",
+    "installationRevision",
+    "projectRevision",
+    "activeDataSlotId",
+    "dataRevision",
+    "pageAi"
+  ],
+  "$defs": {
+    "PersonalPageAiManifest": {
+      "type": "object",
+      "properties": {
+        "contextTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageContextType"
+          }
+        },
+        "conversationHandoff": {
+          "type": "boolean"
+        },
+        "model": {
+          "type": "boolean"
+        },
+        "readTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageTool"
+          }
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "uiActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageUiAction"
+          }
+        },
+        "writeTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PersonalPageTool"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "contextTypes",
+        "uiActions",
+        "model",
+        "conversationHandoff",
+        "readTools",
+        "writeTools"
+      ]
+    },
+    "PersonalPageConfirmationPolicy": {
+      "type": "string",
+      "enum": [
+        "always"
+      ]
+    },
+    "PersonalPageContextType": {
+      "type": "object",
+      "properties": {
+        "contextType": {
+          "type": "string"
+        },
+        "dataSchema": true,
+        "schemaVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "contextType",
+        "schemaVersion",
+        "dataSchema"
+      ]
+    },
+    "PersonalPageRiskLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "PersonalPageRuntimeBinding": {
+      "type": "object",
+      "properties": {
+        "dataRoot": {
+          "type": "string"
+        },
+        "harnessHome": {
+          "type": "string"
+        },
+        "packageDigest": {
+          "type": "string"
+        },
+        "packageRoot": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "packageRoot",
+        "dataRoot",
+        "harnessHome",
+        "packageDigest",
+        "revision"
+      ]
+    },
+    "PersonalPageTool": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "title",
+        "description",
+        "inputSchema"
+      ]
+    },
+    "PersonalPageUiAction": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string"
+        },
+        "confirmationPolicy": {
+          "$ref": "#/$defs/PersonalPageConfirmationPolicy"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedEffects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputSchema": true,
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "riskLevel": {
+          "$ref": "#/$defs/PersonalPageRiskLevel"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "title",
+        "description",
+        "inputSchema",
+        "riskLevel",
+        "preconditions",
+        "expectedEffects",
+        "confirmationPolicy"
+      ]
+    }
+  }
+}
