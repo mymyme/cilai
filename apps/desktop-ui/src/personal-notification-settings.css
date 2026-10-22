@@ -1,0 +1,10 @@
+.personal-notification-settings{display:grid;gap:14px;max-width:600px;color:var(--text-primary)}
+.personal-notification-title{display:flex;align-items:center;gap:8px}
+.personal-notification-title h3{margin:0;font-size:14px;font-weight:600}
+.personal-notification-title svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.personal-notification-toggle{display:flex;justify-content:space-between;align-items:center;gap:18px}
+.personal-notification-options{display:flex;flex-wrap:wrap;gap:18px}
+.personal-notification-options label{display:flex;align-items:center;gap:6px}
+.personal-notification-actions{display:flex;gap:8px}
+.personal-notification-settings p{margin:0;font-size:12px;line-height:1.6}
+.personal-notification-note{color:var(--text-secondary)}

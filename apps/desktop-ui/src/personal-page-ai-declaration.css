@@ -1,0 +1,26 @@
+.personal-page-ai-declaration { display: grid; min-width: 0; gap: 12px; font-size: var(--text-xs); }
+.personal-page-ai-declaration > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.personal-page-ai-declaration h4 { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--text-heading); font-size: var(--text-sm); }
+.personal-page-ai-declaration h4 svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+.personal-page-ai-declaration header > span { color: var(--text-secondary); }
+.personal-page-ai-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block: 1px solid var(--border-default); }
+.personal-page-ai-version { min-width: 0; padding: 14px; }
+.personal-page-ai-version + .personal-page-ai-version { border-left: 1px solid var(--border-default); background: var(--bg-surface-alt); }
+.personal-page-ai-version h5 { margin: 0 0 14px; color: var(--text-heading); font-size: var(--text-xs); }
+.personal-page-ai-version h6 { margin: 14px 0 6px; color: var(--text-secondary); font-size: var(--text-2xs); font-weight: 650; }
+.personal-page-ai-version dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 12px; margin: 8px 0; }
+.personal-page-ai-version dt, .personal-page-ai-none { color: var(--text-tertiary); }
+.personal-page-ai-version dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.personal-page-ai-version article { display: grid; gap: 5px; padding-block: 9px; border-top: 1px solid var(--border-subtle); }
+.personal-page-ai-version article strong, .personal-page-ai-version article code { overflow-wrap: anywhere; }
+.personal-page-ai-version code { font: var(--text-2xs)/1.5 var(--font-mono); color: var(--text-secondary); }
+.personal-page-ai-version p { margin: 0; overflow-wrap: anywhere; }
+.personal-page-ai-version ul { margin: 0; padding-left: 16px; }
+.personal-page-ai-flags { display: flex; flex-wrap: wrap; gap: 5px 14px; }
+.personal-page-ai-schema { min-width: 0; margin-top: 3px; }
+.personal-page-ai-schema summary { width: fit-content; cursor: pointer; color: var(--text-secondary); }
+.personal-page-ai-schema summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; }
+.personal-page-ai-schema pre { max-height: 260px; margin-top: 7px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.personal-page-ai-confirm { display: flex; align-items: flex-start; gap: 7px; font-size: var(--text-xs); }
+.personal-editor-confirm .personal-page-ai-declaration { width: 100%; }
+@media (max-width: 700px) { .personal-page-ai-comparison { grid-template-columns: 1fr; } .personal-page-ai-version + .personal-page-ai-version { border-left: 0; border-top: 1px solid var(--border-default); } }

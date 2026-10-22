@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>被测页面</title>
+<style>
+  body { margin: 0; padding: 24px; font: 14px -apple-system, sans-serif; background: #fff; }
+  input { width: 360px; padding: 8px 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; }
+  #echo { margin-top: 12px; font-size: 13px; color: #444; }
+  #echo b { color: #111; }
+</style>
+<h3>模拟业务应用表单</h3>
+<input id="field" placeholder="在此输入">
+<div id="echo">当前值：<b id="value">（空）</b></div>
+<script>
+  const field = document.getElementById("field");
+  const value = document.getElementById("value");
+  const render = () => { value.textContent = field.value === "" ? "（空）" : field.value; };
+  field.addEventListener("input", render);
+  // 供验证脚本读取，避免依赖渲染时序
+  window.__fieldValue = () => field.value;
+  field.focus();
+</script>

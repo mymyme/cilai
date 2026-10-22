@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  强化运行时下的权限清单。
+
+  每一项都对应一个已知的运行需求，不做"先全开再说"：多给的每一项都是攻击面，
+  而公证不会因为多给而失败，问题只会在出事时才显现。
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 渲染引擎的即时编译 -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <!-- 渲染引擎在部分路径上需要可写可执行内存 -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- 随包分发的业务服务与 PDF 渲染器由本体启动，需放行非同一签名的可执行文件 -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- 访问用户选择的模型、工具和网页 -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <!-- 用户选定的工作目录 -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+</dict>
+</plist>

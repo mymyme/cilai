@@ -1,0 +1,24 @@
+.ch-rich-menu { position: fixed; z-index: 90; display: grid; align-content: start; gap: 2px; padding: 6px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--bg-surface); box-shadow: var(--shadow-lg); }
+.ch-rich-menu[data-positioned="false"] { visibility: hidden; }
+.ch-rich-menu-section { display: grid; gap: 2px; }
+.ch-rich-menu-section + .ch-rich-menu-section { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-subtle); }
+.ch-rich-menu-section > p { margin: 0; padding: 3px 8px 4px; color: var(--text-quiet); font-size: var(--text-2xs); font-weight: 650; }
+.ch-rich-menu-item { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 8px; padding: 9px 9px 9px 11px; border: 0; border-radius: var(--radius-md); color: var(--text-secondary); background: transparent; text-align: left; transform: none; }
+.ch-rich-menu-item[data-leading="true"] { grid-template-columns: 17px minmax(0, 1fr) auto 18px; }
+.ch-rich-menu-item[data-leading="true"]:not([role="menuitemradio"]) { grid-template-columns: 17px minmax(0, 1fr); }
+.ch-rich-menu-item:hover:not(:disabled), .ch-rich-menu-item:focus-visible { border: 0; outline: none; color: var(--text-primary); background: var(--bg-hover); transform: none; }
+.ch-rich-menu-item[data-selected="true"] { color: var(--accent-text); background: var(--bg-selected); box-shadow: inset 3px 0 0 var(--accent-strong), inset 0 0 0 1px var(--accent-border-subtle); }
+.ch-rich-menu-item[data-action="true"] { color: var(--accent-text); }
+.ch-rich-menu-copy { display: block; min-width: 0; }
+.ch-rich-menu-copy strong, .ch-rich-menu-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-rich-menu-copy strong { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; }
+.ch-rich-menu-item[data-selected="true"] .ch-rich-menu-copy strong, .ch-rich-menu-item[data-action="true"] .ch-rich-menu-copy strong { color: currentColor; }
+.ch-rich-menu-copy small { margin-top: 2px; color: var(--text-tertiary); font-size: var(--text-2xs); font-weight: 400; }
+.ch-rich-menu-leading, .ch-rich-menu-check { display: grid; width: 18px; height: 18px; color: var(--text-tertiary); place-items: center; }
+.ch-rich-menu-leading svg, .ch-rich-menu-check svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.ch-rich-menu-item[data-action="true"] .ch-rich-menu-leading, .ch-rich-menu-check { color: var(--accent-text); }
+.ch-rich-menu-item kbd { color: var(--text-quiet); font: inherit; font-size: var(--text-xs); text-align: center; }
+.ch-rich-menu-separator { height: 1px; margin: 4px; background: var(--border-subtle); }
+.ch-rich-menu-empty { margin: 0; padding: 10px 9px; color: var(--text-quiet); font-size: var(--text-xs); }
+/* 空状态带一行加粗结论时，结论和说明各占一行。 */
+.ch-rich-menu-empty strong { display: block; margin-bottom: 3px; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 650; }

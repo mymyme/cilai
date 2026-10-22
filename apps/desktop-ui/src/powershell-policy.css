@@ -1,0 +1,13 @@
+.powershell-policy-engines { display: grid; gap: 12px; }
+.powershell-policy-engines > div { padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); }
+.powershell-policy-engine-title { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: var(--text-xs); }
+.powershell-policy-engine-title > span { color: var(--text-tertiary); }
+.powershell-policy-engines p { margin: 6px 0 10px; overflow-wrap: anywhere; color: var(--text-tertiary); font-size: var(--text-2xs); line-height: 1.6; }
+.powershell-policy details { color: var(--text-secondary); font-size: var(--text-2xs); }
+.powershell-policy summary { width: fit-content; cursor: pointer; }
+.powershell-policy summary:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+.powershell-policy dl { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+.powershell-policy dl > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 6px; }
+.powershell-policy dt { color: var(--text-tertiary); }.powershell-policy dd { margin: 0; }
+.powershell-policy-note { margin: 0; color: var(--text-tertiary); font-size: var(--text-2xs); line-height: 1.7; }
+.powershell-policy-result { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-radius: var(--radius-md); color: var(--success-text); background: var(--success-bg); font-size: var(--text-xs); line-height: 1.6; }

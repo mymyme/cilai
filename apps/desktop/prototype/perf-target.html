@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>性能被测页面</title>
+<style>
+  body { margin: 0; font: 13px -apple-system, sans-serif; background: #fff; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 7px 10px; border-bottom: 1px solid #eee; text-align: left; white-space: nowrap; }
+  th { background: #f6f8fa; position: sticky; top: 0; }
+  tr:nth-child(even) { background: #fafbfc; }
+</style>
+<table>
+  <thead><tr><th>编号</th><th>名称</th><th>类别</th><th>状态</th><th>负责人</th><th>更新时间</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<script>
+  // 模拟业务应用中常见的长列表：行数足以产生真实的滚动重绘
+  const categories = ["废气治理", "废水处理", "危废管理", "排污许可", "环境影响评价"];
+  const states = ["生效中", "待审核", "已归档", "已过期"];
+  const body = document.getElementById("rows");
+  let html = "";
+  for (let i = 1; i <= 600; i += 1) {
+    html += `<tr><td>HB-${String(i).padStart(5, "0")}</td><td>环保档案登记表 ${i}</td>`
+      + `<td>${categories[i % categories.length]}</td><td>${states[i % states.length]}</td>`
+      + `<td>员工${i % 37}</td><td>2026-09-${String((i % 28) + 1).padStart(2, "0")} 10:${String(i % 60).padStart(2, "0")}</td></tr>`;
+  }
+  body.innerHTML = html;
+</script>

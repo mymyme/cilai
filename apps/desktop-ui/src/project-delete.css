@@ -1,0 +1,20 @@
+/* 外观（边框/圆角/底色/投影）已由 styles.css 的共享规则给出，这里只留自己的尺寸。 */
+.project-delete-dialog { width: min(520px, 100%); gap: 12px; padding: 22px 24px; }
+.project-delete-dialog h3 { margin: 0; overflow: hidden; color: var(--text-heading); font-size: var(--text-base); font-weight: 650; text-overflow: ellipsis; }
+.project-delete-scope { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); }
+.project-delete-list { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.6; }
+.project-delete-keep { margin: 0; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-secondary); background: var(--bg-surface-alt); font-size: var(--text-xs); line-height: 1.6; }
+.project-delete-keep strong { color: var(--text-heading); }
+.project-delete-dialog label { display: grid; gap: 5px; color: var(--text-secondary); font-size: var(--text-2xs); font-weight: 650; }
+.project-delete-dialog input { appearance: none; -webkit-appearance: none; height: 36px; padding: 0 11px; border: 1px solid var(--border-input); border-radius: var(--radius-md); outline: none; color: var(--text-primary); background: var(--bg-canvas); font: inherit; font-size: var(--text-sm); }
+.project-delete-dialog input:focus { border-color: var(--border-focus); box-shadow: var(--focus-ring-accent); }
+.project-delete-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+.project-create-link { justify-self: start; height: 28px; padding: 0 9px; border: 1px solid var(--border-input); border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; white-space: nowrap; font-size: var(--text-2xs); }
+.project-create-link:hover { border-color: var(--accent-border-subtle); color: var(--accent-text); background: var(--bg-hover); }
+
+/* Creating a project is a focused decision, so it takes over the screen instead of pushing the
+   portfolio content down the page. */
+/* 同一块面板在页面内和弹窗里都用，进了弹窗才需要限高和滚动。 */
+.project-create-backdrop .project-create-panel { width: min(560px, 100%); max-height: calc(100vh - 48px); overflow: auto; margin: 0; }
+
+/* Sits next to the delete control and matches it, so the two card actions read as one pair. */
