@@ -1,0 +1,45 @@
+[package]
+name = "contexthub-workbench-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# 桌面端的业务逻辑。
+#
+# 这些模块原本是宿主壳可执行 crate 的内部模块，不依赖界面框架却也无法被另一个壳引用，
+# 只能复制或以源码路径穿透引用。提取为库之后两个壳共用同一份实现，依赖表也只剩一份。
+#
+# 版本与两个壳原先各自声明的逐一对齐：被移动的是同一份源码，依赖版本不同会引入行为差异。
+[dependencies]
+base64 = "=0.22.1"
+chrono = { version = "=0.4.44", default-features = false, features = ["clock", "std"] }
+contexthub-local-transport = { path = "../local-transport", version = "=0.1.0" }
+contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.0" }
+contexthub-protocol = { path = "../protocol", version = "=0.1.0" }
+futures-util = "=0.3.33"
+http-body-util = "=0.1.4"
+hyper = { version = "=1.11.0", features = ["server", "http1"] }
+hyper-util = { version = "=0.1.20", features = ["tokio"] }
+regex = "=1.13.1"
+reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "json", "rustls"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.151", features = ["raw_value"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+rustls-native-certs = "=0.8.3"
+sha2 = "=0.10.9"
+tokio = { version = "=1.53.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
+tokio-rustls = { version = "=0.26.5", default-features = false, features = ["aws_lc_rs", "tls12"] }
+trash = "=5.2.3"
+# 界面框架把它当作再导出提供，提取后直接依赖本体
+url = "=2.5.8"
+uuid = { version = "=1.24.0", features = ["v4"] }
+zip = { version = "=9.0.4", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.0" }
+rusqlite = { version = "=0.39.0", features = ["bundled"] }
+
+[lints]
+workspace = true
