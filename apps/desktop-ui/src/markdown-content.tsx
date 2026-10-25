@@ -78,7 +78,7 @@ let mermaidPromise: Promise<(typeof import("mermaid"))["default"]> | null = null
 
 function loadMermaid() {
   mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral", layout: "dagre", look: "classic" });
     return mermaid;
   });
   return mermaidPromise;

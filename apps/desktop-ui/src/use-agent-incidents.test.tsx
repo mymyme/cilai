@@ -42,7 +42,7 @@ function Harness({ root, onError = () => {} }: { root: string | null; onError?: 
 beforeEach(() => {
   invoke.mockReset();
   invoke.mockImplementation((command: string) => {
-    if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot([run()]));
+    if (command === "ai_runtime_query") return Promise.resolve(snapshot([run()]));
     return Promise.resolve({});
   });
 });
@@ -51,7 +51,7 @@ describe("失败的运行汇入工作台", () => {
   it("失败的运行上报为关注事项", async () => {
     render(<Harness root="/tmp/ws"/>);
     await waitFor(() => expect(reports()).toHaveLength(1));
-    expect(invoke).toHaveBeenCalledWith("ai_runtime_snapshot");
+    expect(invoke).toHaveBeenCalledWith("ai_runtime_query", { request: { scope: "incidents" } });
     expect(reports()[0].runId).toBe("run-1");
     expect(reports()[0].projectId).toBe("proj-1");
     expect(reports()[0].errorSummary).toContain("provider exited");
@@ -73,7 +73,7 @@ describe("失败的运行汇入工作台", () => {
 
   it("用户自己终止的运行不算事故", async () => {
     invoke.mockImplementation((command: string) =>
-      Promise.resolve(command === "ai_runtime_snapshot" ? snapshot([run({ status: "terminated" })]) : {}));
+      Promise.resolve(command === "ai_runtime_query" ? snapshot([run({ status: "terminated" })]) : {}));
     render(<Harness root="/tmp/ws"/>);
     await waitFor(() => expect(invoke).toHaveBeenCalled());
     expect(reports()).toHaveLength(0);
@@ -81,7 +81,7 @@ describe("失败的运行汇入工作台", () => {
 
   it("还活着、只是在等授权的运行不建持久待办卡", async () => {
     invoke.mockImplementation((command: string) =>
-      Promise.resolve(command === "ai_runtime_snapshot" ? snapshot([run({ status: "waiting_permission" })]) : {}));
+      Promise.resolve(command === "ai_runtime_query" ? snapshot([run({ status: "waiting_permission" })]) : {}));
     render(<Harness root="/tmp/ws"/>);
     await waitFor(() => expect(invoke).toHaveBeenCalled());
     expect(reports()).toHaveLength(0);
@@ -89,7 +89,7 @@ describe("失败的运行汇入工作台", () => {
 
   it("没有项目归属的对话无处可挂，跳过而不是报错", async () => {
     invoke.mockImplementation((command: string) =>
-      Promise.resolve(command === "ai_runtime_snapshot" ? snapshot([run()], null) : {}));
+      Promise.resolve(command === "ai_runtime_query" ? snapshot([run()], null) : {}));
     render(<Harness root="/tmp/ws"/>);
     await waitFor(() => expect(invoke).toHaveBeenCalled());
     expect(reports()).toHaveLength(0);
@@ -97,7 +97,7 @@ describe("失败的运行汇入工作台", () => {
 
   it("无关历史失败不按对话当前任务补记阻塞", async () => {
     invoke.mockImplementation((command: string) =>
-      Promise.resolve(command === "ai_runtime_snapshot" ? snapshot([run({ retryOfRunId: null })]) : {}));
+      Promise.resolve(command === "ai_runtime_query" ? snapshot([run({ retryOfRunId: null })]) : {}));
     render(<Harness root="/tmp/ws"/>);
     await waitFor(() => expect(invoke).toHaveBeenCalled());
     expect(reports()).toHaveLength(0);
@@ -107,7 +107,7 @@ describe("失败的运行汇入工作台", () => {
     // 这里原先是一个不分青红皂白的 catch：上报被整条拒绝时前端毫无察觉，
     // 事故卡长期没有建出来过而没有人知道。
     invoke.mockImplementation((command: string, args: unknown) => {
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot([run()]));
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot([run()]));
       if ((args as { method?: string })?.method === "agentIncident/report") {
         return Promise.reject(new Error('{"code":-32010,"data":{"reason":"attention_priority_invalid"}}'));
       }
@@ -120,7 +120,7 @@ describe("失败的运行汇入工作台", () => {
 
   it("这次运行已经有事故卡时静静跳过，不打扰用户", async () => {
     invoke.mockImplementation((command: string, args: unknown) => {
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot([run()]));
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot([run()]));
       if ((args as { method?: string })?.method === "agentIncident/report") {
         return Promise.reject(new Error('{"code":-32010,"data":{"reason":"agent_run_incident_exists"}}'));
       }

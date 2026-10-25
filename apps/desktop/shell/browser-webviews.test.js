@@ -58,9 +58,9 @@ test("主界面预载保留受控Host和更新接口，移除旧容器单向通�
 
 test('真实Electron浏览器挂载不执行旧预载并保持实际截图',{skip:process.env.CILAI_PERSONAL_BROWSER_NATIVE!=='1',timeout:50_000},async t=>{
   const fs=require('node:fs'),{spawnSync}=require('node:child_process');
-  const parent=path.resolve(__dirname,'../../../../../.personal-build/browser-webview-fixtures');fs.mkdirSync(parent,{recursive:true});
+  const parent=path.join(require('./personal-isolation').personalBuildRoot(),'browser-webview-fixtures');fs.mkdirSync(parent,{recursive:true});
   const root=fs.mkdtempSync(path.join(fs.realpathSync(parent),'probe-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
-  const executable=require('electron');assert.ok(fs.realpathSync(executable).startsWith(path.resolve(__dirname,'../../../../..')+path.sep));
+  const executable=require('electron');assert.ok(fs.realpathSync(executable).startsWith(require('./personal-isolation').personalBuildRoot()+path.sep));
   for(const name of ['home','tmp','userData','session','logs'])fs.mkdirSync(path.join(root,name));
   const hostile=path.join(root,'unapproved-preload.cjs');fs.writeFileSync(hostile,'require(\'electron\').contextBridge.exposeInMainWorld(\'__unapproved_preload__\',true);');
   const config={root,browserModule:path.join(__dirname,'browser.js'),guardModule:path.join(__dirname,'browser-webviews.js'),hostileUrl:require('node:url').pathToFileURL(hostile).href,partition:'persist:ai-browser-'+'a'.repeat(32)};

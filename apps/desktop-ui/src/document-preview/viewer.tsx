@@ -1,4 +1,5 @@
 import { Select } from "../select";
+import { ChartView } from "./chart-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentPreviewModel, OfficePreviewFormat, PreviewParagraph, PreviewSheet, PreviewTopic, SlideObject } from "./model";
 import "./viewer.css";
@@ -78,7 +79,10 @@ function SlideElement({ object }: { object: SlideObject }) {
   const frame = { x: 0, y: 0, width: w, height: h };
   const style = { fill: object.fill ?? "none", stroke: object.stroke ?? "none", strokeWidth: 1 };
   let shape;
-  if (object.kind === "placeholder") shape = <><rect {...frame} fill="#f5f5f5" stroke="#b8bdc4" strokeDasharray="4 3"/><foreignObject {...frame}><div className="office-slide-placeholder">{object.placeholder}</div></foreignObject></>;
+  if (object.kind === "chart" && object.chart) shape = <ChartView chart={object.chart} width={w} height={h}/>;
+  else if (object.kind === "group" && object.viewport) shape = <svg width={w} height={h} viewBox={`${object.viewport.x / scale} ${object.viewport.y / scale} ${object.viewport.width / scale} ${object.viewport.height / scale}`}>{object.children?.map(child => <SlideElement key={child.id} object={child}/>)}</svg>;
+  else if (object.kind === "error") shape = <foreignObject {...frame}><div className="office-slide-error" role="alert">{object.error}</div></foreignObject>;
+  else if (object.kind === "placeholder") shape = <><rect {...frame} fill="#f5f5f5" stroke="#b8bdc4" strokeDasharray="4 3"/><foreignObject {...frame}><div className="office-slide-placeholder">{object.placeholder}</div></foreignObject></>;
   else if (object.kind === "image") {
     const crop = object.crop ?? { left: 0, top: 0, right: 0, bottom: 0 };
     const visibleX = Math.max(.01, 1 - crop.left - crop.right); const visibleY = Math.max(.01, 1 - crop.top - crop.bottom);
@@ -97,7 +101,7 @@ function TextParagraphs({ paragraphs }: { paragraphs: PreviewParagraph[] }) {
 function WorkbookPreview({ model }: { model: Extract<DocumentPreviewModel, { format: "xlsx" }> }) {
   const [index, setIndex] = useState(0);
   useEffect(() => setIndex(0), [model]);
-  return <div className="office-workbook"><div className="office-toolbar"><label>工作表 <Select ariaLabel="工作表" value={String(index)} onChange={(value) => setIndex(Number(value))} options={model.sheets.map((sheet, i) => ({value:String(i),label:sheet.name}))}/></label><span>公式结果：{model.calculationState === "stale" ? "待重算" : "文件缓存"}</span></div>{model.sheets[index] ? <SheetGrid key={model.sheets[index].id} sheet={model.sheets[index]}/> : <div className="preview-message">没有工作表。</div>}</div>;
+  return <div className="office-workbook"><div className="office-toolbar"><label>工作表 <Select ariaLabel="工作表" value={String(index)} onChange={(value) => setIndex(Number(value))} options={model.sheets.map((sheet, i) => ({value:String(i),label:sheet.name}))}/></label><span>公式：{model.calculationState === "error" ? `${model.calculationErrors} 个计算错误` : `${model.formulaCount} 个已重算`}</span></div>{model.sheets[index] ? <SheetGrid key={model.sheets[index].id} sheet={model.sheets[index]}/> : <div className="preview-message">没有工作表。</div>}</div>;
 }
 export function columnLabel(index: number): string { let result = ""; let value = index; while (value > 0) { value -= 1; result = String.fromCharCode(65 + value % 26) + result; value = Math.floor(value / 26); } return result; }
 function SheetGrid({ sheet }: { sheet: PreviewSheet }) {
@@ -112,7 +116,7 @@ function SheetGrid({ sheet }: { sheet: PreviewSheet }) {
     if (merge && (row !== Math.max(firstRow, merge.startRow) || column !== Math.max(firstColumn, merge.startColumn))) continue;
     const cell = cells.get(`${merge?.startRow ?? row}:${merge?.startColumn ?? column}`);
     const address = cell?.address ?? `${columnLabel(column)}${row}`;
-    displayed.push(<div aria-colindex={column} aria-rowindex={row} className="office-cell" key={`${row}:${column}`} onClick={() => setSelected(address)} role="gridcell" style={{ top: row * 28, left: column * 120 - 72, width: 120 * (merge ? Math.min(lastColumn, merge.endColumn) - column + 1 : 1), height: 28 * (merge ? Math.min(lastRow, merge.endRow) - row + 1 : 1) }} title={cell?.formula ? `${address}: =${cell.formula}\n缓存值: ${cell.value}` : `${address}: ${cell?.value ?? ""}`}>{cell?.value}</div>);
+    displayed.push(<div aria-colindex={column} aria-rowindex={row} className="office-cell" key={`${row}:${column}`} onClick={() => setSelected(address)} role="gridcell" style={{ top: row * 28, left: column * 120 - 72, width: 120 * (merge ? Math.min(lastColumn, merge.endColumn) - column + 1 : 1), height: 28 * (merge ? Math.min(lastRow, merge.endRow) - row + 1 : 1) }} data-calculation-error={Boolean(cell?.formulaError) || undefined} title={cell?.formula ? `${address}: =${cell.formula}\n${cell.formulaError ?? `重算值: ${cell.value}`}\n原缓存值: ${cell.cachedValue ?? ""}` : `${address}: ${cell?.value ?? ""}`}>{cell?.value}</div>);
   }
   const selectedCell = sheet.cells.find((cell) => cell.address === selected);
   return <><div className="office-formula" aria-label="单元格内容"><span>{selected ?? ""}</span><span>{selectedCell?.formula ? `=${selectedCell.formula}` : selectedCell?.value ?? ""}</span></div><div aria-colcount={sheet.columnCount} aria-label={sheet.name} aria-rowcount={sheet.rowCount} className="office-grid" onScroll={(event) => setPosition({ top: event.currentTarget.scrollTop, left: event.currentTarget.scrollLeft })} ref={ref} role="grid"><div style={{ width: sheet.columnCount * 120 + 48, height: sheet.rowCount * 28 + 28, position: "relative" }}>{displayed}{Array.from({ length: lastRow - firstRow + 1 }, (_, i) => firstRow + i).map((row) => <div className="office-row-header" key={`r${row}`} style={{ top: row * 28, left: position.left }}>{row}</div>)}{Array.from({ length: lastColumn - firstColumn + 1 }, (_, i) => firstColumn + i).map((column) => <div className="office-column-header" key={`c${column}`} style={{ left: column * 120 - 72, top: position.top }}>{columnLabel(column)}</div>)}</div></div></>;

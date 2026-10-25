@@ -74,6 +74,198 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn session_acknowledgement_loss_keeps_committed_drafts_through_an_unrelated_save() {
+    let _guard = crate::supervisor::app_server_test_guard();
+    let fixture = Fixture::new();
+    let original = serde_json::to_value(fixture.manager.conversation_session().unwrap()).unwrap();
+    let draft = serde_json::json!({"conversation:pending":"尚未发送的新草稿"});
+    let patch = serde_json::json!({
+        "sessionId":original["sessionId"],
+        "changes":[{"key":"drafts","previous":null,"value":draft}]
+    });
+    fixture
+        .server
+        .lose_next_successful_responses("aiLedger/apply", 2);
+    let before = fixture.server.observed_request_methods().len();
+    let error = fixture
+        .manager
+        .patch_conversation_session(serde_json::from_value(patch.clone()).unwrap())
+        .unwrap_err();
+    assert_eq!(error, "App Server request timed out: aiLedger/apply");
+    assert_eq!(
+        fixture.server.observed_request_methods()[before..]
+            .iter()
+            .filter(|method| method.as_str() == "aiLedger/apply")
+            .count(),
+        2
+    );
+    let retained = serde_json::to_value(fixture.manager.conversation_session().unwrap()).unwrap();
+    assert_eq!(retained["values"]["drafts"], draft);
+    assert_eq!(
+        retained["revision"].as_u64().unwrap(),
+        original["revision"].as_u64().unwrap() + 1
+    );
+    assert!(persistence_outcome_unknown(&lock(&fixture.manager.inner)));
+    assert_eq!(fixture.metadata()["conversationSession"]["drafts"], draft);
+    let command = lock(&fixture.manager.inner)
+        .pending_ledger_write
+        .as_ref()
+        .unwrap()
+        .request
+        .clone();
+    fixture
+        .server
+        .lose_next_successful_responses("aiLedger/apply", 2);
+    assert_eq!(
+        fixture
+            .manager
+            .patch_conversation_session(serde_json::from_value(patch.clone()).unwrap())
+            .unwrap_err(),
+        error
+    );
+    assert_eq!(
+        lock(&fixture.manager.inner)
+            .pending_ledger_write
+            .as_ref()
+            .unwrap()
+            .request,
+        command
+    );
+    let retried = serde_json::to_value(fixture.manager.conversation_session().unwrap()).unwrap();
+    assert_eq!(retried, retained);
+    fixture
+        .manager
+        .patch_conversation_session(serde_json::from_value(patch).unwrap())
+        .unwrap();
+    assert!(!persistence_outcome_unknown(&lock(&fixture.manager.inner)));
+    assert_eq!(
+        serde_json::to_value(fixture.manager.conversation_session().unwrap()).unwrap(),
+        retained
+    );
+
+    fixture
+        .manager
+        .set_inbox_read(&InboxReadRequest {
+            item_id: "unrelated-item".into(),
+            read: true,
+        })
+        .unwrap();
+    assert!(!persistence_outcome_unknown(&lock(&fixture.manager.inner)));
+    assert_eq!(fixture.metadata()["conversationSession"]["drafts"], draft);
+    let current = serde_json::to_value(fixture.manager.conversation_session().unwrap()).unwrap();
+    assert_eq!(current["values"]["drafts"], draft);
+
+    let server = lock(&fixture.manager.inner).server.take().unwrap();
+    let rejected = serde_json::from_value(serde_json::json!({
+        "sessionId":current["sessionId"],
+        "changes":[{"key":"drafts","previous":draft,"value":{"conversation:pending":"未提交"}}]
+    }))
+    .unwrap();
+    assert!(
+        fixture
+            .manager
+            .patch_conversation_session(rejected)
+            .is_err()
+    );
+    lock(&fixture.manager.inner).server = Some(server);
+    let restored = serde_json::to_value(fixture.manager.conversation_session().unwrap()).unwrap();
+    assert_eq!(restored, current);
+    assert_eq!(fixture.metadata()["conversationSession"]["drafts"], draft);
+}
+
+#[test]
+fn native_catalog_is_batched_and_unrelated_saves_do_not_read_history() {
+    let _guard = crate::supervisor::app_server_test_guard();
+    let fixture = Fixture::new();
+    let mut conversations = Vec::new();
+    for title in ["第一项", "第二项", "第三项"] {
+        conversations.push(fixture.manager.create_conversation(serde_json::from_value(serde_json::json!({
+            "title":title,"conversationType":"direct","mode":"discuss","context":{"workspaceRoot":""}
+        })).unwrap()).unwrap());
+    }
+    let service = lock(&fixture.manager.inner).codex_threads.clone().unwrap();
+    let threads = lock(&fixture.manager.inner).native_catalog.clone();
+    let catalog = service
+        .catalog_for_threads(threads.values().map(|(thread, _, _)| thread.as_str()))
+        .unwrap();
+    for conversation in &conversations {
+        let thread = &threads[&conversation.conversation_id].0;
+        assert_eq!(catalog[thread]["name"], conversation.title);
+    }
+    let before = service.observed_catalog_loads();
+    fixture.manager.refresh_native_catalog().unwrap();
+    assert_eq!(service.observed_catalog_loads() - before, 1);
+    let before = service.observed_catalog_loads();
+    {
+        let mut state = lock(&fixture.manager.inner);
+        state.native_catalog.clear();
+        synchronize_native_catalog(&mut state).unwrap();
+    }
+    assert_eq!(service.observed_catalog_loads() - before, 1);
+    let before = fixture.server.observed_request_methods().len();
+    let catalog_before = service.observed_catalog_loads();
+    fixture
+        .manager
+        .set_inbox_read(&InboxReadRequest {
+            item_id: "unrelated-item".into(),
+            read: true,
+        })
+        .unwrap();
+    assert_eq!(service.observed_catalog_loads(), catalog_before);
+    assert!(
+        !fixture.server.observed_request_methods()[before..]
+            .iter()
+            .any(|method| method == "aiThread/get")
+    );
+
+    let updated = fixture
+        .manager
+        .update_conversation(ConversationUpdateRequest {
+            conversation_id: conversations[0].conversation_id.clone(),
+            title: Some("新标题".into()),
+            mode: None,
+            agent_id: None,
+            approval_mode: None,
+            context: None,
+            archived: None,
+        })
+        .unwrap();
+    let result = fixture
+        .manager
+        .set_conversations_archived(ConversationArchiveRequest {
+            conversation_ids: vec![conversations[1].conversation_id.clone()],
+            archived: true,
+        })
+        .unwrap();
+    assert!(result.failures.is_empty());
+    let catalog = service
+        .catalog_for_threads(threads.values().map(|(thread, _, _)| thread.as_str()))
+        .unwrap();
+    assert_eq!(
+        catalog[&threads[&updated.conversation_id].0]["name"],
+        "新标题"
+    );
+    assert_eq!(
+        catalog[&threads[&conversations[1].conversation_id].0]["archived"],
+        true
+    );
+    fixture
+        .manager
+        .set_conversations_archived(ConversationArchiveRequest {
+            conversation_ids: vec![conversations[1].conversation_id.clone()],
+            archived: false,
+        })
+        .unwrap();
+    let catalog = service
+        .catalog_for_threads(threads.values().map(|(thread, _, _)| thread.as_str()))
+        .unwrap();
+    assert_eq!(
+        catalog[&threads[&conversations[1].conversation_id].0]["archived"],
+        false
+    );
+}
+
+#[test]
 fn parked_same_thread_saves_without_reloading_the_native_catalog() {
     let _guard = crate::supervisor::app_server_test_guard();
     for (event_type, session_id, retained) in [

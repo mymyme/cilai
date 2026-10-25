@@ -45,8 +45,7 @@ cd "$PROJECT_ROOT"
 if [[ "${CILAI_STAGED_BUILD:-0}" != "1" && "$PROJECT_ROOT" != "$BUILD_ROOT" ]]; then
   echo "[stage] 统一在 $BUILD_ROOT 校验"
   node "$PROJECT_ROOT/scripts/stage-build.mjs"
-  (cd "$BUILD_ROOT" && npm ci --silent --no-audit)
-  (cd "$BUILD_ROOT" && npm --prefix apps/desktop ci --silent --no-audit)
+  (cd "$BUILD_ROOT" && node scripts/ensure-build-dependencies.mjs --ci)
   (cd "$BUILD_ROOT" && node apps/desktop/scripts/prepare-electron-runtime.mjs)
   CILAI_STAGED_BUILD=1 "$BUILD_ROOT/script/quality.sh"
   exit 0
@@ -62,6 +61,7 @@ node apps/desktop/scripts/stage-binaries.mjs --profile debug
 cargo fmt --all -- --check
 cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
+node scripts/prepare-rust-test-node.mjs
 cargo test --workspace
 cargo run --quiet -p contexthub-protocol --bin generate-contracts -- --check
 

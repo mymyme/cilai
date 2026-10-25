@@ -18,7 +18,7 @@ vi.mock("./host", () => ({
       return { profileId: "test-profile", catalog: { generation: 0, revision: 1, checkedAt: Date.now(), revalidateAfter: Date.now() + 300_000, error: null, status: { configured: true, endpoint: "https://models.example.test/v1", models: modelApi.models } } };
     }
     const result = await invoke(command, args);
-    if (command === "ai_runtime_snapshot" && result) { modelApi.models = result.models; return structuredClone(result); }
+    if (command === "ai_runtime_query" && result) { modelApi.models = result.models; return structuredClone(result); }
     return result;
   },
 }));
@@ -103,7 +103,7 @@ beforeEach(() => {
   modelApi.fail = null;
   invoke.mockReset();
   invoke.mockImplementation((command: string) => {
-    if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+    if (command === "ai_runtime_query") return Promise.resolve(snapshot);
     if (command === "ai_automation_trigger_history") return Promise.resolve({items:[],nextBeforeSequence:null});
     throw new Error(`unexpected command ${command}`);
   });
@@ -159,7 +159,7 @@ describe("已安排任务页面", () => {
     const onMessage = vi.fn();
     let current = snapshot;
     invoke.mockImplementation((command: string, args?: { request: { automationRuleId: string } }) => {
-      if (command === "ai_runtime_snapshot") return Promise.resolve(current);
+      if (command === "ai_runtime_query") return Promise.resolve(current);
       if (command === "ai_automation_rule_delete") {
         current = { ...current, automationRules: current.automationRules.filter((item) => item.automationRuleId !== args?.request.automationRuleId) };
         return Promise.resolve(null);
@@ -188,7 +188,7 @@ describe("已安排任务页面", () => {
     let rejectDelete!: (reason: Error) => void;
     const deletion = new Promise<void>((_resolve, reject) => { rejectDelete = reject; });
     invoke.mockImplementation((command: string) => {
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot);
       if (command === "ai_automation_rule_delete") return deletion;
       throw new Error(command);
     });
@@ -214,7 +214,7 @@ describe("已安排任务页面", () => {
 
   it("无可用项目或智能体时仍能删除最后一条任务，保留搜索和筛选", async () => {
     invoke.mockImplementation((command: string) => {
-      if (command === "ai_runtime_snapshot") return Promise.resolve({ ...snapshot, localAgentsEnabled: false, agents: [], automationRules: [rules[2]] });
+      if (command === "ai_runtime_query") return Promise.resolve({ ...snapshot, localAgentsEnabled: false, agents: [], automationRules: [rules[2]] });
       if (command === "ai_automation_rule_delete") return Promise.resolve(null);
       throw new Error(command);
     });
@@ -236,7 +236,7 @@ describe("已安排任务页面", () => {
     const stale = new Promise<AiRuntimeSnapshot>((resolve) => { resolveSnapshot = resolve; });
     let reads = 0;
     invoke.mockImplementation((command: string) => {
-      if (command === "ai_runtime_snapshot") return ++reads === 1 ? Promise.resolve(snapshot) : stale;
+      if (command === "ai_runtime_query") return ++reads === 1 ? Promise.resolve(snapshot) : stale;
       if (command === "ai_automation_rule_delete") return Promise.resolve(null);
       throw new Error(command);
     });
@@ -259,7 +259,7 @@ describe("已安排任务页面", () => {
       { conversationId: "archived", title: "已归档对话", archived: true, context: { projectId: "project-1" } },
     ];
     invoke.mockImplementation((command: string, args: { request?: object }) => {
-      if (command === "ai_runtime_snapshot") return Promise.resolve({ ...snapshot, conversations, models: [{ modelId: "model-1", label: "Qwen 模型" }] });
+      if (command === "ai_runtime_query") return Promise.resolve({ ...snapshot, conversations, models: [{ modelId: "model-1", label: "Qwen 模型" }] });
       if (command === "ai_automation_rule_save") return Promise.resolve({ ...rules[0], ...args.request });
       throw new Error(command);
     });
@@ -340,7 +340,7 @@ describe("已安排任务页面", () => {
     render(<AutomationsPage project={null} workspace={null} onMessage={() => {}} onOpenRun={() => {}}/>);
     expect(await screen.findByText("连接项目文件夹后可新建自动化。")).toBeTruthy();
     expect(screen.getByRole("button", { name: "新建自动化" })).toHaveProperty("disabled", true);
-    await waitFor(() => expect(invoke.mock.calls.some(([command]) => command === "ai_runtime_snapshot")).toBe(true));
+    await waitFor(() => expect(invoke.mock.calls.some(([command]) => command === "ai_runtime_query")).toBe(true));
   });
 });
 
@@ -357,7 +357,7 @@ it("从完成工作创建自动化先核对草稿，保持停用且不自动保�
   expect(dialog.getByText("停用规则或退出工作台")).toBeTruthy();
   expect(dialog.queryByText(/企业/)).toBeNull();
   expect(consumed).toHaveBeenCalledOnce();
-  expect(invoke.mock.calls.every(([command]) => command === "ai_runtime_snapshot")).toBe(true);
+  expect(invoke.mock.calls.every(([command]) => command === "ai_runtime_query")).toBe(true);
 });
 
 it("通知打开指定规则并清除筛选，不运行、保存或改为编辑状态",async()=>{
@@ -371,12 +371,12 @@ it("通知打开指定规则并清除筛选，不运行、保存或改为编辑�
   expect((screen.getByRole("searchbox",{name:"搜索已安排任务"}) as HTMLInputElement).value).toBe("");
   expect(screen.getByRole("button",{name:"收起每日项目摘要"}).getAttribute("aria-expanded")).toBe("true");
   expect(screen.queryByRole("dialog")).toBeNull();expect(onOpenRun).not.toHaveBeenCalled();
-  expect(invoke.mock.calls.every(call=>["ai_runtime_snapshot","ai_automation_trigger_history"].includes(call[0]))).toBe(true);
+  expect(invoke.mock.calls.every(call=>["ai_runtime_query","ai_automation_trigger_history"].includes(call[0]))).toBe(true);
   expect(invoke.mock.calls.filter(call=>call[0]==="ai_automation_trigger_history").every(call=>JSON.stringify(call[1])===JSON.stringify({request:{ruleId:"daily",limit:20,beforeSequence:null}}))).toBe(true);
   expect(consumed).toHaveBeenCalledWith("notification-one");
   view.rerender(<AutomationsPage project={null} workspace={workspace} onMessage={onMessage} onOpenRun={onOpenRun}
     openIntent={{ruleId:"removed",token:"notification-two"}} onOpenIntentConsumed={consumed}/>);
   await waitFor(()=>expect(onMessage).toHaveBeenCalledWith("自动化已不可用。","error"));
-  expect(invoke.mock.calls.every(call=>["ai_runtime_snapshot","ai_automation_trigger_history"].includes(call[0]))).toBe(true);
+  expect(invoke.mock.calls.every(call=>["ai_runtime_query","ai_automation_trigger_history"].includes(call[0]))).toBe(true);
   expect(invoke.mock.calls.filter(call=>call[0]==="ai_automation_trigger_history").every(call=>JSON.stringify(call[1])===JSON.stringify({request:{ruleId:"daily",limit:20,beforeSequence:null}}))).toBe(true);
 });

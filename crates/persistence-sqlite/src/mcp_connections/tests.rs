@@ -8,13 +8,10 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(4)
-            .unwrap();
-        let root = project
-            .join(".personal-build/mcp-fixtures")
-            .join(uuid::Uuid::new_v4().simple().to_string());
+        let root = std::env::temp_dir().join(format!(
+            "cilai-mcp-fixture-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
         std::fs::create_dir_all(&root).unwrap();
         let mut db = SqlitePersistence::open(&root.join("contexthub.db"), "mcp-fixture").unwrap();
         db.begin_personal_profile_upgrade(PROFILE, FENCE).unwrap();

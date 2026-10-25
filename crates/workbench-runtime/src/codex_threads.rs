@@ -28,6 +28,8 @@ fn delete_context_before_native(
 }
 
 pub(crate) struct CodexThreadService {
+    #[cfg(test)]
+    catalog_loads: Arc<std::sync::atomic::AtomicU64>,
     executable: PathBuf,
     home: PathBuf,
     connection: Mutex<Option<Connection>>,
@@ -207,6 +209,9 @@ impl CodexThreadService {
         &self,
         use_state_db_only: bool,
     ) -> Result<std::collections::BTreeMap<String, Value>, String> {
+        #[cfg(test)]
+        self.catalog_loads
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut result = std::collections::BTreeMap::new();
         let mut metadata = CatalogLoad {
             service: self,
@@ -398,6 +403,8 @@ impl CodexThreadService {
 
     pub(crate) fn new(executable: PathBuf, home: PathBuf) -> Self {
         Self {
+            #[cfg(test)]
+            catalog_loads: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             executable,
             home,
             connection: Mutex::new(None),
@@ -477,10 +484,20 @@ impl CodexThreadService {
             crate::model_connections::scoped_home(profile, &scope.runtime_home_scope, kind),
         )
         .with_profile_dir(profile.clone());
+        #[cfg(test)]
+        {
+            service.catalog_loads = Arc::clone(&self.catalog_loads);
+        }
         if let Some(server) = &self.history_server {
             service = service.with_history_server(server.clone());
         }
         Ok(Arc::new(service))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn observed_catalog_loads(&self) -> u64 {
+        self.catalog_loads
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub(crate) fn with_provider_aliases(mut self, aliases: Vec<String>) -> Self {

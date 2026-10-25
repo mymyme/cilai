@@ -88,7 +88,7 @@ pub(super) fn flush(state: &mut ManagerState) -> Result<(), String> {
                 queue.retain(|entry| entry["handoffId"] != pending.handoff_id);
             }
             state.state_revision = state.state_revision.saturating_add(1);
-            state.conversation_session_revision += 1;
+            state.session.changed();
             Ok(())
         }
         Err(error) => {
@@ -111,7 +111,7 @@ fn transfer_phase(state: &mut ManagerState, handoff: &str, transfer: &Value) -> 
         .ok_or("application_handoff_missing")?;
     entry["transfer"] = transfer.clone();
     persist_locked_or_restore(state, previous)?;
-    state.conversation_session_revision += 1;
+    state.session.changed();
     Ok(())
 }
 
@@ -292,7 +292,7 @@ impl AiRuntimeManager {
             return Err("conversation_session_too_large".into());
         }
         persist_locked_or_restore(&mut state, previous)?;
-        state.conversation_session_revision += 1;
+        state.session.changed();
         Ok(handoff)
     }
 
@@ -338,7 +338,7 @@ impl AiRuntimeManager {
         request: &ApplicationHandoffCommitRequest,
     ) -> Result<Value, String> {
         let mut state = lock(&self.inner);
-        if request.session != state.conversation_session_id {
+        if request.session != state.session.id() {
             return Err("conversation_session_changed".into());
         }
         persist_locked(&mut state)?;
@@ -396,7 +396,7 @@ impl AiRuntimeManager {
             .ok_or("application_handoff_missing")?
             .retain(|h| h["handoffId"] != request.handoff);
         persist_locked_or_restore(&mut state, previous)?;
-        state.conversation_session_revision += 1;
+        state.session.changed();
         let source = handoff["sourceSessionId"].as_str().map(str::to_owned);
         drop(state);
         if let Some(source) = source {
@@ -416,7 +416,7 @@ impl AiRuntimeManager {
         request: ApplicationHandoffCommitRequest,
     ) -> Result<Conversation, String> {
         let mut state = lock(&self.inner);
-        if request.session != state.conversation_session_id {
+        if request.session != state.session.id() {
             return Err("conversation_session_changed".into());
         }
         persist_locked(&mut state)?;
@@ -879,7 +879,7 @@ mod tests {
             manager.application_handoff_status("air", "direct").unwrap()["status"],
             "awaiting_project"
         );
-        let session = lock(&manager.inner).conversation_session_id.clone();
+        let session = lock(&manager.inner).session.id().to_owned();
         let request = |id: &str, project: Option<String>| ApplicationHandoffCommitRequest {
             session: session.clone(),
             handoff: format!("handoff_{id}"),
@@ -1088,7 +1088,7 @@ mod tests {
             .unwrap();
         service.shutdown();
         let request = ApplicationHandoffCommitRequest {
-            session: lock(&manager.inner).conversation_session_id.clone(),
+            session: lock(&manager.inner).session.id().to_owned(),
             handoff: "handoff_cancel-target".into(),
             project: None,
         };
@@ -1227,7 +1227,7 @@ mod tests {
         ));
         fs::write(&target, b"different").unwrap();
         let request = ApplicationHandoffCommitRequest {
-            session: lock(&manager.inner).conversation_session_id.clone(),
+            session: lock(&manager.inner).session.id().to_owned(),
             handoff: "handoff_copy".into(),
             project: None,
         };

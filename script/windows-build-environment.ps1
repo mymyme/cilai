@@ -19,7 +19,7 @@ $env:npm_config_globalconfig = Join-Path $ConfigRoot 'npmrc-global'
 foreach ($ConfigFile in @($env:npm_config_userconfig, $env:npm_config_globalconfig)) {
     if (-not (Test-Path -LiteralPath $ConfigFile)) { New-Item -ItemType File -Path $ConfigFile | Out-Null }
 }
-$env:TEMP = Join-Path $BuildRoot 'tmp'
+if ($env:CILAI_BUILD_RUN_TMP) { $env:TEMP = $env:CILAI_BUILD_RUN_TMP } else { $env:TEMP = Join-Path $BuildRoot 'tmp' }
 $env:TMP = $env:TEMP
 $MsvcRoot = $env:CILAI_PERSONAL_MSVC_ROOT
 if (-not $MsvcRoot) {
@@ -37,10 +37,8 @@ function Install-WindowsBuildDependencies {
     if ($LASTEXITCODE -ne 0) { throw '个人版构建根校验失败' }
     Push-Location $BuildRoot
     try {
-        & npm.cmd ci --silent --no-audit
-        if ($LASTEXITCODE -ne 0) { throw "工作区依赖安装失败：$LASTEXITCODE" }
-        & npm.cmd --prefix apps/desktop ci --silent --no-audit
-        if ($LASTEXITCODE -ne 0) { throw "桌面壳依赖安装失败：$LASTEXITCODE" }
+        & node scripts/ensure-build-dependencies.mjs --ci
+        if ($LASTEXITCODE -ne 0) { throw "依赖安装或复用校验失败：$LASTEXITCODE" }
         & node apps/desktop/scripts/prepare-electron-runtime.mjs
         if ($LASTEXITCODE -ne 0) { throw "Electron 运行时准备失败：$LASTEXITCODE" }
     } finally { Pop-Location }

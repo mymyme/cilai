@@ -315,7 +315,7 @@ describe("技能管理页", () => {
   });
 
   test("启停使用服务端返回的新版本刷新页面", async () => {
-    rpc.mockImplementation(async (method: string, params: Record<string, unknown>) => {
+    rpc.mockImplementation(async (method: string, _params: Record<string, unknown>) => {
       if (method === "skill/list") return { skills: [userSkill] };
       if (method === "skill/setState") {
         return { skill: { ...userSkill, enabled: false, stateRevision: 4, updatedAt: 11 } };

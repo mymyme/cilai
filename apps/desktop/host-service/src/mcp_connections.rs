@@ -534,14 +534,7 @@ mod tests {
     }
     #[test]
     fn local_vault_commit_reopens_and_cleanup_deletes_only_its_credential() {
-        let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(5)
-            .unwrap();
-        let root = project
-            .join(".personal-build/fixtures/mcp-vault")
-            .join(uuid::Uuid::new_v4().simple().to_string());
-        contexthub_platform_adapter::security::ensure_restricted_directory(&root).unwrap();
+        let root = crate::test_support::fixture_root("fixtures/mcp-vault");
         let reference = cleanup_request().credential_ref;
         let store = LocalCredentials {
             root: root.join("credentials"),

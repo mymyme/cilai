@@ -9,8 +9,9 @@ use crate::{
 };
 
 #[derive(Debug)]
-struct IndexState {
-    connection: Connection,
+pub(super) struct IndexState {
+    pub(super) connection: Connection,
+    pub(super) search: super::file_search_index::SearchIndexState,
     records: HashMap<String, (String, String)>,
     file_locks: HashMap<String, Weak<Mutex<()>>>,
     pending: HashSet<String>,
@@ -19,14 +20,15 @@ struct IndexState {
 /// 当前本地 Profile 内按实际文件身份共享的内容摘要。
 #[derive(Debug)]
 pub struct FileContentIndex {
-    state: Mutex<IndexState>,
+    pub(super) state: Mutex<IndexState>,
 }
 
 impl FileContentIndex {
     fn open(path: &Path) -> Result<Self, PersistenceError> {
-        let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+        let mut connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)
             .map_err(database_error("open shared content index"))?;
         configure_connection(&connection)?;
+        let search = super::file_search_index::SearchIndexState::open(&mut connection)?;
         let records = connection
             .prepare(
                 "SELECT file_identity, fingerprint, checksum_value FROM shared_file_content_index",
@@ -39,6 +41,7 @@ impl FileContentIndex {
         Ok(Self {
             state: Mutex::new(IndexState {
                 connection,
+                search,
                 records,
                 file_locks: HashMap::new(),
                 pending: HashSet::new(),
@@ -119,6 +122,10 @@ impl FileContentIndex {
             .state
             .lock()
             .map_err(|_| configuration_error("content index lock failed"))?;
+        let IndexState {
+            connection, search, ..
+        } = &mut *state;
+        search.flush(connection)?;
         if state.pending.is_empty() {
             return Ok(());
         }

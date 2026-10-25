@@ -188,3 +188,9 @@ it("搜索范围不提供企业来源", () => {
   expect(screen.queryByRole("button",{name:"企业知识"})).toBeNull();
   expect(screen.queryByRole("button",{name:"应用数据"})).toBeNull();
 });
+
+it("搜索入口准确说明文本正文检索及完整读取范围", () => {
+  render(<GlobalSearchPage hostPlatform="macos" onMessage={vi.fn()} onOpen={vi.fn()} profileId="profile-a"/>);
+  expect(screen.getByRole("searchbox", { name: "全局搜索" }).getAttribute("placeholder")).toContain("文件正文");
+  expect(screen.getByText("正文：UTF-8 文本（含 BOM），单文件 ≤ 2 MiB")).toBeTruthy();
+});

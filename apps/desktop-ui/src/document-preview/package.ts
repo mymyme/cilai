@@ -1,13 +1,16 @@
 import { unzipSync, zipSync } from "fflate";
-import { DOMParser, XMLSerializer, type Element, type Document } from "@xmldom/xmldom";
-import type { DocumentPreviewModel, OfficePreviewFormat, PreviewParagraph, PreviewSheet, PreviewSlide, PreviewTopic, SlideGeometry, SlideObject } from "./model";
+import { recalculateWorkbook, translateSharedFormula, type DefinedName } from "./workbook-calculation";
+import { readChart } from "./chart-package";
+import { readDiagram } from "./diagram-package";
+import { XMLSerializer, type Element, type Document } from "@xmldom/xmldom";
+import { child, children, color, dataImage, elements, num, paragraphs, relationships, text, xml, type Package } from "./package-xml";
+import type { DocumentPreviewModel, OfficePreviewFormat, PreviewSheet, PreviewSlide, PreviewTopic, SlideGeometry, SlideObject } from "./model";
 
 const MAX_ENTRIES = 4096;
 const MAX_EXPANDED = 128 * 1024 * 1024;
 const MAX_XML = 12 * 1024 * 1024;
 const MAX_OBJECTS = 100_000;
 const decoder = new TextDecoder("utf-8", { fatal: true });
-type Package = Record<string, Uint8Array>;
 
 export function readDocumentPackage(bytes: ArrayBuffer, format: OfficePreviewFormat): DocumentPreviewModel {
   if (bytes.byteLength > 32 * 1024 * 1024) throw new Error("preview_file_too_large");
@@ -40,75 +43,6 @@ export function readDocumentPackage(bytes: ArrayBuffer, format: OfficePreviewFor
   return xmind(pkg);
 }
 
-function xml(pkg: Package, name: string): Document {
-  const value = pkg[name];
-  if (!value) throw new Error("preview_package_invalid");
-  const doc = new DOMParser({ onError: (level) => { if (level !== "warning") throw new Error("preview_package_invalid"); } }).parseFromString(decoder.decode(value), "text/xml");
-  if (!doc.documentElement || doc.getElementsByTagName("parsererror").length > 0) throw new Error("preview_package_invalid");
-  return doc;
-}
-function elements(parent: Document | Element, name: string): Element[] {
-  return Array.from(parent.getElementsByTagName("*")).filter((element) => element.localName === name);
-}
-function child(parent: Element | Document | undefined, name: string): Element | undefined {
-  if (!parent) return undefined;
-  return Array.from(parent.childNodes).find((node) => node.nodeType === 1 && (node as Element).localName === name) as Element | undefined;
-}
-function children(parent: Element | Document | undefined, name?: string): Element[] {
-  if (!parent) return [];
-  return Array.from(parent.childNodes).filter((node) => node.nodeType === 1 && (!name || (node as Element).localName === name)) as Element[];
-}
-function num(element: Element | undefined, name: string, defaultValue = 0): number {
-  const value = Number(element?.getAttribute(name) ?? defaultValue);
-  if (!Number.isFinite(value)) throw new Error("preview_package_invalid");
-  return value;
-}
-function resolvePart(base: string, target: string): string {
-  if (!target || target.includes("\\") || /^[a-z]+:/i.test(target)) throw new Error("preview_package_unsafe");
-  const parts = target.startsWith("/") ? [] : base.split("/").slice(0, -1);
-  for (const part of target.split("/")) {
-    if (part === "..") { if (!parts.length) throw new Error("preview_package_unsafe"); parts.pop(); }
-    else if (part && part !== ".") parts.push(part);
-  }
-  return parts.join("/");
-}
-function relationships(pkg: Package, part: string): Map<string, { target: string; type: string }> {
-  const split = part.lastIndexOf("/");
-  const relPath = `${part.slice(0, split + 1)}_rels/${part.slice(split + 1)}.rels`;
-  if (!pkg[relPath]) return new Map();
-  return new Map(elements(xml(pkg, relPath), "Relationship").filter((rel) => rel.getAttribute("TargetMode") !== "External").map((rel) => [rel.getAttribute("Id") ?? "", { target: resolvePart(part, rel.getAttribute("Target") ?? ""), type: rel.getAttribute("Type") ?? "" }]));
-}
-function text(parent: Element): string { return elements(parent, "t").map((item) => item.textContent ?? "").join(""); }
-function dataImage(pkg: Package, target: string | undefined): string | undefined {
-  if (!target || !pkg[target]) return undefined;
-  const extension = target.split(".").pop()?.toLowerCase();
-  const mime = extension === "png" ? "image/png" : extension === "jpg" || extension === "jpeg" ? "image/jpeg" : extension === "gif" ? "image/gif" : extension === "webp" ? "image/webp" : null;
-  if (!mime) return undefined;
-  const bytes = pkg[target];
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  return `data:${mime};base64,${btoa(binary)}`;
-}
-function color(parent: Element | undefined, theme: Map<string, string>): string | undefined {
-  if (!parent) return undefined;
-  const value = elements(parent, "srgbClr")[0]?.getAttribute("val") ?? theme.get(elements(parent, "schemeClr")[0]?.getAttribute("val") ?? "") ?? elements(parent, "sysClr")[0]?.getAttribute("lastClr");
-  return value && /^[\da-f]{6}$/i.test(value) ? `#${value}` : undefined;
-}
-function paragraphs(element: Element, theme: Map<string, string>): PreviewParagraph[] {
-  const body = child(element, "txBody");
-  if (!body) return [];
-  return children(body, "p").map((p) => ({
-    align: child(p, "pPr")?.getAttribute("algn") === "ctr" ? "center" : child(p, "pPr")?.getAttribute("algn") === "r" ? "right" : "left",
-    runs: children(p).filter((run) => ["r", "fld", "br"].includes(run.localName ?? "")).map((run) => {
-      const props = child(run, "rPr"); const defaults = child(child(p, "pPr"), "defRPr");
-      const attr = (name: string) => props?.getAttribute(name) ?? defaults?.getAttribute(name);
-      const runText = run.localName === "br" ? "\n" : text(run);
-      const fontTypes = /[\u3000-\u9fff\uac00-\ud7af]/u.test(runText) ? ["ea", "latin"] : ["latin", "ea"];
-      const fontFamily = fontTypes.map((name) => child(props, name)?.getAttribute("typeface") || child(defaults, name)?.getAttribute("typeface")).find(Boolean) ?? undefined;
-      return { text: runText, bold: attr("b") === "1", italic: attr("i") === "1", underline: attr("u") === "sng", size: attr("sz") ? Number(attr("sz")) / 100 : undefined, color: color(child(props, "solidFill") ?? child(defaults, "solidFill"), theme), fontFamily };
-    }),
-  }));
-}
 function pptx(pkg: Package): DocumentPreviewModel {
   const presentation = xml(pkg, "ppt/presentation.xml");
   const size = elements(presentation, "sldSz")[0];
@@ -147,7 +81,7 @@ function pptx(pkg: Package): DocumentPreviewModel {
         return c && (ph.hasAttribute("idx") ? c.getAttribute("idx") === ph.getAttribute("idx") : (c.getAttribute("type") ?? "obj") === (ph.getAttribute("type") ?? "obj"));
       });
     };
-    const walk = (tree: Element, transform = { sx: 1, sy: 1, tx: 0, ty: 0 }, depth = 0) => {
+    const walk = (tree: Element, transform = { sx: 1, sy: 1, tx: 0, ty: 0 }, depth = 0, output = objects, contextPart = part, contextRels = slideRels) => {
       if (depth > 32) throw new Error("preview_package_limits");
       for (const shape of children(tree)) {
         const tag = shape.localName;
@@ -160,24 +94,41 @@ function pptx(pkg: Package): DocumentPreviewModel {
         if (tag === "grpSp") {
           const chOff = child(xfrm, "chOff"); const chExt = child(xfrm, "chExt");
           const sx = num(ext, "cx", 1) / Math.max(1, num(chExt, "cx", 1)); const sy = num(ext, "cy", 1) / Math.max(1, num(chExt, "cy", 1));
-          walk(shape, { sx: transform.sx * sx, sy: transform.sy * sy, tx: transform.tx + transform.sx * (num(off, "x") - num(chOff, "x") * sx), ty: transform.ty + transform.sy * (num(off, "y") - num(chOff, "y") * sy) }, depth + 1); continue;
+          walk(shape, { sx: transform.sx * sx, sy: transform.sy * sy, tx: transform.tx + transform.sx * (num(off, "x") - num(chOff, "x") * sx), ty: transform.ty + transform.sy * (num(off, "y") - num(chOff, "y") * sy) }, depth + 1, output, contextPart, contextRels); continue;
         }
         const geometry: SlideGeometry = { x: transform.tx + num(off, "x") * transform.sx, y: transform.ty + num(off, "y") * transform.sy, width: num(ext, "cx") * transform.sx, height: num(ext, "cy") * transform.sy, rotation: num(xfrm, "rot") / 60000 };
-        const id = `${part}:${elements(shape, "cNvPr")[0]?.getAttribute("id") ?? count}`;
+        const id = `${contextPart}:${elements(shape, "cNvPr")[0]?.getAttribute("id") ?? count}`;
         if (tag === "pic") {
-          const blip = elements(shape, "blip")[0]; const image = dataImage(pkg, slideRels.get(blip?.getAttribute("r:embed") ?? "")?.target);
+          const blip = elements(shape, "blip")[0]; const image = dataImage(pkg, contextRels.get(blip?.getAttribute("r:embed") ?? "")?.target);
           const crop = elements(shape, "srcRect")[0];
-          objects.push({ id, geometry, kind: image ? "image" : "placeholder", image, placeholder: "不支持的图片", crop: { left: num(crop, "l") / 100000, right: num(crop, "r") / 100000, top: num(crop, "t") / 100000, bottom: num(crop, "b") / 100000 } }); continue;
+          output.push({ id, geometry, kind: image ? "image" : "placeholder", image, placeholder: "不支持的图片", crop: { left: num(crop, "l") / 100000, right: num(crop, "r") / 100000, top: num(crop, "t") / 100000, bottom: num(crop, "b") / 100000 } }); continue;
         }
         if (tag === "graphicFrame") {
           const table = elements(shape, "tbl")[0];
-          if (table) objects.push({ id, geometry, kind: "table", rows: children(table, "tr").map((row) => children(row, "tc").map((cell) => text(cell))), cellParagraphs: children(table, "tr").map((row) => children(row, "tc").map((cell) => paragraphs(cell, theme))) });
-          else objects.push({ id, geometry, kind: "placeholder", placeholder: elements(shape, "chart").length ? "图表" : elements(shape, "relIds").length ? "SmartArt" : "未支持的对象" });
+          if (table) output.push({ id, geometry, kind: "table", rows: children(table, "tr").map((row) => children(row, "tc").map((cell) => text(cell))), cellParagraphs: children(table, "tr").map((row) => children(row, "tc").map((cell) => paragraphs(cell, theme))) });
+          else {
+            try {
+              const chart = elements(shape, "chart")[0]; const diagram = elements(shape, "relIds")[0];
+              if (chart) {
+                const chartPart = contextRels.get(chart.getAttribute("r:id") ?? "")?.target;
+                if (!chartPart) throw new Error("图表关系无效。");
+                output.push({ id, geometry, kind: "chart", chart: readChart(pkg, chartPart, theme) });
+              } else if (diagram) {
+                const cached = readDiagram(pkg, diagram, contextRels); const nested: SlideObject[] = [];
+                walk(cached.tree, { sx: 1, sy: 1, tx: 0, ty: 0 }, depth + 1, nested, cached.part, cached.rels);
+                if (!nested.length) throw new Error("SmartArt 图形布局为空。");
+                output.push({ id, geometry, kind: "group", children: nested, viewport: cached.viewport });
+              } else throw new Error("此图形对象的格式尚不支持。");
+            } catch (error) {
+              if (error instanceof Error && /^(preview_package_limits|preview_package_unsafe|preview_file_too_large)$/.test(error.message)) throw error;
+              output.push({ id, geometry, kind: "error", error: error instanceof Error ? error.message : "图形解析失败。" });
+            }
+          }
           continue;
         }
         const prst = child(props, "prstGeom")?.getAttribute("prst") ?? (tag === "cxnSp" ? "line" : "rect");
         const lines = paragraphs(shape, theme);
-        objects.push({ id, geometry, kind: lines.length ? "text" : "shape", paragraphs: lines, shape: prst, fill: child(props, "noFill") ? "none" : color(child(props, "solidFill"), theme) ?? (child(shape, "style") ? color(child(child(shape, "style"), "fillRef"), theme) : undefined), stroke: color(child(child(props, "ln"), "solidFill"), theme) });
+        output.push({ id, geometry, kind: lines.length ? "text" : "shape", paragraphs: lines, shape: prst, fill: child(props, "noFill") ? "none" : color(child(props, "solidFill"), theme) ?? (child(shape, "style") ? color(child(child(shape, "style"), "fillRef"), theme) : undefined), stroke: color(child(child(props, "ln"), "solidFill"), theme) });
       }
     };
     const tree = elements(doc, "spTree")[0];
@@ -199,19 +150,38 @@ function address(value: string): { row: number; column: number } {
 function xlsx(pkg: Package): DocumentPreviewModel {
   const book = xml(pkg, "xl/workbook.xml"); const rels = relationships(pkg, "xl/workbook.xml");
   const strings = pkg["xl/sharedStrings.xml"] ? elements(xml(pkg, "xl/sharedStrings.xml"), "si").map(text) : [];
+  const styles = pkg["xl/styles.xml"] ? xml(pkg, "xl/styles.xml") : undefined;
+  const formats = new Map(styles ? elements(styles, "numFmt").map(item => [item.getAttribute("numFmtId"), item.getAttribute("formatCode") ?? ""]) : []);
+  const cellStyles = styles ? children(elements(styles, "cellXfs")[0], "xf") : [];
+  const builtInFormats: Record<string, string> = { "1": "0", "2": "0.00", "9": "0%", "10": "0.00%", "14": "m/d/yy", "15": "d-mmm-yy", "16": "d-mmm", "17": "mmm-yy", "18": "h:mm AM/PM", "19": "h:mm:ss AM/PM", "20": "h:mm", "21": "h:mm:ss", "22": "m/d/yy h:mm", "49": "@" };
   const sheets: PreviewSheet[] = []; let count = 0;
   for (const entry of elements(book, "sheet")) {
     const part = rels.get(entry.getAttribute("r:id") ?? "")?.target;
     if (!part) throw new Error("preview_package_invalid");
     const doc = xml(pkg, part); let rowCount = 1; let columnCount = 1;
-    const cells = elements(doc, "c").map((cell) => {
+    const shared = new Map<string, { row: number; column: number; formula: string }>();
+    const rawCells = elements(doc, "c");
+    for (const cell of rawCells) {
+      const formula = child(cell, "f");
+      if (formula?.getAttribute("t") === "shared" && formula.textContent) shared.set(formula.getAttribute("si") ?? "", { ...address(cell.getAttribute("r") ?? ""), formula: formula.textContent });
+    }
+    const cells = rawCells.map((cell) => {
       if (++count > MAX_OBJECTS) throw new Error("preview_package_limits");
       const cellAddress = cell.getAttribute("r") ?? ""; const position = address(cellAddress);
       rowCount = Math.max(rowCount, position.row); columnCount = Math.max(columnCount, position.column);
       const raw = child(cell, "v")?.textContent ?? ""; const type = cell.getAttribute("t");
       const value = type === "s" ? strings[Number(raw)] : type === "inlineStr" ? text(cell) : type === "b" ? raw === "1" ? "TRUE" : "FALSE" : raw;
       if (value === undefined) throw new Error("preview_package_invalid");
-      return { address: cellAddress, ...position, value, formula: child(cell, "f")?.textContent ?? undefined };
+      const formulaNode = child(cell, "f"); const formulaType = formulaNode?.getAttribute("t");
+      let formula = formulaNode ? formulaNode.textContent || "#REF!" : undefined; let formulaError: string | undefined;
+      if (formulaType === "shared" && !formulaNode?.textContent) {
+        const source = shared.get(formulaNode?.getAttribute("si") ?? "");
+        if (source) formula = translateSharedFormula(source.formula, position.row - source.row, position.column - source.column);
+        else formulaError = "共享公式未找到定义";
+      } else if (formulaNode && formulaType && !["normal", "shared"].includes(formulaType)) formulaError = "此数组或数据表公式尚不支持";
+      const formatId = cellStyles[Number(cell.getAttribute("s") ?? 0)]?.getAttribute("numFmtId") ?? "0";
+      const valueType = type === "b" ? "boolean" as const : type === "e" ? "error" as const : type === "s" || type === "inlineStr" || type === "str" ? "text" as const : "number" as const;
+      return { address: cellAddress, ...position, value, valueType, formula, ...(formula ? { cachedValue: value, formulaError } : {}), numberFormat: formats.get(formatId) ?? builtInFormats[formatId] };
     });
     const merges = elements(doc, "mergeCell").map((item) => {
       const [start, end] = (item.getAttribute("ref") ?? "").split(":"); const a = address(start); const b = address(end ?? start);
@@ -220,8 +190,9 @@ function xlsx(pkg: Package): DocumentPreviewModel {
     });
     sheets.push({ id: entry.getAttribute("sheetId") ?? String(sheets.length), name: entry.getAttribute("name") ?? "", cells, rowCount, columnCount, merges });
   }
-  const calculation = elements(book, "calcPr")[0];
-  return { format: "xlsx", sheets, calculationState: calculation?.getAttribute("fullCalcOnLoad") === "1" || calculation?.getAttribute("forceFullCalc") === "1" ? "stale" : "cached" };
+  const names: DefinedName[] = elements(book, "definedName").map(item => ({ name: item.getAttribute("name") ?? "", value: item.textContent ?? "", ...(item.hasAttribute("localSheetId") ? { sheetId: Number(item.getAttribute("localSheetId")) } : {}) }));
+  const calculation = recalculateWorkbook(sheets, names, ["1", "true"].includes(elements(book, "workbookPr")[0]?.getAttribute("date1904") ?? ""));
+  return { format: "xlsx", sheets, calculationState: calculation.errors ? "error" : "recalculated", formulaCount: calculation.formulas, calculationErrors: calculation.errors };
 }
 function xmind(pkg: Package): DocumentPreviewModel {
   let count = 0;

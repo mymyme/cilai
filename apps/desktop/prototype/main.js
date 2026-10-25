@@ -3,6 +3,11 @@ const path = require("node:path");
 
 const VERIFY = process.argv.includes("--verify-ime");
 const PERF = process.argv.includes("--verify-perf");
+if (VERIFY || PERF) {
+  const { mkdtempSync } = require("node:fs");
+  const { tmpdir } = require("node:os");
+  app.setPath("userData", mkdtempSync(path.join(tmpdir(), "cilai-electron-verification-")));
+}
 const SIZE = { width: 800, height: 400 };
 
 /** 离屏页面承载被测内容，宿主窗口只负责呈现它的画面并转发输入。 */

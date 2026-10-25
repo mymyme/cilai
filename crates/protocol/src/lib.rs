@@ -1,5 +1,9 @@
 #![doc = "`Local App Server` 的 JSON-RPC 协议单一类型源。"]
 
+mod ai_runtime_query;
+pub use ai_runtime_query::*;
+mod conversation_session;
+pub use conversation_session::*;
 mod ai_threads;
 pub use ai_threads::*;
 mod ai_ledger;

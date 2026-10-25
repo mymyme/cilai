@@ -1,6 +1,6 @@
 import { assertBuildLock, recordStagedBuild, runLockedBuild } from "./build-lock.mjs";
 import { verifyConversationPackage } from "./conversation-package.mjs";
-import { assertNoSymlinkPath, assertPersonalBuildRoot, personalSourceRoot } from "./personal-build.mjs";
+import { assertNoSymlinkPath, assertPersonalBuildRoot, personalSourceRoot, registerPersonalBuild } from "./personal-build.mjs";
 import { createHash } from "node:crypto";
 import {
   chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync,
@@ -40,12 +40,22 @@ function validName(name) {
     && name.split("/").every((part) => part !== "" && part !== "." && part !== "..");
 }
 
-export function sourceFiles(root) {
+const historicalRuntimeInputs = new Set([
+  'third_party/openai-codex/LICENSE',
+  'third_party/openai-codex/NOTICE',
+  'third_party/openai-codex/codex-rs/models-manager/models.json',
+]);
+
+export function sourceFiles(root, { profile = 'desktop' } = {}) {
+  if (!['desktop', 'native-extensions'].includes(profile)) throw new Error(`未知暂存用途：${profile}`);
   const ignored = new Set(['.git', '.venv', 'node_modules', 'target', 'dist', '.vite', '.personal-build', '.codex', '.aws', '.agents', '__pycache__']);
   function scan(directory, prefix = '') {
     return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
       const name = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (ignored.has(entry.name) || entry.name === '.DS_Store' || entry.name === '.env' || entry.name.startsWith('.env.') || name === '.cargo/config.toml') return [];
+      if (profile === 'desktop' && name.startsWith('third_party/openai-codex/')
+        && !historicalRuntimeInputs.has(name)
+        && ![...historicalRuntimeInputs].some(input => input.startsWith(`${name}/`))) return [];
       if (entry.isSymbolicLink()) { assertContainedSourceLink(root, join(directory, entry.name)); return [name]; }
       if (entry.isDirectory()) return scan(join(directory, entry.name), name);
       if (!entry.isFile()) throw new Error(`暂存来源不是普通文件：${name}`);
@@ -61,7 +71,7 @@ export function assertPrimarySource(root = sourceRoot) {
   if (realpathSync(root) !== realpathSync(personalSourceRoot)) throw new Error('暂存来源必须是当前个人版源码目录');
 }
 
-export function stageBuild({ source = sourceRoot, destination, files = sourceFiles(source) }) {
+export function stageBuild({ source = sourceRoot, destination, profile = 'desktop', files = sourceFiles(source, { profile }) }) {
   const from = resolve(source);
   const to = resolve(destination);
   if (from === to || to.startsWith(`${from}${sep}`) || from.startsWith(`${to}${sep}`)) {
@@ -112,7 +122,6 @@ export function stageBuild({ source = sourceRoot, destination, files = sourceFil
     const output = join(to, name);
     assertNoSymlinkPath(dirname(output));
     if (!pathExists(output)) continue;
-    if (lstatSync(output).isSymbolicLink()) assertContainedSourceLink(to, output);
     if (contentId(output) !== oldDigest) {
       throw new Error(`构建目录中的已移除源码被单独修改，需人工检查：${output}`);
     }
@@ -132,7 +141,17 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   } else {
   const canonical = assertPersonalBuildRoot(canonicalDebugBuildRoot());
   assertBuildLock(canonical);
-  const destination = process.argv[2] ? resolve(process.argv[2]) : canonical;
+  registerPersonalBuild();
+  const args = process.argv.slice(2);
+  let profile = 'desktop';
+  const profileIndex = args.indexOf('--profile');
+  if (profileIndex !== -1) {
+    profile = args[profileIndex + 1];
+    if (!['desktop', 'native-extensions'].includes(profile)) throw new Error('暂存用途必须为 desktop 或 native-extensions');
+    args.splice(profileIndex, 2);
+  }
+  if (args.length > 1 || args.some(arg => arg.startsWith('--'))) throw new Error('暂存参数无法识别');
+  const destination = args[0] ? resolve(args[0]) : canonical;
   if (destination !== resolve(canonical)) throw new Error(`只能暂存到统一构建目录：${canonical}`);
   if (process.version !== "v24.18.0") throw new Error(`构建需要 Node 24.18.0，当前为 ${process.version}`);
   if (resolve(sourceRoot) === destination) {
@@ -140,7 +159,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   } else {
     assertPrimarySource();
     verifyConversationPackage();
-    const result = stageBuild({ destination });
+    const result = stageBuild({ destination, profile });
     console.log(`源码暂存完成：更新 ${result.copied} 项，移除 ${result.removed} 项，共 ${result.total} 项`);
   }
   recordStagedBuild(canonical);

@@ -1,3 +1,4 @@
+import { beginStorageRun, finishStorageRun, storageEnvironment } from './storage-lifecycle.mjs';
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { closeSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, unlinkSync, writeFileSync } from "node:fs";
@@ -64,22 +65,27 @@ export async function runLockedBuild(args, root = canonicalDebugBuildRoot(), env
   const inherited = environment.CILAI_BUILD_LOCK_TOKEN;
   const token = inherited ?? acquireBuildLock(root, args[0]);
   if (inherited) assertBuildLock(root, inherited);
-  let child, interrupted = false;
+  let child, storage, status = 1, interrupted = false;
   const forward = (signal) => { interrupted = true; child?.kill(signal); };
   const interrupt = () => forward("SIGINT"), terminate = () => forward("SIGTERM");
   process.on("SIGINT", interrupt); process.on("SIGTERM", terminate);
   try {
-    const status = await new Promise((resolveStatus, reject) => {
-      child = spawn(args[0], args.slice(1), { stdio: "inherit", env: { ...environment, CILAI_BUILD_LOCK_TOKEN: token, CILAI_BUILD_ROOT: root, CARGO_TARGET_DIR: join(root, "target") } });
+    if (!inherited) storage = beginStorageRun(root, args[0]);
+    const childEnvironment = storage ? storageEnvironment(storage, environment) : environment;
+    status = await new Promise((resolveStatus, reject) => {
+      child = spawn(args[0], args.slice(1), { stdio: "inherit", env: { ...childEnvironment, CILAI_BUILD_LOCK_TOKEN: token, CILAI_BUILD_ROOT: root, CARGO_TARGET_DIR: join(root, "target") } });
       child.once("error", reject);
       child.once("exit", (code) => resolveStatus(code ?? 1));
     });
     if (interrupted) throw new Error("构建被中断；锁已保留，请核对所有构建子进程结束后再处理");
-    if (status === 0) verifyStagedBuild(root, token);
+    if (status === 0) {
+      try { verifyStagedBuild(root, token); } catch (error) { status = 1; throw error; }
+    }
     return status;
   } finally {
     process.off("SIGINT", interrupt); process.off("SIGTERM", terminate);
-    if (!inherited && !interrupted) releaseBuildLock(root, token);
+    try { if (storage) finishStorageRun(storage, interrupted ? 1 : status); }
+    finally { if (!inherited && !interrupted) releaseBuildLock(root, token); }
   }
 }
 

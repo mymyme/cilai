@@ -12,7 +12,7 @@ import type {
   TextDiffRow,
 } from "./generated/protocol";
 import { auditMoment } from "./datetime";
-import { ERROR_LABELS, SOURCE_LABELS } from "./preview";
+import { ERROR_LABELS, SOURCE_LABELS } from "./preview-labels";
 
 const DIFF_ERROR_LABELS: Record<string, string> = {
   ...ERROR_LABELS,

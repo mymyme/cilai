@@ -6,15 +6,15 @@
 
 把项目、文件、持续对话、工具与个人应用放在同一个工作空间，让 AI 从回答问题走向完成工作。
 
-[English](README.en.md) · [下载 v0.1.0](https://github.com/mymyme/cilai/releases/tag/v0.1.0) · [构建指南](docs/BUILDING.md) · [兼容状态](docs/COMPATIBILITY.md) · [企业版官网](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
+[English](README.en.md) · [下载 v0.1.1](https://github.com/mymyme/cilai/releases/tag/v0.1.1) · [构建指南](docs/BUILDING.md) · [兼容状态](docs/COMPATIBILITY.md) · [企业版官网](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 
 ## 下载开发预览版
 
-**[v0.1.0 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.0)**，适用于 macOS 13.5 及以上、arm64 芯片。下载 `cilai-personal-workbench-0.1.0-macos-arm64.zip`，解压后打开应用；同页提供 `SHA256SUMS` 供核对。 macOS 13.5 是最低部署目标，尚未在 13.5 实机验收。
+**[v0.1.1 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.1)**，适用于 macOS 13.5 及以上、arm64 芯片。下载 `cilai-personal-workbench-0.1.1-macos-arm64.zip`，解压后打开应用；同页提供 `SHA256SUMS` 供核对。 macOS 13.5 是最低部署目标，尚未在 13.5 实机验收。
 
 包内已包含锁定的官方 Codex CLI / App Server **0.163.0** 运行时，无需另装 Codex 或复用现有 `~/.codex`。模型调用仍需在工作台中配置自己的授权。
 
-这是 **开发预览包**：使用 ad-hoc 签名，尚无 Developer ID 签名或 Apple 公证，macOS 可能阻止首次打开；自动更新禁用。当前不提供 Windows 或 macOS Intel 安装包。版本内容与限制见[发布说明](docs/releases/v0.1.0.md)。
+这是 **开发预览包**：使用 ad-hoc 签名，尚无 Developer ID 签名或 Apple 公证，macOS 可能阻止首次打开；自动更新禁用。当前不提供 Windows 或 macOS Intel 安装包。版本内容与限制见[发布说明](docs/releases/v0.1.1.md)。
 
 ## 界面预览
 
@@ -81,15 +81,16 @@ npm run package
 ```text
 cilai-personal/
 ├── 06代码索引/cilai-workbench/   # 当前仓库
-├── .personal-build/             # 暂存、依赖、缓存与本地测试包
 └── .personal-run/               # 源码运行资料
 ```
+
+构建暂存、依赖、缓存和本地测试包固定放在用户主目录下 `~/.cilai-personal-builds/desktop`，不参与源码目录的 iCloud 等云同步。
 
 启动使用 `npm run launch`。重建前正常退出正在运行的个人测试包。详细输出路径、检查入口与平台前提见[构建指南](docs/BUILDING.md)。
 
 ## 当前状态
 
-项目处于 **开发预览**，已提供 v0.1.0 macOS arm64 下载包。首版仍在验收，尚无 Developer ID 签名或 Apple 公证发行。
+项目处于 **开发预览**，已提供 v0.1.1 macOS arm64 下载包。首版仍在验收，尚无 Developer ID 签名或 Apple 公证发行。
 
 | 范围 | 当前记录 |
 | --- | --- |

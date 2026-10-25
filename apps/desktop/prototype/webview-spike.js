@@ -11,6 +11,11 @@ const { app, BrowserWindow, session, webContents } = require("electron");
 const path = require("node:path");
 
 const VERIFY = process.argv.includes("--verify-webview");
+if (VERIFY) {
+  const { mkdtempSync } = require("node:fs");
+  const { tmpdir } = require("node:os");
+  app.setPath("userData", mkdtempSync(path.join(tmpdir(), "cilai-electron-verification-")));
+}
 const TARGET = "https://archive.cilai.com.cn/";
 const PARTITION = "persist:spike-archive";
 const STAGE = { left: 16, top: 56, width: 1132, height: 680 };

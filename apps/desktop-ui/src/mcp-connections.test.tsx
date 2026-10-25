@@ -1,7 +1,10 @@
 import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import type {McpConnection,McpConnectionChange,McpValidationRecord} from "./generated/protocol";
-import {McpConnectionSettings,mcpError} from "./mcp-connections";
+import {McpConnectionSettings as McpConnectionSettingsImplementation,mcpError} from "./mcp-connections";
+function McpConnectionSettings({hostPlatform="macos"}:{hostPlatform?:string|null}) {
+  return <McpConnectionSettingsImplementation hostPlatform={hostPlatform}/>;
+}
 const invoke=vi.hoisted(()=>vi.fn());
 vi.mock("./host",()=>({invoke}));
 afterEach(cleanup);
@@ -222,4 +225,74 @@ it("切换MCP编辑连接清空尚未提交的输入，不把密钥附到另一�
   expect(screen.getByLabelText("token")).toHaveProperty("value","");
   expect(document.body.innerHTML).not.toContain("synthetic-first-unsaved-key");
   expect(invoke.mock.calls.some(call=>call[0]==="mcp_connection_save")).toBe(false);
+});
+
+function localConnection(children=false):McpConnection {
+  const item=connection();
+  item.config.source={kind:"local_command",program:"/approved/tool",args:["--stdio"],cwd:"/approved/work",permissions:{readRoots:["/approved/read"],writeRoots:[],network:false,childProcesses:children}};
+  return item;
+}
+
+it.each(["windows",null,"other"])("宿主平台%s不提供本地命令选择，远程服务仍可配置",async(hostPlatform)=>{
+  items=[];
+  render(<McpConnectionSettings hostPlatform={hostPlatform}/>);
+  await waitFor(()=>expect(screen.getByRole("button",{name:"添加"})).toHaveProperty("disabled",false));
+  fireEvent.click(screen.getByRole("button",{name:"添加"}));
+  expect(screen.getByLabelText("服务地址")).toBeTruthy();
+  fireEvent.click(screen.getByRole("combobox",{name:"来源"}));
+  const local=screen.getByRole("option",{name:"本地命令（不可用）"});
+  expect(local).toHaveProperty("disabled",true);
+  fireEvent.click(local);
+  expect(screen.queryByLabelText("程序")).toBeNull();
+  expect(invoke.mock.calls.every(call=>["mcp_connection_list","mcp_connection_changes"].includes(call[0]))).toBe(true);
+});
+
+it("Windows保留旧本地配置和验证记录可见，但不允许重新保存、验证或启用",async()=>{
+  const original=localConnection();original.validation=validation();items=[original];
+  render(<McpConnectionSettings hostPlatform="windows"/>);
+  await screen.findByText("Windows 暂不支持任意本地命令，请使用远程 HTTP。");
+  expect(screen.getByRole("button",{name:"验证"})).toHaveProperty("disabled",true);
+  expect(screen.getByRole("button",{name:"确认并启用"})).toHaveProperty("disabled",true);
+  expect(screen.getByRole("button",{name:"删除"})).toHaveProperty("disabled",false);
+  fireEvent.click(screen.getByRole("button",{name:"编辑"}));
+  const editor=within(screen.getByRole("region",{name:"编辑工具连接"}));
+  expect(editor.getByLabelText("程序")).toHaveProperty("value","/approved/tool");
+  expect(editor.getByLabelText("程序")).toHaveProperty("disabled",true);
+  expect(editor.getByRole("button",{name:"保存"})).toHaveProperty("disabled",true);
+  fireEvent.click(editor.getByRole("button",{name:"保存"}));
+  expect(invoke.mock.calls.some(call=>["mcp_connection_save","mcp_connection_validate","mcp_connection_grant"].includes(call[0]))).toBe(false);
+  expect(original.config.source).toMatchObject({kind:"local_command",program:"/approved/tool"});
+});
+
+it("macOS新本地连接不能勾选子进程权限",async()=>{
+  items=[localConnection()];
+  render(<McpConnectionSettings hostPlatform="macos"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"编辑"}));
+  const children=screen.getByRole("checkbox",{name:"允许子进程"});
+  expect(children).toHaveProperty("checked",false);
+  expect(children).toHaveProperty("disabled",true);
+  expect(screen.getByText(/当前不支持子进程/)).toBeTruthy();
+  expect(screen.getByRole("button",{name:"保存"})).toHaveProperty("disabled",false);
+});
+
+it("macOS旧子进程授权保留显示，用户明确取消后才可保存",async()=>{
+  const original=localConnection(true);original.validation=validation();items=[original];
+  render(<McpConnectionSettings hostPlatform="macos"/>);
+  await screen.findByText("暂不支持子进程，请取消此权限后保存。");
+  expect(screen.getByRole("button",{name:"验证"})).toHaveProperty("disabled",true);
+  fireEvent.click(screen.getByRole("button",{name:"编辑"}));
+  const children=screen.getByRole("checkbox",{name:"允许子进程"});
+  expect(children).toHaveProperty("checked",true);
+  expect(children).toHaveProperty("disabled",false);
+  expect(screen.getByRole("button",{name:"保存"})).toHaveProperty("disabled",true);
+  fireEvent.click(children);
+  expect(children).toHaveProperty("checked",false);
+  expect(children).toHaveProperty("disabled",true);
+  expect(screen.getByRole("button",{name:"保存"})).toHaveProperty("disabled",false);
+  fireEvent.click(screen.getByRole("button",{name:"保存"}));
+  await screen.findByRole("alert");
+  const calls=invoke.mock.calls.filter(call=>call[0]==="mcp_connection_save");
+  expect(calls).toHaveLength(1);
+  expect(calls[0][1].request.prepare.config.source).toMatchObject({kind:"local_command",program:"/approved/tool",permissions:{childProcesses:false}});
+  expect(original.config.source).toMatchObject({permissions:{childProcesses:true}});
 });

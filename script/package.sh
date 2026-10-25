@@ -65,8 +65,7 @@ if [[ "$PROJECT_ROOT" != "$BUILD_ROOT" ]]; then
   node "$PROJECT_ROOT/scripts/stage-build.mjs"
 fi
 cd "$BUILD_ROOT"
-npm ci --silent --no-audit
-npm --prefix apps/desktop ci --silent --no-audit
+node scripts/ensure-build-dependencies.mjs --ci
 node apps/desktop/scripts/prepare-electron-runtime.mjs
 if [[ "$PROFILE" == "release" ]]; then
   npm --prefix apps/desktop run package:release
@@ -81,7 +80,7 @@ else
   node "$PROJECT_ROOT/apps/desktop/scripts/verify-personal-smoke.mjs" "$SELF_CHECK_LOG"
   node "$PROJECT_ROOT/scripts/package-processes.mjs" "$APP" --wait-ms=15000
   if [[ "$LAUNCH" == "1" ]]; then
-    open "$APP"
+    node "$PROJECT_ROOT/scripts/storage-lifecycle.mjs" --launch-open "$APP"
     for ((attempt=0; attempt<20; attempt++)); do
       if pgrep -f "$EXECUTABLE" >/dev/null; then
         echo "已启动统一测试包：$APP"

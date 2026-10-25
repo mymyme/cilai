@@ -7,7 +7,7 @@ const { createDiagnosticExport } = require("./diagnostic-export");
 const { createTestDiagnostics } = require("./test-diagnostics");
 
 function setup(t) {
-  const fixtures = path.resolve(__dirname, "../../../../..", ".personal-build/verification/diagnostic-fixtures");
+  const fixtures = path.join(require("./personal-isolation").personalBuildRoot(), "verification/diagnostic-fixtures");
   fs.mkdirSync(fixtures,{recursive:true});
   const directory = fs.mkdtempSync(path.join(fixtures, "diagnostic-"));
   t.after(() => fs.rmSync(directory,{recursive:true,force:true}));

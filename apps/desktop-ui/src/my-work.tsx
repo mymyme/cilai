@@ -12,7 +12,7 @@ import type { MessageSink } from "./app-message";
 import { deadlineDay, listMoment } from "./datetime";
 import { LoadFailure } from "./load-failure";
 import { SearchField } from "./search-field";
-import { emptyAiSnapshot, loadAiSnapshot, type AiRuntimeSnapshot } from "./ai-runtime";
+import { emptyAiQuerySnapshot, loadAiRuntimeQuery, type AiRuntimeQuerySnapshot } from "./ai-runtime";
 
 export interface RecentConversation { conversationId: string; title: string; updatedAt: number; projectName: string | null; running: boolean }
 
@@ -171,7 +171,7 @@ export function MyWorkPage(props: MyWorkPageProps) {
 }
 
 export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void; onMessage: MessageSink; onOpenConversation: (conversationId: string) => void; onOpenRun: (runId: string) => void }) {
-  const [snapshot, setSnapshot] = useState<AiRuntimeSnapshot>(emptyAiSnapshot);
+  const [snapshot, setSnapshot] = useState<AiRuntimeQuerySnapshot>(() => emptyAiQuerySnapshot("work"));
   const [facts, setFacts] = useState<WorkDetailFacts>(emptyWorkDetailFacts);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -180,10 +180,7 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
   const drawerRef = useModal<HTMLElement>({ onClose: props.onClose, active: preview === null });
 
   const loadDetail = useCallback(async () => {
-    const [nextSnapshot, nextFacts] = await Promise.all([
-      loadAiSnapshot(),
-      loadWorkDetailFacts(props.item),
-    ]);
+    const [nextSnapshot, nextFacts] = await loadWorkDetailSnapshot(props.item);
     setSnapshot(nextSnapshot);
     setFacts(nextFacts);
   }, [props.item]);
@@ -192,7 +189,7 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    void Promise.all([loadAiSnapshot(), loadWorkDetailFacts(props.item)])
+    void loadWorkDetailSnapshot(props.item)
       .then(([nextSnapshot, nextFacts]) => { if (!cancelled) { setSnapshot(nextSnapshot); setFacts(nextFacts); } })
       .catch((error) => {
         if (!cancelled) {
@@ -226,7 +223,7 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
     .sort((left, right) => right.startedAt - left.startedAt), [archivedConversationIds, conversationIds, contributionRunIds, directRunIds, facts.task, snapshot.runs]);
   const progressEntries = useMemo(() => {
     if (!facts.task) return runs.map((run) => ({ contribution: null, run }));
-    const entries: Array<{ contribution: BusinessTaskContributionItem | null; run: AiRuntimeSnapshot["runs"][number] | null }> = visibleContributions.map((contribution) => ({
+    const entries: Array<{ contribution: BusinessTaskContributionItem | null; run: AiRuntimeQuerySnapshot["runs"][number] | null }> = visibleContributions.map((contribution) => ({
       contribution,
       run: runs.find((run) => run.runId === contribution.runId) ?? null,
     }));
@@ -251,7 +248,7 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
     };
   }, [progressEntries, visibleContributions]);
   const artifacts = useMemo(() => conversationFileArtifacts([...runs].reverse()).map(({ artifact, runId }) => ({ artifact, run: runs.find((run) => run.runId === runId)! })), [runs]);
-  const textOutcomes = useMemo(() => progressEntries.filter((entry) => entry.run?.output?.trim() && !entry.run.artifacts.length), [progressEntries]);
+  const textOutcomes = useMemo(() => progressEntries.filter((entry) => entry.run?.outputPreview?.trim() && !entry.run.artifacts.length), [progressEntries]);
   const deliverableVersions = useMemo(() => facts.deliverable
     ? [...facts.deliverable.versions].sort((left, right) => right.versionNo - left.versionNo)
     : [], [facts.deliverable]);
@@ -311,7 +308,7 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
             const conversation = conversations.find((item) => item.conversationId === conversationId);
             const request = run ? snapshot.messages.find((message) => message.messageId === run.inputMessageId) : null;
             const occurredAt = run?.completedAt ?? run?.startedAt ?? contribution?.createdAt;
-            const result = run?.output?.trim() || contribution?.reason;
+            const result = run?.outputPreview?.trim() || contribution?.reason;
             return <article data-status={run?.status ?? "missing"} key={contribution?.runId ?? run?.runId}>
               <header>
                 <div><strong>{conversation?.title ?? "对话记录不可用"}</strong><span>{[occurredAt ? listMoment(occurredAt) : null, run?.modelLabel ?? (run?.model ? displayModelId(run.model) : null), contribution?.stage ? groupLabel(contribution.stage) : null].filter(Boolean).join(" · ")}</span></div>
@@ -341,9 +338,9 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
             return <article key={`${run.runId}-${artifact.artifactId}`}><ArtifactIcon/><div><strong>{artifact.label}</strong><span>{artifact.path ?? artifact.artifactType}</span><small>{[sourceConversation?.title, run.model, runStatusLabel(run.status), listMoment(run.completedAt ?? run.startedAt)].filter(Boolean).join(" · ")}</small></div><button onClick={() => sourceConversation ? props.onOpenConversation(sourceConversation.conversationId) : props.onOpenRun(run.runId)} type="button">打开对话</button></article>;
           })}</div></> : null}
           {textOutcomes.length ? <><div className="work-detail-subhead"><h4>文本结果</h4><span>{textOutcomes.length}</span></div><div className="work-detail-text-outcomes">{textOutcomes.map(({ contribution, run }) => {
-            if (!run?.output) return null;
+            if (!run?.outputPreview) return null;
             const sourceConversation = conversations.find((conversation) => conversation.conversationId === (contribution?.conversationId ?? run.conversationId));
-            return <article key={run.runId}><div><strong>{sourceConversation?.title ?? "对话结果"}</strong><p>{compactWorkText(run.output, 220)}</p><small>{[runStatusLabel(run.status), listMoment(run.completedAt ?? run.startedAt)].join(" · ")}</small></div><button onClick={() => sourceConversation ? props.onOpenConversation(sourceConversation.conversationId) : props.onOpenRun(run.runId)} type="button">打开对话</button></article>;
+            return <article key={run.runId}><div><strong>{sourceConversation?.title ?? "对话结果"}</strong><p>{compactWorkText(run.outputPreview, 220)}</p><small>{[runStatusLabel(run.status), listMoment(run.completedAt ?? run.startedAt)].join(" · ")}</small></div><button onClick={() => sourceConversation ? props.onOpenConversation(sourceConversation.conversationId) : props.onOpenRun(run.runId)} type="button">打开对话</button></article>;
           })}</div></> : null}
           {!facts.deliverable && !outcomeCount ? <p className="work-detail-empty">尚无可核查产出。</p> : null}
         </section></> : null}
@@ -366,14 +363,14 @@ export function TaskDetailDrawer(props: { item: MyWorkItem; onClose: () => void;
 
 type TaskConversationEntry = {
   contribution: BusinessTaskContributionItem | null;
-  run: AiRuntimeSnapshot["runs"][number] | null;
+  run: AiRuntimeQuerySnapshot["runs"][number] | null;
 };
 
 function TaskConversationEntries(props: {
-  conversations: AiRuntimeSnapshot["conversations"];
+  conversations: AiRuntimeQuerySnapshot["conversations"];
   entries: TaskConversationEntry[];
   aggregate?: boolean;
-  runs: AiRuntimeSnapshot["runs"];
+  runs: AiRuntimeQuerySnapshot["runs"];
   onPreview: (preview: TaskArtifactPreview) => void;
   onOpenConversation: (conversationId: string) => void;
 }) {
@@ -407,7 +404,7 @@ const emptyWorkDetailFacts: WorkDetailFacts = { task: null, contributions: [], d
 
 async function loadWorkItemConversationId(item: MyWorkItem): Promise<string> {
   const [snapshot, taskResult, attentionResult] = await Promise.all([
-    loadAiSnapshot(),
+    loadAiRuntimeQuery({ scope: "project", projectId: item.projectId }),
     !item.blockingRunId && !item.attentionCaseId && item.taskId
       ? rpc<BusinessTaskGetResult>("businessTask/get", { businessTaskId: item.taskId }) : Promise.resolve(null),
     !item.blockingRunId && item.attentionCaseId
@@ -438,6 +435,16 @@ async function loadWorkItemConversationId(item: MyWorkItem): Promise<string> {
   throw new Error("未找到该事项当前可打开的关联对话。");
 }
 
+async function loadWorkDetailSnapshot(item: MyWorkItem): Promise<[AiRuntimeQuerySnapshot, WorkDetailFacts]> {
+  const facts = await loadWorkDetailFacts(item);
+  const runIds = facts.task ? [...new Set([
+    ...facts.contributions.map((contribution) => contribution.runId),
+    item.blockingRunId, facts.attention?.agentRunId,
+  ].filter((id): id is string => Boolean(id)))] : undefined;
+  const snapshot = await loadAiRuntimeQuery({ scope: "work", projectId: item.projectId, runIds });
+  return [snapshot, facts];
+}
+
 async function loadWorkDetailFacts(item: MyWorkItem): Promise<WorkDetailFacts> {
   const [taskResult, deliverableResult, progressResult, attentionResult] = await Promise.all([
     item.taskId ? rpc<BusinessTaskGetResult>("businessTask/get", { businessTaskId: item.taskId }) : Promise.resolve(null),
@@ -457,7 +464,7 @@ async function loadWorkDetailFacts(item: MyWorkItem): Promise<WorkDetailFacts> {
   return { task, contributions, deliverable, phase, attention };
 }
 
-function conversationMatchesWorkItem(conversation: AiRuntimeSnapshot["conversations"][number], item: MyWorkItem) {
+function conversationMatchesWorkItem(conversation: AiRuntimeQuerySnapshot["conversations"][number], item: MyWorkItem) {
   if (conversation.context.projectId !== item.projectId) return false;
   if (item.taskId) return conversation.context.taskId === item.taskId || conversation.workClassification?.taskId === item.taskId;
   if (item.deliverableId) return conversation.context.deliverableId === item.deliverableId;

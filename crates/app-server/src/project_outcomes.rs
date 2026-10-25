@@ -205,10 +205,15 @@ pub fn delete_workspace(
                 EventId::new(format!("workspace-delete-event-{}", uuid::Uuid::new_v4())),
             )
         })
-        .map(|summary| WorkspaceDeleteResult {
-            workspace_id: summary.workspace_id,
-            removed_files: summary.removed_files,
-            removed_events: summary.removed_events,
+        .and_then(|summary| {
+            persistence
+                .file_content_index()?
+                .collect_unused_search_content()?;
+            Ok(WorkspaceDeleteResult {
+                workspace_id: summary.workspace_id,
+                removed_files: summary.removed_files,
+                removed_events: summary.removed_events,
+            })
         })
 }
 

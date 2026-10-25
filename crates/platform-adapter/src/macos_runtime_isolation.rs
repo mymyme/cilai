@@ -405,16 +405,12 @@ mod tests {
     struct Fixture(PathBuf);
     impl Fixture {
         fn new() -> Self {
-            let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .ancestors()
-                .nth(4)
-                .unwrap();
             let nonce = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let root = project
-                .join(".personal-build/runtime-isolation-fixtures")
+            let root = crate::test_support::personal_build_root()
+                .join("runtime-isolation-fixtures")
                 .join(format!(
                     "mac-home-{}-{nonce}-{}",
                     std::process::id(),

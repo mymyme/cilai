@@ -1,6 +1,6 @@
 {
   "name": "@cilai/personal-workbench-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "词来个人工作台本地优先桌面客户端。",
   "author": "词来",
@@ -17,10 +17,10 @@
     "spike:webview": "electron prototype/webview-spike.js",
     "test:shell": "node --test shell/*.test.js",
     "test:update": "node --test shell/updater.test.js shell/update-channels.test.js shell/update-preferences.test.js shell/update-install-guard.test.js shell/portable-update.test.js shell/portable-helper.test.js",
-    "verify:ime": "electron prototype/main.js --verify-ime",
-    "verify:perf": "electron prototype/main.js --verify-perf",
-    "verify:background": "electron prototype/background-lifecycle-check.js",
-    "verify:webview": "electron prototype/webview-spike.js --verify-webview",
+    "verify:ime": "node ../../scripts/managed-verification.mjs --desktop -- electron prototype/main.js --verify-ime",
+    "verify:perf": "node ../../scripts/managed-verification.mjs --desktop -- electron prototype/main.js --verify-perf",
+    "verify:background": "node ../../scripts/managed-verification.mjs --desktop -- electron prototype/background-lifecycle-check.js",
+    "verify:webview": "node ../../scripts/managed-verification.mjs --desktop -- electron prototype/webview-spike.js --verify-webview",
     "package:portable": "node scripts/package.mjs electron-builder.portable.yml",
     "prepackage:portable": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile release",
     "publish:portable": "node scripts/publish-portable.mjs",
@@ -28,7 +28,7 @@
     "prepackage:local": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile debug"
   },
   "devDependencies": {
-    "electron": "44.4.4",
+    "electron": "44.9.1",
     "electron-builder": "^26.0.12"
   },
   "productName": "词来个人工作台",

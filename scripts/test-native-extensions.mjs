@@ -38,7 +38,7 @@ async function main() {
   const receipt = { startedAt: new Date().toISOString(), workspace, filter: filter ?? null, nextestProfile: "default", automaticRetries: 0, userConfigurationChanged: false };
   let isolated;
   try {
-    await run(process.execPath, [join(source, "scripts/stage-build.mjs")], source);
+    await run(process.execPath, [join(source, "scripts/stage-build.mjs"), "--profile", "native-extensions"], source);
     receipt.stagedManifestSha256 = createHash("sha256").update(readFileSync(join(root, ".cilai-staged-files.json"))).digest("hex");
     const env = { ...process.env, CARGO_TARGET_DIR: join(root, "target/codex-harness"), CARGO_INCREMENTAL: "0", CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? "4" };
     receipt.buildJobs = env.CARGO_BUILD_JOBS;
@@ -108,7 +108,7 @@ async function main() {
     receipt.error = error.message;
     process.exitCode = 1;
   } finally {
-    if (isolated) {
+    if (isolated && receipt.testsPassed === true && receipt.freshTestReport === true && !receipt.error) {
       try { rmSync(isolated, { recursive: true }); }
       catch (error) {
         receipt.cleanupError = error.message;
@@ -116,6 +116,7 @@ async function main() {
         process.stderr.write(`测试临时目录清理失败：${error.message}\n`);
       }
     }
+    if (isolated && existsSync(isolated)) receipt.retainedDiagnostics = isolated;
     receipt.completedAt = new Date().toISOString();
     receipt.passed = receipt.testsPassed === true && receipt.freshTestReport === true && !receipt.error && !receipt.cleanupError;
     writeFileSync(join(receiptDirectory, "result.json"), `${JSON.stringify(receipt, null, 2)}\n`);

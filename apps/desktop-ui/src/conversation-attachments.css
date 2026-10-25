@@ -1,0 +1,5 @@
+.ai-document-attachment { display: flex; align-items: center; gap: 8px; max-width: 260px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 8px; overflow-wrap: anywhere; }
+.ai-document-attachment svg { width: 20px; height: 20px; flex-shrink: 0; }
+.ai-document-attachment small { display: block; color: var(--text-secondary); font-size: 11px; }
+.ai-file-attachment .ai-document-attachment { min-height: 42px; height: 100%; }
+.ai-file-attachment .ai-document-attachment > span { min-width: 0; }

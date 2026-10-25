@@ -128,7 +128,7 @@ function conversationContext(overrides: Partial<AiContext> = {}): AiContext {
   };
 }
 
-function snapshot(context: AiContext, executionSupported = true, agentModel: string | null = null, runtimeCapabilities: string[] = []) {
+function snapshot(context: AiContext, _executionSupported = true, agentModel: string | null = null, _runtimeCapabilities: string[] = []) {
   const models: AiRuntimeSnapshot["models"] = [
     { modelId: "Qwen3.6-35B-A3B-NVFP4", label: "Qwen3.6 35B A3B NVFP4", provider: "codex", description: "256K 上下文窗口", source: "personal", contextWindowTokens: 262_144, inputModalities: ["text", "image"] },
     { modelId: "Qwen3.8-27B-NVFP4", label: "Qwen3.8 27B NVFP4", provider: "codex", description: "512K 上下文窗口", source: "personal", contextWindowTokens: 524_288, inputModalities: ["text", "image"] },
@@ -2994,7 +2994,7 @@ describe("应用转交消息", () => {
     const state = snapshot(context);
     state.conversations = ["conv-1", "conv-2", "conv-3"].map((conversationId) => ({ ...state.conversations[0], conversationId, title: conversationId }));
     const onMessage = vi.fn();
-    invoke.mockImplementation(async (command: string, args?: { request: { conversationId: string } }) => {
+    invoke.mockImplementation(async (command: string, _args?: { request: { conversationId: string } }) => {
       if (command === "ai_runtime_snapshot") return state;
       if (command === "ai_conversation_set_archived") return {
         stateRevision: 1, conversations: [{ ...state.conversations[0], archived: true }], changedConversationIds: ["conv-1"],
@@ -5097,10 +5097,30 @@ test("对话页卸载重挂后保留新建草稿和审批选择", async () => {
 });
 
 
+test("缺少连接的历史草稿保留内容并要求明确重选模型，不自动沿用同名模型", async () => {
+  sessionApi.snapshot.values = {
+    selectedConversationId: "conv-1", initializedSelection: "conversation:conv-1",
+    starterAgentId: "agent-1", starterModelOverride: "Qwen3.8-27B-NVFP4", starterPermissionMode: "request",
+    drafts: { "conversation:conv-1": "保留这份草稿" },
+  };
+  await renderWorkbench(conversationContext(), { messages: [existingMessage] });
+  expect(await screen.findByText("原模型连接未记录，请重新选择模型连接。")).toBeTruthy();
+  expect((screen.getByLabelText("发送给 AI") as HTMLTextAreaElement).value).toBe("保留这份草稿");
+  expect(screen.getByRole("button", { name: "发送" })).toHaveProperty("disabled", true);
+  fireEvent.keyDown(screen.getByLabelText("发送给 AI"), { key: "Enter", keyCode: 13 });
+  expect(invoke.mock.calls.some(([command]) => command === "ai_message_submit")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: /^选择模型：/ }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: /Qwen3.8 27B NVFP4.*上下文 512K/ }));
+  await act(() => flushConversationSessions());
+  expect(screen.queryByText("原模型连接未记录，请重新选择模型连接。")).toBeNull();
+  expect(Object.hasOwn(sessionApi.snapshot.values, "starterConnectionId")).toBe(true);
+  expect(screen.getByRole("button", { name: "发送" })).toHaveProperty("disabled", false);
+});
+
 test.each([false, true])("恢复旧的模型只读选择时明确要求重新选择审批模式，计划状态 %s", async (planning) => {
   sessionApi.snapshot.values = {
     selectedConversationId: "conv-1", initializedSelection: "conversation:conv-1",
-    starterAgentId: "agent-1", starterModelOverride: "Qwen3.8-27B-NVFP4",
+    starterAgentId: "agent-1", starterModelOverride: "Qwen3.8-27B-NVFP4", starterConnectionId: null,
     starterPermissionMode: "read-only", starterPlanning: planning,
   };
   await renderWorkbench(conversationContext(), { messages: [existingMessage] });

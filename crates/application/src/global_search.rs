@@ -11,6 +11,10 @@ pub struct GlobalSearchRecord {
     pub local_file_id: Option<String>,
     pub relative_path: Option<String>,
     pub updated_at: i64,
+    pub body_match: bool,
+    pub expected_size_bytes: Option<u64>,
+    pub expected_checksum: Option<String>,
+    pub expected_file_identity: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -406,6 +406,8 @@ fn sanitize_runtime_entries(db: &rusqlite::Connection) -> Result<(), Persistence
 
 fn sanitize_snapshot(db: &rusqlite::Connection) -> Result<(), PersistenceError> {
     db.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE; DELETE FROM personal_maintenance_fences; DELETE FROM personal_profile_writers; DELETE FROM personal_data_operations; DELETE FROM personal_storage_operations; DELETE FROM personal_namespace_storage_operations; DELETE FROM personal_memory_reset_operations; DELETE FROM personal_maintenance_operation_registry WHERE operation_id NOT IN (SELECT operation_id FROM personal_application_data_operations); UPDATE personal_maintenance_operation_registry SET state='cancelled' WHERE operation_id IN (SELECT operation_id FROM personal_application_data_operations); DELETE FROM personal_mcp_records WHERE kind<>'connection'; DELETE FROM personal_file_grants; UPDATE personal_capability_installations SET enabled=0; UPDATE accounts SET credential_ref=NULL; DELETE FROM employee_service_credentials; DELETE FROM ai_ledger_commands;").map_err(database_error("sanitize personal data snapshot"))?;
+    db.execute_batch("DELETE FROM file_search_text; INSERT INTO file_search_text(file_search_text) VALUES('rebuild'); DELETE FROM file_search_documents;")
+        .map_err(database_error("exclude derived workspace text from backup"))?;
     preserve_application_data_history(db)?;
     sanitize_runtime_entries(db)?;
     let mcp = {
@@ -1063,6 +1065,13 @@ mod tests {
         db.connection
             .execute_batch(include_str!("ai_native_business_views.sql"))
             .unwrap();
+        db.connection
+            .execute(
+                "INSERT INTO file_search_documents(checksum_value,status) VALUES (?1,'indexed')",
+                ["a".repeat(64)],
+            )
+            .unwrap();
+        db.connection.execute("INSERT INTO file_search_text(rowid,content) VALUES (1,'synthetic-workspace-body-not-selected')", []).unwrap();
         let snapshot = root.join("snapshot.sqlite");
         db.snapshot_personal_data_database(&snapshot).unwrap();
         let data = std::fs::read(&snapshot).unwrap();
@@ -1071,7 +1080,35 @@ mod tests {
                 .windows(b"synthetic-sensitive-value".len())
                 .any(|v| v == b"synthetic-sensitive-value")
         );
+        assert!(
+            !data
+                .windows(b"synthetic-workspace-body-not-selected".len())
+                .any(|bytes| bytes == b"synthetic-workspace-body-not-selected")
+        );
         let checked = rusqlite::Connection::open(&snapshot).unwrap();
+        assert_eq!(
+            checked
+                .query_row("SELECT count(*) FROM file_search_text", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            checked
+                .query_row("SELECT count(*) FROM file_search_documents", [], |row| row
+                    .get::<_, i64>(
+                    0
+                ))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            db.connection
+                .query_row("SELECT count(*) FROM file_search_text", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
         let raw: String = checked
             .query_row(
                 "SELECT record_json FROM ai_runtime_entries WHERE record_id='memoryPreferences'",

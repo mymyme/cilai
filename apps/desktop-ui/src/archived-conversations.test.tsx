@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { emptyAiSnapshot, type AiConversation, type AiRuntimeSnapshot } from "./ai-runtime";
+import { emptyAiQuerySnapshot, type AiConversation, type AiRuntimeQuerySnapshot } from "./ai-runtime";
 import { ArchivedConversationsPage } from "./archived-conversations";
 import { conversationArchiveChanged } from "./conversation-archive";
 
@@ -19,10 +19,12 @@ function conversation(id: string, projectId: string | null, overrides: Partial<A
   };
 }
 
-function setup(conversations: AiConversation[], messages: AiRuntimeSnapshot["messages"] = []) {
-  const state: AiRuntimeSnapshot = { ...emptyAiSnapshot, conversations, messages };
-  invoke.mockImplementation(async (command: string, args?: { request: { conversationId?: string; conversationIds?: string[]; archived?: boolean } }) => {
-    if (command === "ai_runtime_snapshot") return state;
+function setup(conversations: AiConversation[], messages: AiRuntimeQuerySnapshot["messages"] = []) {
+  const state: AiRuntimeQuerySnapshot = { ...emptyAiQuerySnapshot("archive"), conversations, messages };
+  invoke.mockImplementation(async (command: string, args?: { request: { scope?: string; conversationId?: string; conversationIds?: string[]; archived?: boolean } }) => {
+    if (command === "ai_runtime_query") return args?.request.scope === "conversation"
+      ? { ...state, scope: "conversation", conversations: state.conversations.filter((item) => item.conversationId === args.request.conversationId), messages: state.messages.filter((message) => message.conversationId === args.request.conversationId) }
+      : { ...state, messages: [] };
     if (command === "ai_attachment_read") return new Uint8Array([137, 80, 78, 71]).buffer;
     if (command === "ai_conversation_set_archived") {
       const item = state.conversations.find((candidate) => candidate.conversationId === args?.request.conversationIds?.[0])!;
@@ -47,20 +49,20 @@ function setup(conversations: AiConversation[], messages: AiRuntimeSnapshot["mes
 describe("已归档会话", () => {
   it("查看详情加载期间撤销归档，迟到的旧快照不能重新显示该详情", async () => {
     const item = conversation("a", null);
-    let complete!: (snapshot: AiRuntimeSnapshot) => void;
+    let complete!: (snapshot: AiRuntimeQuerySnapshot) => void;
     invoke.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
-    invoke.mockResolvedValue({ ...emptyAiSnapshot, stateRevision: 3, conversations: [{ ...item, archived: false }] });
+    invoke.mockResolvedValue({ ...emptyAiQuerySnapshot("archive"), stateRevision: 3, conversations: [{ ...item, archived: false }] });
     render(<ArchivedConversationsPage projects={[]} onMessage={vi.fn()} openIntent={{ conversationId: "a", token: 1 }}/>);
     await act(async () => {
       window.dispatchEvent(new CustomEvent(conversationArchiveChanged, { detail: {
         archived: false, stateRevision: 3, conversations: [{ ...item, archived: false }], changedConversationIds: ["a"], failures: [],
       } }));
-      complete({ ...emptyAiSnapshot, stateRevision: 2, conversations: [item] });
+      complete({ ...emptyAiQuerySnapshot("archive"), stateRevision: 2, conversations: [item] });
     });
     await screen.findByText("暂无已归档会话");
     expect(screen.queryByRole("heading", { name: "会话 a" })).toBeNull();
     expect(screen.queryByText("该对话已不在归档中。")).toBeNull();
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledTimes(3);
   });
 
   it("跨项目读取，只显示归档会话；同名项目不合并，无归属记录不丢失", async () => {
@@ -69,7 +71,7 @@ describe("已归档会话", () => {
     expect(screen.getAllByRole("region", { name: "同名项目的归档会话" })).toHaveLength(2);
     expect(screen.getByRole("region", { name: "未分类的归档会话" })).toBeTruthy();
     expect(screen.queryByText("会话 d")).toBeNull();
-    expect(invoke).toHaveBeenCalledWith("ai_runtime_snapshot");
+    expect(invoke).toHaveBeenCalledWith("ai_runtime_query", { request: { scope: "archive" } });
   });
 
   it("搜索和项目筛选取交集，且同名项目可独立选择", async () => {
@@ -103,9 +105,9 @@ describe("已归档会话", () => {
     await screen.findByText("会话 a");
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "会话 a" } });
     fireEvent.click(screen.getByRole("button", { name: /^会话 a 更新于/ }));
-    expect(screen.getAllByRole("article").map((item) => item.textContent)).toEqual([expect.stringContaining("问题正文"), expect.stringContaining("答复正文")]);
+    expect((await screen.findAllByRole("article")).map((item) => item.textContent)).toEqual([expect.stringContaining("问题正文"), expect.stringContaining("答复正文")]);
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(invoke.mock.calls.filter(([command]) => command !== "ai_runtime_snapshot")).toHaveLength(0);
+    expect(invoke.mock.calls.filter(([command]) => command !== "ai_runtime_query")).toHaveLength(0);
     expect(state.conversations[0].archived).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "返回归档清单" }));
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("会话 a");
@@ -241,7 +243,7 @@ describe("已归档会话", () => {
   });
 
   it("加载失败显示错误和重试，不冒充没有归档", async () => {
-    invoke.mockRejectedValueOnce(new Error("读取失败")).mockResolvedValueOnce(emptyAiSnapshot);
+    invoke.mockRejectedValueOnce(new Error("读取失败")).mockResolvedValueOnce(emptyAiQuerySnapshot("archive"));
     render(<ArchivedConversationsPage projects={[]} onMessage={vi.fn()}/>);
     await screen.findByText("无法读取已归档会话");
     expect(screen.queryByText("暂无已归档会话")).toBeNull();

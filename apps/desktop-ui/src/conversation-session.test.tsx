@@ -22,6 +22,17 @@ function Client() {
   </>;
 }
 const view = (visible = true, profile = "a", hostPlatform = "macos") => <StrictMode><ConversationSessionProvider key={profile} hostPlatform={hostPlatform} onMessage={vi.fn()}>{visible ? <Client/> : <p>其他页面</p>}</ConversationSessionProvider></StrictMode>;
+
+function SelectionClient({ connectionId }: { connectionId: string | null }) {
+  const [model, setModel] = useConversationSessionState<string | null>("starterModelOverride", null);
+  const [connection, setConnection] = useConversationSessionState<string | null>("starterConnectionId", null);
+  const [initialized, setInitialized] = useConversationSessionState<string | null>("initializedSelection", null);
+  const flush = useConversationSessionFlush();
+  return <>
+    <output aria-label="模型选择">{JSON.stringify({ model, connection, initialized })}</output>
+    <button onClick={() => { setModel("same-model"); setConnection(connectionId); setInitialized("conversation:conv-1"); void flush(); }}>选择连接</button>
+  </>;
+}
 beforeEach(() => {
   vi.clearAllMocks();
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
@@ -35,6 +46,18 @@ beforeEach(() => {
   });
 });
 afterEach(async () => { await act(async () => cleanup()); vi.useRealTimers(); });
+
+test.each(["provider-b", null])("模型、连接%s和初始化标记共同保存并恢复", async (connectionId) => {
+  const ui = () => <ConversationSessionProvider hostPlatform="macos" onMessage={vi.fn()}><SelectionClient connectionId={connectionId}/></ConversationSessionProvider>;
+  const page = render(ui());
+  fireEvent.click(await screen.findByRole("button", { name: "选择连接" }));
+  await waitFor(() => expect(stored.values).toMatchObject({ starterModelOverride: "same-model", starterConnectionId: connectionId, initializedSelection: "conversation:conv-1" }));
+  expect(Object.hasOwn(stored.values, "starterConnectionId")).toBe(true);
+  expect(mocks.patch.mock.calls[0][1].map((change: { key: string }) => change.key)).toEqual(expect.arrayContaining(["starterModelOverride", "starterConnectionId", "initializedSelection"]));
+  page.unmount();
+  render(ui());
+  expect((await screen.findByLabelText("模型选择")).textContent).toBe(JSON.stringify({ model: "same-model", connection: connectionId, initialized: "conversation:conv-1" }));
+});
 
 test("切页保留输入，重新挂载从本地服务恢复草稿和冻结队列", async () => {
   const page = render(view());

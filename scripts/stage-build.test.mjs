@@ -39,8 +39,9 @@ test('清单排除私有环境和缓存，保留上游源码点目录', context 
   symlinkSync(root, join(source, '.venv/python'));
   writeFileSync(join(source, '.env.secret'), 'private');
   writeFileSync(join(source, 'third_party/openai-codex/.vscode/extensions.json'), 'official');
-  assert.deepEqual(sourceFiles(source), ['third_party/openai-codex/.vscode/extensions.json']);
-  stageBuild({ source, destination });
+  assert.deepEqual(sourceFiles(source), []);
+  assert.deepEqual(sourceFiles(source, { profile: 'native-extensions' }), ['third_party/openai-codex/.vscode/extensions.json']);
+  stageBuild({ source, destination, profile: 'native-extensions' });
   assert.equal(readFileSync(join(destination, 'third_party/openai-codex/.vscode/extensions.json'), 'utf8'), 'official');
 });
 test('源码链接、构建目录链接和目标文件父目录链接都被拒绝，外部数据保持原状', context => {
@@ -70,4 +71,33 @@ test('上游合法相对文件链接保持原链接及许可内容', context => 
   stageBuild({ source, destination });
   assert.equal(readFileSync(join(destination, 'LICENSE'), 'utf8'), '上游许可证');
   assert.deepEqual(sourceFiles(source), ['COPYING', 'LICENSE']);
+});
+
+test('桌面用途只暂存模型元数据和许可证，切换用途保留源码与构建缓存', context => {
+  const { source, destination } = fixture(context);
+  const files = {
+    'third_party/openai-codex/LICENSE': 'license',
+    'third_party/openai-codex/NOTICE': 'notice',
+    'third_party/openai-codex/codex-rs/models-manager/models.json': '{}',
+    'third_party/openai-codex/codex-rs/core/src/lib.rs': 'upstream',
+    'third_party/openai-codex.release.json': 'release',
+  };
+  for (const [name, content] of Object.entries(files)) {
+    mkdirSync(join(source, name, '..'), { recursive: true });
+    writeFileSync(join(source, name), content);
+  }
+  const vendor = join(source, 'third_party/openai-codex/vendor');
+  mkdirSync(vendor);
+  writeFileSync(join(vendor, 'COPYING'), 'vendor license');
+  symlinkSync('COPYING', join(vendor, 'LICENSE'));
+  const full = stageBuild({ source, destination, profile: 'native-extensions' });
+  mkdirSync(join(destination, 'target'));
+  writeFileSync(join(destination, 'target/cache'), 'keep');
+  const desktop = stageBuild({ source, destination });
+  assert.equal(full.total, 7);
+  assert.equal(desktop.total, 4);
+  assert.equal(desktop.removed, 3);
+  assert.equal(readFileSync(join(source, 'third_party/openai-codex/codex-rs/core/src/lib.rs'), 'utf8'), 'upstream');
+  assert.equal(readFileSync(join(destination, 'target/cache'), 'utf8'), 'keep');
+  assert.throws(() => sourceFiles(source, { profile: 'unknown' }), /未知暂存用途/);
 });

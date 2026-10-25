@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { WorkspaceFileItem, WorkspaceSummary } from "./generated/protocol";
-import { fileNameFromRelativePath, VirtualFileTree, WorkspacePage, WorkspaceSwitcher } from "./workspace-page";
+import { fileNameFromRelativePath, WorkspacePage, WorkspaceSwitcher } from "./workspace-page";
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("./host", () => ({
@@ -167,7 +167,7 @@ describe("文件树", () => {
       baselineVersionId: null,
       stateRevision: 1,
     });
-    const rendered = render(<WorkspacePage conflicts={[]} connectingWorkspace={false} createWorkspace={() => Promise.resolve()} deliverableBinding={null} detailIntent={0} diffIntent={0} files={[selectedFile]} hostPlatform="macos" loadError={null} loadState="ready" onFile={() => {}} onMessage={onMessage} onOpenAi={() => {}} onConfirmationChanged={onConfirmationChanged} onRetryLoad={() => {}} revision={1} selectedFile={selectedFile} selectedWorkspace={selectedWorkspace} workspaces={[selectedWorkspace]}/>);
+    render(<WorkspacePage conflicts={[]} connectingWorkspace={false} createWorkspace={() => Promise.resolve()} deliverableBinding={null} detailIntent={0} diffIntent={0} files={[selectedFile]} hostPlatform="macos" loadError={null} loadState="ready" onFile={() => {}} onMessage={onMessage} onOpenAi={() => {}} onConfirmationChanged={onConfirmationChanged} onRetryLoad={() => {}} revision={1} selectedFile={selectedFile} selectedWorkspace={selectedWorkspace} workspaces={[selectedWorkspace]}/>);
 
     fireEvent.click(screen.getByRole("button", { name: "更多文件操作" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "确认内容" }));
@@ -198,58 +198,6 @@ describe("文件树", () => {
     expect(screen.getByRole("alert").textContent).toContain("旧云端来源不可用");
     expect(screen.queryByRole("button", { name: "更多文件操作" })).toBeNull();
     expect(invoke).not.toHaveBeenCalled();
-  });
-
-  it("渲染出传入的文件，点击回传它的 id", () => {
-    const onFile = vi.fn();
-    render(<VirtualFileTree
-      files={[file({}), file({ localFileId: "f2", relativePath: "02立项/预算.md" })]}
-      workspaceKind="local"
-      selectedFileId={null}
-      onFile={onFile}
-      onContext={() => {}}/>);
-
-    expect(screen.getByText("合同文件.md")).toBeDefined();
-    fireEvent.click(screen.getByText("合同文件.md"));
-    expect(onFile).toHaveBeenCalledWith("f1");
-  });
-
-  it("右键交给上层去开菜单，而不是让系统菜单弹出来", () => {
-    const onContext = vi.fn();
-    render(<VirtualFileTree files={[file({})]} workspaceKind="local" selectedFileId={null} onFile={() => {}} onContext={onContext}/>);
-    fireEvent.contextMenu(screen.getByText("合同文件.md"));
-    expect(onContext).toHaveBeenCalled();
-  });
-
-  it("没有文件时不渲染任何行，也不报错", () => {
-    const { container } = render(<VirtualFileTree files={[]} workspaceKind="local" selectedFileId={null} onFile={() => {}} onContext={() => {}}/>);
-    expect(container.querySelectorAll(".file-tree button")).toHaveLength(0);
-  });
-
-  it("正常文件不显示状态圆点，需要关注的文件显示可解释状态", () => {
-    const { container, rerender } = render(<VirtualFileTree
-      files={[file({ displayState: "synced", conflictState: "none", confirmationState: "not_required" })]}
-      workspaceKind="local"
-      selectedFileId={null}
-      onFile={() => {}}
-      onContext={() => {}}/>);
-    expect(container.querySelector("[data-file-status]")).toBeNull();
-
-    rerender(<VirtualFileTree
-      files={[file({ displayState: "local_modified", conflictState: "none", confirmationState: "pending" })]}
-      workspaceKind="local"
-      selectedFileId={null}
-      onFile={() => {}}
-      onContext={() => {}}/>);
-    expect(container.querySelector('[data-file-status="local_modified"]')).toBeNull();
-
-    rerender(<VirtualFileTree
-      files={[file({ displayState: "unavailable", presenceState: "inaccessible" })]}
-      workspaceKind="local"
-      selectedFileId={null}
-      onFile={() => {}}
-      onContext={() => {}}/>);
-    expect(container.querySelector('[data-file-status="unavailable"]')?.getAttribute("title")).toBe("文件不可用");
   });
 
   it("本地历史确认和遗留待确认状态都作为普通文件展示", () => {
@@ -353,17 +301,6 @@ describe("工作区切换器", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加工作空间" }));
     expect(onAddWorkspace).toHaveBeenCalledTimes(1);
   });
-});
-
-
-it("目录点击设置新增目标，点击空白回到根目录", () => {
-  const onDirectory = vi.fn();
-  render(<VirtualFileTree files={[file({ localFileId: "dir-1", relativePath: "资料", fileType: "directory" })]} workspaceKind="local" selectedFileId={null} selectedDirectoryPath="资料" onDirectory={onDirectory} onFile={() => {}} onContext={() => {}}/>);
-  fireEvent.click(screen.getByText("资料"));
-  expect(onDirectory).toHaveBeenLastCalledWith("资料");
-  expect(screen.getByRole("button", { name: "资料" }).classList.contains("selected")).toBe(true);
-  fireEvent.click(screen.getByLabelText("文件列表，共 1 项"));
-  expect(onDirectory).toHaveBeenLastCalledWith("");
 });
 
 

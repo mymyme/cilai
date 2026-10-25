@@ -3,7 +3,7 @@ import { reuseInstructions, type WorkReuseIntent } from "./work-reuse";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkspaceSummary } from "./generated/protocol";
 import type { AiProjectOption } from "./ai-workbench";
-import { aiErrorMessage, deleteAiAutomationRule, aiRuntimeChangedEvent, emptyAiSnapshot, loadAiSnapshot, runAiAutomationRule, saveAiAutomationRule, type AiAutomationRule, type AiRuntimeSnapshot } from "./ai-runtime";
+import { aiErrorMessage, deleteAiAutomationRule, aiRuntimeChangedEvent, emptyAiQuerySnapshot, loadAiRuntimeQuery, runAiAutomationRule, saveAiAutomationRule, type AiAutomationRule, type AiRuntimeQuerySnapshot } from "./ai-runtime";
 import { AutomationDialog, minutesToTime, type AutomationDraft } from "./automation-dialog";
 import type { MessageSink } from "./app-message";
 import { auditMoment } from "./datetime";
@@ -52,7 +52,7 @@ const suggestions: Array<{ name: string; description: string; actionPrompt: stri
 ];
 
 export function AutomationsPage(props: { openIntent?: {ruleId:string;token:string}|null; onOpenIntentConsumed?: (token:string)=>void; reuseIntent?: WorkReuseIntent | null; onReuseConsumed?: () => void; workspace: WorkspaceSummary | null; project: { projectId: string; displayName: string } | null; projects?: AiProjectOption[]; onMessage: MessageSink; onOpenRun: (runId: string) => void }) {
-  const [snapshot, setSnapshot] = useState<AiRuntimeSnapshot>(emptyAiSnapshot);
+  const [snapshot, setSnapshot] = useState<AiRuntimeQuerySnapshot>(() => emptyAiQuerySnapshot("automations"));
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const catalog = useModelCatalog(snapshotLoaded);
@@ -81,7 +81,7 @@ export function AutomationsPage(props: { openIntent?: {ruleId:string;token:strin
   const refresh = async () => {
     const generation = ++refreshGeneration.current;
     try {
-      const result = await loadAiSnapshot();
+      const result = await loadAiRuntimeQuery({ scope: "automations" });
       if (generation !== refreshGeneration.current) return;
       setSnapshot(result);
       setSnapshotLoaded(true);

@@ -37,13 +37,7 @@ fn legacy_and_foreign_references_never_open_a_credential_store() {
 }
 #[test]
 fn own_profile_vault_decodes_exact_bearer_and_environment_maps() {
-    let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(4)
-        .unwrap();
-    let root = project
-        .join(".personal-build/target-t4-mcp/fixtures")
-        .join(uuid::Uuid::new_v4().simple().to_string());
+    let root = crate::ai_runtime::model_test_fixture::fixture_root("mcp-credentials");
     security::ensure_restricted_directory(&root).unwrap();
     let runtime = root.join("ai-runtime");
     let vault = LocalCredentialVault::new(credential_vault_root(&runtime).unwrap()).unwrap();

@@ -9,7 +9,7 @@ const PROFILE = "11111111111141118111111111111111";
 const OTHER_PROFILE = "22222222222242228222222222222222";
 
 function fixture(t) {
-  const parent = path.resolve(__dirname, "../../../../../.personal-build/namespace-storage-fixtures");
+  const parent = path.join(require("./personal-isolation").personalBuildRoot(), "namespace-storage-fixtures");
   fs.mkdirSync(parent, { recursive: true });
   const root = fs.mkdtempSync(path.join(fs.realpathSync(parent), "probe-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

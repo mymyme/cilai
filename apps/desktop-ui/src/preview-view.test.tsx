@@ -39,8 +39,7 @@ const readyWith = (format: string, body: string) => {
         nextOffset: body.length, endOfResource: true }));
 };
 
-const pane = (selectedFile = file, view: PreviewView = "rendered", onViewAvailabilityChange = () => {}, hostPlatform: string | null = "macos") => <FilePreviewPane workspaceId="ws" workspaceKind="local" localRoot="/workspace" hostPlatform={hostPlatform} file={selectedFile} view={view} onViewAvailabilityChange={onViewAvailabilityChange} hasFormalConflict={false}
-  onConfirm={() => {}} onShowDiff={() => {}}/>;
+const pane = (selectedFile = file, view: PreviewView = "rendered", onViewAvailabilityChange = () => {}, hostPlatform: string | null = "macos") => <FilePreviewPane workspaceId="ws" workspaceKind="local" localRoot="/workspace" hostPlatform={hostPlatform} file={selectedFile} view={view} onViewAvailabilityChange={onViewAvailabilityChange}/>;
 
 describe("正文的预览与源码两种看法", () => {
   it("Markdown 默认给渲染后的样子，切到源码看文件里真正写的内容", async () => {

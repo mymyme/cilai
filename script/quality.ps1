@@ -67,6 +67,9 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 cargo clippy --workspace --all-targets -- -D warnings
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+node scripts/prepare-rust-test-node.mjs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 cargo test --workspace
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

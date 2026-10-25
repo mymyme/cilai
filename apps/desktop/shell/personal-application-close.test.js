@@ -39,9 +39,9 @@ test("并发关闭被拒绝，原操作继续核对",async()=>{
 
 test("真实Electron frame脱离确认，不以渲染层回执代替实际退出",{skip:process.env.CILAI_PERSONAL_CLOSE_NATIVE!=="1",timeout:50_000},async t=>{
   const fs=require("node:fs"),path=require("node:path"),{spawnSync}=require("node:child_process");
-  const parent=path.resolve(__dirname,"../../../../../.personal-build/application-close-fixtures");fs.mkdirSync(parent,{recursive:true});
+  const parent=path.join(require("./personal-isolation").personalBuildRoot(),"application-close-fixtures");fs.mkdirSync(parent,{recursive:true});
   const root=fs.mkdtempSync(path.join(fs.realpathSync(parent),"probe-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
-  const executable=require("electron");assert.ok(fs.realpathSync(executable).startsWith(path.resolve(__dirname,"../../../../..")+path.sep));
+  const executable=require("electron");assert.ok(fs.realpathSync(executable).startsWith(require("./personal-isolation").personalBuildRoot()+path.sep));
   for(const name of ["home","tmp","userData","session","logs"])fs.mkdirSync(path.join(root,name));
   const script=path.join(root,"probe.cjs");
   fs.writeFileSync(script,`const {app,BrowserWindow,protocol}=require('electron');const path=require('node:path');

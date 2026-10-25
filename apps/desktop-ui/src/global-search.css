@@ -8,3 +8,5 @@
 .global-search-range button:hover, .global-search-failures button:hover { background: var(--bg-hover); }
 
 .global-search-more { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+
+.global-search-text-scope { margin: -4px 0 10px; color: var(--text-secondary); font-size: 12px; }

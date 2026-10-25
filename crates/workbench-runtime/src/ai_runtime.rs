@@ -18,9 +18,20 @@ mod personal_page_confirmation;
 #[cfg(test)]
 mod personal_page_execution_tests;
 mod process_controls;
+mod queries;
+mod run_state;
+mod send_preparation;
+use run_state::ProgressPersistence;
+pub use run_state::{
+    AgentContextComposition, AgentContextUsage, AgentRun, AgentRunArtifact, AgentRunEvent,
+    AgentRunEventDetail, AgentRunUsage, AgentTokenUsage, ConversationRevision, RegenerationDraft,
+};
 mod shutdown;
 mod startup_recovery;
+mod ui_projection;
+pub use queries::{AgentRunSummary, AiRuntimeQuerySnapshot};
 mod usage_view;
+use ui_projection::{message_for_ui, run_for_ui};
 mod user_mcp;
 pub use maintenance::{
     ProfileMaintenanceGuard, ProfileMaintenanceRestoreReceipt, personal_maintenance_status,
@@ -34,9 +45,14 @@ mod history_migration_tests;
 mod history_reuse;
 mod ledger;
 mod ledger_projection;
+mod model_catalog;
 #[cfg(test)]
 pub(crate) mod model_test_fixture;
 mod native_catalog;
+pub use model_catalog::{
+    MODEL_CATALOG_TTL_MS, ModelCatalogReadReason, ModelCatalogSnapshot, ModelCatalogStatus,
+    ModelInfo,
+};
 mod native_history;
 #[cfg(test)]
 mod native_history_tests;
@@ -50,11 +66,11 @@ use crate::app_bridge::{
     validate_tool_arguments,
 };
 use crate::codex_harness::{
-    ApplicationActionCallback, ApplicationMcpScope, ApplicationReadToolScope,
-    ApplicationWriteCallback, ApplicationWriteToolScope, CodexHarnessApprovalRequest,
-    CodexHarnessAttachment, CodexHarnessClassificationRequest, CodexHarnessControl,
-    CodexHarnessEvent, CodexHarnessFileChange, CodexHarnessModel, CodexHarnessRequest,
-    CodexHarnessResult, CodexHarnessSkill, ModelToolCapabilities, PRODUCT_IDENTITY_INSTRUCTIONS,
+    ApplicationActionCallback, ApplicationMcpScope, ApplicationWriteCallback,
+    ApplicationWriteToolScope, CodexHarnessApprovalRequest, CodexHarnessAttachment,
+    CodexHarnessClassificationRequest, CodexHarnessControl, CodexHarnessEvent,
+    CodexHarnessFileChange, CodexHarnessModel, CodexHarnessRequest, CodexHarnessResult,
+    CodexHarnessSkill, ModelToolCapabilities, PRODUCT_IDENTITY_INSTRUCTIONS,
     bundled_codex_harness_executable, spawn_codex_harness,
 };
 use crate::codex_threads;
@@ -122,59 +138,6 @@ pub struct AiRuntimeActivitySnapshot {
     runs: Vec<AgentRun>,
     permission_requests: Vec<PermissionRequest>,
     missing_run_ids: Vec<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelInfo {
-    connection_id: Option<String>,
-    connection_name: Option<String>,
-    config_revision: Option<u32>,
-    auth_generation: Option<u32>,
-    model_id: String,
-    label: String,
-    provider: String,
-    description: String,
-    source: String,
-    context_window_tokens: Option<u64>,
-    input_modalities: Vec<String>,
-    supported_reasoning_efforts: Vec<String>,
-    default_reasoning_effort: Option<String>,
-    #[serde(default)]
-    reasoning_control: Option<String>,
-    #[serde(default)]
-    reasoning_enabled_efforts: Vec<String>,
-    #[serde(default)]
-    tool_capabilities: Option<ModelToolCapabilities>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelCatalogStatus {
-    configured: bool,
-    models: Vec<ModelInfo>,
-}
-
-pub const MODEL_CATALOG_TTL_MS: i64 = 300_000;
-const MODEL_CATALOG_PICKER_DEDUP_MS: i64 = 1_000;
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ModelCatalogReadReason {
-    Startup,
-    Picker,
-    Retry,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelCatalogSnapshot {
-    generation: u64,
-    revision: u64,
-    status: Option<ModelCatalogStatus>,
-    checked_at: Option<i64>,
-    revalidate_after: Option<i64>,
-    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -531,99 +494,6 @@ pub struct AttachmentChunkRequest {
     pub complete: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentRun {
-    #[serde(default)]
-    pub planning: bool,
-    pub run_id: String,
-    pub conversation_id: String,
-    pub agent_id: String,
-    pub input_message_id: String,
-    pub retry_of_run_id: Option<String>,
-    #[serde(default)]
-    pub superseded: bool,
-    #[serde(default)]
-    pub regeneration_draft: Option<RegenerationDraft>,
-    #[serde(default)]
-    pub previous_revisions: Vec<ConversationRevision>,
-    #[serde(default)]
-    pub model_selection: Option<contexthub_protocol::ModelSelection>,
-    #[serde(default)]
-    pub model_execution: Option<contexthub_protocol::ModelExecutionSnapshot>,
-    pub provider: String,
-    pub model: Option<String>,
-    #[serde(default)]
-    pub model_label: Option<String>,
-    #[serde(default)]
-    pub reasoning_effort: Option<String>,
-    #[serde(default = "default_execution_target")]
-    pub execution_target: String,
-    pub status: String,
-    #[serde(default)]
-    pub thread_writer_active: bool,
-    pub pid: Option<u32>,
-    pub started_at: i64,
-    pub completed_at: Option<i64>,
-    pub output: Option<String>,
-    #[serde(default)]
-    pub partial_output: Option<String>,
-    pub error_reason: Option<String>,
-    #[serde(default)]
-    pub classification_nonce: Option<String>,
-    #[serde(default)]
-    pub classification_status: Option<String>,
-    #[serde(default)]
-    pub classification_error: Option<String>,
-    #[serde(default)]
-    pub session_id: Option<String>,
-    #[serde(default)]
-    pub harness_protocol_version: Option<u32>,
-    #[serde(default)]
-    pub model_session_scope: Option<String>,
-    #[serde(default)]
-    pub memory_preferences: Option<crate::memory::MemoryPreferences>,
-    #[serde(default)]
-    pub skill_ids: Vec<String>,
-    #[serde(default)]
-    pub tool_permissions: Vec<String>,
-    #[serde(default)]
-    pub permission_request_id: Option<String>,
-    #[serde(default)]
-    pub automation_rule_id: Option<String>,
-    #[serde(default)]
-    pub automation_rule_version: Option<u32>,
-    #[serde(default = "default_sandbox_mode")]
-    pub sandbox_mode: String,
-    #[serde(default)]
-    pub approval_mode: Option<String>,
-    #[serde(default)]
-    pub events: Vec<AgentRunEvent>,
-    #[serde(default)]
-    pub artifacts: Vec<AgentRunArtifact>,
-    #[serde(default)]
-    pub usage: AgentRunUsage,
-    #[serde(default)]
-    pub log_tail: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct RegenerationDraft {
-    pub content: String,
-    pub source_run_id: String,
-    pub application_context: Option<ApplicationAiContextSnapshot>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ConversationRevision {
-    pub run_id: String,
-    pub user_content: String,
-    pub assistant_contents: Vec<String>,
-    pub incomplete: bool,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ModelResponseEnvelope {
@@ -669,144 +539,6 @@ struct ModelWorkClassification {
     outcome_summary: Option<String>,
     reason: String,
     confidence: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::struct_field_names)]
-pub struct AgentRunUsage {
-    pub input_tokens: u64,
-    pub cached_input_tokens: u64,
-    pub output_tokens: u64,
-    #[serde(default)]
-    pub reply: Option<AgentTokenUsage>,
-    #[serde(default)]
-    pub classification: Option<AgentTokenUsage>,
-    #[serde(default)]
-    pub context: Option<AgentContextUsage>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::struct_field_names)]
-pub struct AgentTokenUsage {
-    pub input_tokens: u64,
-    pub cached_input_tokens: u64,
-    pub output_tokens: u64,
-}
-
-impl From<crate::codex_harness::CodexHarnessUsage> for AgentTokenUsage {
-    fn from(value: crate::codex_harness::CodexHarnessUsage) -> Self {
-        Self {
-            input_tokens: value.input,
-            cached_input_tokens: value.cached_input,
-            output_tokens: value.output,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentContextUsage {
-    pub tokens: u64,
-    pub window_tokens: Option<u64>,
-    #[serde(default)]
-    pub composition: Option<AgentContextComposition>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::struct_field_names)]
-pub struct AgentContextComposition {
-    pub conversation_tokens: u64,
-    pub system_prompt_tokens: u64,
-    pub tool_tokens: u64,
-    pub skill_tokens: u64,
-    pub mcp_tokens: Option<u64>,
-    pub internal_tokens: u64,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentRunEvent {
-    pub sequence: u32,
-    pub event_type: String,
-    #[serde(default)]
-    pub item_id: Option<String>,
-    #[serde(default = "default_event_phase")]
-    pub phase: String,
-    #[serde(default = "default_event_kind")]
-    pub kind: String,
-    #[serde(default = "default_event_status")]
-    pub status: String,
-    pub summary: String,
-    #[serde(default)]
-    pub duration_ms: Option<u64>,
-    #[serde(default)]
-    pub detail_available: bool,
-    #[serde(default)]
-    pub read_paths: Vec<String>,
-    pub created_at: i64,
-}
-
-fn default_event_phase() -> String {
-    "reply".to_owned()
-}
-fn default_event_kind() -> String {
-    "status".to_owned()
-}
-fn default_event_status() -> String {
-    "completed".to_owned()
-}
-
-impl Default for AgentRunEvent {
-    fn default() -> Self {
-        Self {
-            sequence: 0,
-            event_type: String::new(),
-            item_id: None,
-            phase: default_event_phase(),
-            kind: default_event_kind(),
-            status: default_event_status(),
-            summary: String::new(),
-            duration_ms: None,
-            detail_available: false,
-            read_paths: Vec::new(),
-            created_at: 0,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentRunEventDetail {
-    pub run_id: String,
-    pub item_id: String,
-    pub phase: String,
-    pub kind: String,
-    pub status: String,
-    pub tool_name: String,
-    pub operation: String,
-    pub target: Option<String>,
-    pub duration_ms: Option<u64>,
-    pub parameters: Option<String>,
-    pub output: Option<String>,
-    pub exit_code: Option<i64>,
-    pub error: Option<String>,
-    pub truncated: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentRunArtifact {
-    #[serde(default)]
-    pub version: Option<ArtifactVersion>,
-    #[serde(default)]
-    pub feedback: Vec<ArtifactFeedback>,
-    pub artifact_id: String,
-    pub artifact_type: String,
-    pub label: String,
-    pub path: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1093,7 +825,6 @@ pub struct AiRuntimeManager {
     automation_generation: Arc<AtomicU64>,
     automation_lifecycle: Arc<Mutex<()>>,
     automation_power: Arc<Mutex<automation_lifecycle::AutomationPowerState>>,
-    model_catalog_changed: tokio::sync::watch::Sender<()>,
 }
 
 #[derive(Default)]
@@ -1106,8 +837,7 @@ struct ManagerState {
     managed_skills_root: Option<PathBuf>,
     server: Option<AppServerSupervisor>,
     state_revision: i64,
-    conversation_session_id: String,
-    conversation_session_revision: u64,
+    session: conversation_session::SessionState,
     persisted: PersistedAiState,
     ledger_baseline: ledger::Baseline,
     pending_ledger_write: Option<ledger::Pending>,
@@ -1115,12 +845,7 @@ struct ManagerState {
     pending_application_handoff: Option<application_handoff::PendingHandoff>,
     native_catalog: HashMap<String, (String, String, bool)>,
     local_operations: usize,
-    model_catalog: Vec<ModelInfo>,
-    model_catalog_checked_at: Option<i64>,
-    model_catalog_generation: u64,
-    model_catalog_revision: u64,
-    model_catalog_status: Option<ModelCatalogStatus>,
-    model_catalog_error: Option<String>,
+    model_catalog: model_catalog::CatalogState,
     pending_attachments: HashMap<String, PendingAttachment>,
     harness_processes: HashMap<String, Option<u32>>,
     harness_retirement_error: Option<String>,
@@ -1758,35 +1483,6 @@ fn migrate_conversation_artifacts(
     Ok(())
 }
 
-fn message_for_ui(mut message: ConversationMessage) -> ConversationMessage {
-    for attachment in &mut message.attachments {
-        attachment.local_path.clear();
-    }
-    if let Some(application) = message.application_context.as_mut() {
-        // 工具定义和可检索应用只供模型调用，界面不展示，不随快照下发
-        application.write_tools.clear();
-        application.read_tools.clear();
-        application.searchable_applications.clear();
-        application.contexts.clear();
-        application.actions.clear();
-    }
-    message
-}
-
-fn run_for_ui(mut run: AgentRun) -> AgentRun {
-    run.model_session_scope = None;
-    for artifact in &mut run.artifacts {
-        if let Some(version) = artifact.version.as_mut() {
-            version.snapshot_path.clear();
-        }
-    }
-    run.log_tail.clear();
-    if let Some(draft) = run.regeneration_draft.as_mut() {
-        draft.application_context = None;
-    }
-    run
-}
-
 impl Default for AiRuntimeManager {
     fn default() -> Self {
         Self::new()
@@ -1853,7 +1549,6 @@ impl AiRuntimeManager {
             automation_power: Arc::new(Mutex::new(
                 automation_lifecycle::AutomationPowerState::default(),
             )),
-            model_catalog_changed: tokio::sync::watch::channel(()).0,
         }
     }
 
@@ -2075,10 +1770,12 @@ impl AiRuntimeManager {
             return Err("ai_runtime_shutting_down".into());
         }
         resetting.active = false;
-        let next_model_catalog_generation = state.model_catalog_generation.wrapping_add(1);
-        *state = ManagerState::default();
-        state.model_catalog_generation = next_model_catalog_generation;
-        self.model_catalog_changed.send_replace(());
+        let mut model_catalog = std::mem::take(&mut state.model_catalog);
+        model_catalog.reset();
+        *state = ManagerState {
+            model_catalog,
+            ..ManagerState::default()
+        };
         Ok(())
     }
 
@@ -2093,10 +1790,12 @@ impl AiRuntimeManager {
         if let Some(error) = state.harness_retirement_error.as_ref() {
             return Err(error.clone());
         }
-        let next_model_catalog_generation = state.model_catalog_generation.wrapping_add(1);
-        *state = ManagerState::default();
-        state.model_catalog_generation = next_model_catalog_generation;
-        self.model_catalog_changed.send_replace(());
+        let mut model_catalog = std::mem::take(&mut state.model_catalog);
+        model_catalog.reset();
+        *state = ManagerState {
+            model_catalog,
+            ..ManagerState::default()
+        };
         Ok(())
     }
 
@@ -2239,8 +1938,7 @@ impl AiRuntimeManager {
                 )
             })
             .collect();
-        state.conversation_session_id = uuid::Uuid::new_v4().to_string();
-        state.conversation_session_revision = 0;
+        state.session.reset();
         state.persisted = persisted;
         state.ledger_baseline = baseline;
         state.pending_application_handoff = None;
@@ -2255,170 +1953,6 @@ impl AiRuntimeManager {
         self.resume_application_cleanup()?;
         self.start_automation_scheduler()?;
         Ok(())
-    }
-
-    /// # Errors
-    /// 企业凭据读取或模型网关状态检查失败时返回错误。
-    pub fn model_catalog_status(&self) -> Result<ModelCatalogStatus, String> {
-        self.gateway_catalog_with_max_age(MODEL_CATALOG_TTL_MS)
-    }
-
-    /// # Errors
-    /// 身份变化或目录读取失败时返回错误，不使用历史目录。
-    pub fn read_model_catalog(
-        &self,
-        reason: ModelCatalogReadReason,
-    ) -> Result<ModelCatalogSnapshot, String> {
-        let max_age = match reason {
-            ModelCatalogReadReason::Startup => MODEL_CATALOG_TTL_MS,
-            ModelCatalogReadReason::Picker => MODEL_CATALOG_PICKER_DEDUP_MS,
-            ModelCatalogReadReason::Retry => 0,
-        };
-        let result = self.gateway_catalog_with_max_age(max_age);
-        if result
-            .as_ref()
-            .is_err_and(|error| error == "ai_profile_changed")
-        {
-            return Err("ai_profile_changed".to_owned());
-        }
-        let snapshot = self.model_catalog_snapshot();
-        if let Err(error) = result
-            && snapshot.error.is_none()
-        {
-            return Err(error);
-        }
-        Ok(snapshot)
-    }
-
-    #[must_use]
-    pub fn model_catalog_snapshot(&self) -> ModelCatalogSnapshot {
-        let state = lock(&self.inner);
-        Self::catalog_snapshot(&state)
-    }
-
-    /// # Errors
-    /// 目录不属于指定企业 Profile 时返回错误。
-    pub fn model_catalog_for_profile(
-        &self,
-        data_dir: &Path,
-    ) -> Result<ModelCatalogSnapshot, String> {
-        let state = lock(&self.inner);
-        if state.data_dir.as_deref() != Some(data_dir.join("ai-runtime").as_path()) {
-            return Err("ai_profile_changed".to_owned());
-        }
-        Ok(Self::catalog_snapshot(&state))
-    }
-
-    fn catalog_snapshot(state: &ManagerState) -> ModelCatalogSnapshot {
-        ModelCatalogSnapshot {
-            generation: state.model_catalog_generation,
-            revision: state.model_catalog_revision,
-            status: state.model_catalog_status.clone(),
-            checked_at: state.model_catalog_checked_at,
-            revalidate_after: state
-                .model_catalog_checked_at
-                .map(|time| time.saturating_add(MODEL_CATALOG_TTL_MS)),
-            error: state.model_catalog_error.clone(),
-        }
-    }
-
-    #[must_use]
-    pub fn subscribe_model_catalog(&self) -> tokio::sync::watch::Receiver<()> {
-        self.model_catalog_changed.subscribe()
-    }
-
-    fn gateway_catalog_with_max_age(&self, _max_age: i64) -> Result<ModelCatalogStatus, String> {
-        let server = self.personal_model_server()?;
-        let connections: Vec<contexthub_protocol::ModelConnection> = serde_json::from_value(
-            server.request_result("modelConnection/list", &serde_json::json!({}))?,
-        )
-        .map_err(|_| "model_connection_response_invalid")?;
-        let mut models = Vec::new();
-        let mut configured = false;
-        for connection in connections
-            .iter()
-            .filter(|connection| connection.config.enabled && !connection.deleted)
-        {
-            configured = true;
-            let descriptors: Vec<contexthub_protocol::ModelDescriptor> =
-                serde_json::from_value(server.request_result(
-                    "modelCatalog/read",
-                    &serde_json::json!({"connectionId":connection.connection_id}),
-                )?)
-                .map_err(|_| "model_catalog_response_invalid")?;
-            models.extend(
-                descriptors
-                    .into_iter()
-                    .filter(|descriptor| {
-                        descriptor.config_revision == connection.config_revision
-                            && (connection.config.kind
-                                == contexthub_protocol::ModelConnectionKind::Chatgpt
-                                || descriptor.auth_generation == connection.auth_generation)
-                    })
-                    .map(|descriptor| model_info_from_descriptor(connection, &descriptor)),
-            );
-        }
-        let status = ModelCatalogStatus { configured, models };
-        let mut state = lock(&self.inner);
-        let changed = state.model_catalog_status.as_ref() != Some(&status);
-        state.model_catalog.clone_from(&status.models);
-        state.model_catalog_status = Some(status.clone());
-        state.model_catalog_error = None;
-        if changed {
-            state.model_catalog_checked_at = Some(unix_epoch_millis()?);
-            state.model_catalog_revision = state.model_catalog_revision.wrapping_add(1);
-            self.model_catalog_changed.send_replace(());
-        }
-        Ok(status)
-    }
-
-    /// # Errors
-    /// 模型网关认证或目录读取失败时返回错误。
-    pub fn refresh_model_catalog(&self) -> Result<Vec<ModelInfo>, String> {
-        Ok(self.model_catalog_status()?.models)
-    }
-
-    #[must_use]
-    pub fn application_models(&self) -> Vec<ModelInfo> {
-        lock(&self.inner).model_catalog.clone()
-    }
-
-    #[must_use]
-    pub fn model_catalog_generation(&self) -> u64 {
-        lock(&self.inner).model_catalog_generation
-    }
-
-    pub fn invalidate_model_catalog_for_error(&self, generation: u64, reason: &str) {
-        let mut state = lock(&self.inner);
-        if state.model_catalog_generation == generation {
-            self.invalidate_catalog_for_error(&mut state, reason);
-        }
-    }
-
-    fn invalidate_catalog_for_error(&self, state: &mut ManagerState, reason: &str) {
-        if ![
-            "AI-AUTH-002",
-            "AI-MODEL-001",
-            "MODEL_ACCESS_DISABLED",
-            "MEMBERSHIP_REMOVED",
-            "model_not_authorized",
-            "model_not_entitled",
-            "model_explicitly_denied",
-            "model_unavailable",
-            "qwen_gateway_model_access_disabled",
-        ]
-        .iter()
-        .any(|code| reason.contains(code))
-        {
-            return;
-        }
-        state.model_catalog.clear();
-        state.model_catalog_status = None;
-        state.model_catalog_checked_at = None;
-        state.model_catalog_error = Some("model_catalog_access_revoked".to_owned());
-        state.model_catalog_generation = state.model_catalog_generation.wrapping_add(1);
-        state.model_catalog_revision = state.model_catalog_revision.wrapping_add(1);
-        self.model_catalog_changed.send_replace(());
     }
 
     pub(crate) fn gateway_data_dir(&self) -> Result<PathBuf, String> {
@@ -3041,7 +2575,7 @@ impl AiRuntimeManager {
             return;
         }
         if let Err(reason) = &result {
-            self.invalidate_catalog_for_error(&mut state, reason);
+            Self::invalidate_catalog_for_error(&mut state, reason);
         }
         let Some(record) = state.application_model_runs.get_mut(run_id) else {
             return;
@@ -3144,19 +2678,12 @@ impl AiRuntimeManager {
             .persisted
             .messages
             .iter()
-            .cloned()
             .map(message_for_ui)
             .collect();
-        let runs = state
-            .persisted
-            .runs
-            .iter()
-            .cloned()
-            .map(run_for_ui)
-            .collect();
+        let runs = state.persisted.runs.iter().map(run_for_ui).collect();
         AiRuntimeSnapshot {
             state_revision: state.state_revision,
-            models: state.model_catalog.clone(),
+            models: state.model_catalog.models().to_vec(),
             agents: state.persisted.agents.clone(),
             conversations: state.persisted.conversations.clone(),
             messages,
@@ -3220,10 +2747,9 @@ impl AiRuntimeManager {
                         .as_deref()
                         .is_some_and(|id| found.contains(id))
                 })
-                .cloned()
                 .map(message_for_ui)
                 .collect(),
-            runs: runs.into_iter().cloned().map(run_for_ui).collect(),
+            runs: runs.into_iter().map(run_for_ui).collect(),
             permission_requests: state
                 .persisted
                 .permission_requests
@@ -3548,7 +3074,7 @@ impl AiRuntimeManager {
         let state = lock(&self.inner);
         approval_review_settings(
             state.persisted.approval_review_model.as_deref(),
-            &state.model_catalog,
+            state.model_catalog.models(),
         )
     }
 
@@ -3560,7 +3086,7 @@ impl AiRuntimeManager {
     ) -> Result<ApprovalReviewSettings, String> {
         let mut state = lock(&self.inner);
         ensure_profile_admission(&state)?;
-        resolve_approval_review_model(Some(model_id), &state.model_catalog)?;
+        resolve_approval_review_model(Some(model_id), state.model_catalog.models())?;
         let previous = state
             .persisted
             .approval_review_model
@@ -3571,7 +3097,7 @@ impl AiRuntimeManager {
             });
             return Err(error);
         }
-        let settings = approval_review_settings(Some(model_id), &state.model_catalog);
+        let settings = approval_review_settings(Some(model_id), state.model_catalog.models());
         drop(state);
         self.retire_idle_harnesses()?;
         Ok(settings)
@@ -3673,7 +3199,7 @@ impl AiRuntimeManager {
             (
                 state.server.clone().ok_or("ai_runtime_not_initialized")?,
                 state.data_dir.clone(),
-                state.conversation_session_id.clone(),
+                state.session.id().to_owned(),
             )
         };
         let catalog = server.request_result("workspace/list", &serde_json::json!({}))?;
@@ -3698,7 +3224,7 @@ impl AiRuntimeManager {
             hydrate_local_material(&server, workspace_id, reference)?;
         }
         let state = lock(&self.inner);
-        if state.data_dir != profile || state.conversation_session_id != session {
+        if state.data_dir != profile || state.session.id() != session {
             return Err("conversation_material_session_changed".into());
         }
         Ok(())
@@ -4257,8 +3783,8 @@ impl AiRuntimeManager {
         application_action: Option<ApplicationActionCallback>,
         submit_while_busy: bool,
     ) -> Result<AgentRun, String> {
-        use crate::model_connections::{ExecutionScope, ModelRuntimeKind};
-        use contexthub_protocol::{ModelExecutionPrepareParams, ModelPurpose};
+        use crate::model_connections::ModelRuntimeKind;
+        use send_preparation::{LockedPreparation, ModelPreparation, RunCapabilities, RunPolicy};
         if application_context.is_some()
             || application_discovery.is_some()
             || application_action.is_some()
@@ -4271,199 +3797,27 @@ impl AiRuntimeManager {
         }
         let automation = automation.map(|invocation| invocation.rule);
         let mut request = request;
-        for material in &mut request.referenced_materials {
-            material.resolved_path = None;
-            material.cloud_reference = None;
-        }
-        if request.content.chars().count() > MAX_MESSAGE_CHARS {
-            return Err("ai_message_too_large".to_owned());
-        }
-        if regeneration.is_some() && request.content.trim().is_empty() {
-            return Err("ai_message_required".to_owned());
-        }
-        validate_model_permission_mode_for_platform(
-            current_operating_system(),
-            &request.execution_target,
-            &request.permission_mode,
-        )?;
-        validate_permission_mode(&request.permission_mode)?;
-        validate_execution_target(&request.execution_target)?;
-        if request.planning && request.execution_target != "model" {
-            return Err("ai_planning_requires_model".to_owned());
-        }
-        if request.application_context.is_some() {
-            match application_context.as_ref() {
-                Some(snapshot) if snapshot.restrict_to_applications => {}
-                None if application_discovery.is_some() => {}
-                _ => return Err("ai_application_context_unvalidated".to_owned()),
-            }
-        }
-        if application_action.is_some() && application_context.is_none() {
-            return Err("ai_application_action_unvalidated".to_owned());
-        }
-        if let (Some(selection), Some(snapshot)) = (
-            request.application_context.as_ref(),
-            application_context.as_ref(),
-        ) && selection.application_id != snapshot.application_id
-        {
-            return Err("ai_application_context_unvalidated".to_owned());
-        }
-        let mut application_mcp = application_context.as_ref().and_then(|snapshot| {
-            (!snapshot.tool_names.is_empty() || !snapshot.write_tools.is_empty()).then(|| {
-                ApplicationMcpScope {
-                    browser_origins: Vec::new(),
-                    report_review: false,
-                    application_id: snapshot.application_id.clone(),
-                    application_name: snapshot.application_name.clone(),
-                    application_ids: snapshot.application_ids.clone(),
-                    restrict_to_applications: snapshot.restrict_to_applications,
-                    tool_names: snapshot.tool_names.clone(),
-                    read_tools: snapshot
-                        .read_tools
-                        .iter()
-                        .map(|tool| ApplicationReadToolScope {
-                            application_id: tool.application_id.clone(),
-                            tool_name: tool.tool_name.clone(),
-                        })
-                        .collect(),
-                    write_tools: snapshot
-                        .write_tools
-                        .iter()
-                        .map(|tool| ApplicationWriteToolScope {
-                            application_id: tool.application_id.clone(),
-                            application_name: tool.application_name.clone(),
-                            dynamic_name: tool.dynamic_name.clone(),
-                            tool_name: tool.tool_name.clone(),
-                            title: tool.title.clone(),
-                            description: tool.description.clone(),
-                            input_schema: tool.input_schema.clone(),
-                            risk_level: tool.risk_level.clone(),
-                            timeout_ms: tool.timeout_ms,
-                            confirmation_view: tool.confirmation_view.clone(),
-                        })
-                        .collect(),
-                }
-            })
-        });
-        if request.planning
-            && let Some(scope) = application_mcp.as_mut()
-        {
-            scope.write_tools.clear();
-        }
-        let application_action = if request.planning {
-            None
-        } else {
-            application_action
-        };
-        if request.execution_target != "model" {
-            return Err("ai_local_agents_removed".to_owned());
-        }
-        if !matches!(
-            request.permission_mode.as_str(),
-            "request" | "auto-review" | "full-access" | "read-only" | "workspace-write"
-        ) {
-            return Err("ai_permission_mode_invalid".to_owned());
-        }
+        send_preparation::normalize_request(&mut request, regeneration.is_some())?;
         if let Some(run) = recorded_message_run(&lock(&self.inner), &request)? {
             return Ok(run);
         }
         if create.is_some() && request.conversation_id.is_empty() {
             request.conversation_id = format!("conversation_{}", uuid::Uuid::new_v4());
         }
-        let purpose = if automation.is_some() {
-            ModelPurpose::Automation
-        } else {
-            ModelPurpose::Foreground
-        };
-        let execution_params = ModelExecutionPrepareParams {
-            launch_protocol: 1,
-            owner: None,
-            purpose,
-            binding_id: None,
-            selection: request.model_selection.clone(),
-            conversation_id: (!request.conversation_id.is_empty())
-                .then(|| request.conversation_id.clone()),
-        };
-        let preflight =
-            self.personal_model_message_preflight(&request, execution_params.purpose.clone())?;
-        let execution = match &automation_ticket {
-            Some(ticket) => ticket.prepare_execution(self, execution_params)?,
-            None => ExecutionScope::prepare(self, execution_params)?,
-        };
-        if execution.lease.snapshot_digest != preflight.snapshot_digest {
-            return Err("model_execution_snapshot_changed".into());
-        }
-        if request
-            .model_override
-            .as_ref()
-            .is_some_and(|model| model != &execution.lease.snapshot.model_id)
-        {
-            return Err("model_selection_required".into());
-        }
-        let selected_model = model_info_from_snapshot(&execution.lease.snapshot)?;
-        let review_execution = (request.permission_mode == "auto-review")
-            .then(|| {
-                let params = ModelExecutionPrepareParams {
-                    launch_protocol: 1,
-                    owner: None,
-                    purpose: ModelPurpose::Review,
-                    binding_id: None,
-                    selection: None,
-                    conversation_id: None,
-                };
-                match &automation_ticket {
-                    Some(ticket) => ticket.prepare_execution(self, params),
-                    None => ExecutionScope::prepare(self, params),
-                }
-            })
-            .transpose()?;
-        let memory_enabled = lock(&self.inner).persisted.memory_preferences.enabled;
-        let memory_execution = memory_enabled
-            .then(|| {
-                let params = ModelExecutionPrepareParams {
-                    launch_protocol: 1,
-                    owner: None,
-                    purpose: ModelPurpose::Memory,
-                    binding_id: None,
-                    selection: None,
-                    conversation_id: None,
-                };
-                match &automation_ticket {
-                    Some(ticket) => ticket.prepare_execution(self, params),
-                    None => ExecutionScope::prepare(self, params),
-                }
-            })
-            .transpose()?;
-        for auxiliary in review_execution.iter().chain(memory_execution.iter()) {
-            auxiliary_execution::validate(&execution.lease.snapshot, &auxiliary.lease.snapshot)?;
-        }
-        if execution.lease.snapshot.kind != contexthub_protocol::ModelConnectionKind::Chatgpt {
-            execution.credential()?;
-        }
+        let ModelPreparation {
+            preflight,
+            execution,
+            model: selected_model,
+            review_execution,
+            memory_execution,
+        } = ModelPreparation::prepare(
+            self,
+            &request,
+            automation_ticket.as_ref(),
+            automation.is_some(),
+        )?;
         let timing_started = Instant::now();
-        let prefetch_context = if let Some(create) = create.as_ref() {
-            Some(create.context.clone())
-        } else {
-            lock(&self.inner)
-                .persisted
-                .conversations
-                .iter()
-                .find(|conversation| conversation.conversation_id == request.conversation_id)
-                .map(|conversation| conversation.context.clone())
-        };
-        if let Some(mut context) = prefetch_context {
-            merge_message_materials(&mut context, &request.referenced_materials)?;
-            self.prefetch_context_materials(
-                &context,
-                if create.is_some() {
-                    None
-                } else {
-                    Some(&request.conversation_id)
-                },
-            )?;
-        } else {
-            self.prepare_local_materials(&request.referenced_materials)?;
-        }
+        send_preparation::prefetch_materials(self, &request, create.as_ref())?;
         let now = unix_epoch_millis()?;
         let mut state = lock(&self.inner);
         let locked_at = Instant::now();
@@ -4541,36 +3895,14 @@ impl AiRuntimeManager {
             })
             .cloned()
             .ok_or_else(|| "conversation_agent_not_found".to_owned())?;
-        let mut effective_agent = agent.clone();
-        effective_agent.model =
-            effective_model(agent.model.clone(), request.model_override.clone());
         let model = selected_model;
-        let reasoning_effort =
-            resolve_reasoning_effort(&model, execution.lease.snapshot.reasoning_effort.as_deref())?;
+        let reasoning_effort = LockedPreparation::new(&state, &request, &model)
+            .reasoning_effort(execution.lease.snapshot.reasoning_effort.as_deref())?;
         let approval_review_model = review_execution
             .as_ref()
             .map(|scope| scope.lease.snapshot.model_id.clone());
-        if request.attachment_ids.len() > MAX_MESSAGE_ATTACHMENTS {
-            return Err("ai_attachment_count_exceeded".to_owned());
-        }
-        let requested_attachments = if retry_of_run_id.is_some() {
-            Vec::new()
-        } else {
-            request
-                .attachment_ids
-                .iter()
-                .map(|attachment_id| {
-                    let pending = state
-                        .pending_attachments
-                        .get(attachment_id)
-                        .ok_or_else(|| "ai_attachment_not_found".to_owned())?;
-                    if !pending.complete {
-                        return Err("ai_attachment_incomplete".to_owned());
-                    }
-                    Ok(pending.attachment.clone())
-                })
-                .collect::<Result<Vec<_>, String>>()?
-        };
+        let requested_attachments = LockedPreparation::new(&state, &request, &model)
+            .requested_attachments(retry_of_run_id.is_some())?;
         let current_model_session_scope = Some(persistent_threads::digest(
             &serde_json::json!({"application":model_session_scope(application_context.as_ref())?,"runtimeScope":crate::model_connections::runtime_scope(&execution.lease.snapshot,ModelRuntimeKind::Workbench)}),
         ));
@@ -4708,58 +4040,14 @@ impl AiRuntimeManager {
                     .max_by_key(|item| item.decided_at)
                     .cloned()
             });
-        let mut input_message = if let Some(retry_run_id) = retry_of_run_id.as_ref() {
-            let previous = state
-                .persisted
-                .runs
-                .iter()
-                .find(|run| &run.run_id == retry_run_id)
-                .ok_or_else(|| "retry_run_not_found".to_owned())?;
-            state
-                .persisted
-                .messages
-                .iter()
-                .find(|message| message.message_id == previous.input_message_id)
-                .cloned()
-                .ok_or_else(|| "retry_input_message_not_found".to_owned())?
-        } else {
-            let content = request.content.trim();
-            if content.is_empty()
-                && requested_attachments.is_empty()
-                && request.referenced_materials.is_empty()
-            {
-                return Err("ai_message_required".to_owned());
-            }
-            ConversationMessage {
-                message_id: request
-                    .client_message_id
-                    .clone()
-                    .unwrap_or_else(|| format!("message_{}", uuid::Uuid::new_v4())),
-                conversation_id: conversation.conversation_id.clone(),
-                role: "user".to_owned(),
-                content: content.to_owned(),
-                attachments: requested_attachments.clone(),
-                referenced_materials: request.referenced_materials.clone(),
-                application_context: application_context.clone(),
-                run_id: None,
-                created_at: now,
-            }
-        };
-        if let Some(edit) = regeneration.as_ref() {
-            edit.content.trim().clone_into(&mut input_message.content);
-            input_message
-                .application_context
-                .clone_from(&application_context);
-        }
+        let input_message = LockedPreparation::new(&state, &request, &model).input_message(
+            &conversation,
+            retry_of_run_id.as_deref(),
+            regeneration.as_ref(),
+            requested_attachments,
+            now,
+        )?;
         let input_message_is_new = input_message.run_id.is_none();
-        if input_message
-            .attachments
-            .iter()
-            .any(|item| item.media_type != "document")
-            && !model.input_modalities.iter().any(|item| item == "image")
-        {
-            return Err("ai_attachment_not_supported".to_owned());
-        }
         let executable = if conversation_busy {
             contexthub_platform_adapter::executable_search::bundled_executable_path(
                 contexthub_platform_adapter::executable_search::BundledExecutable::CodexHarness,
@@ -4770,171 +4058,39 @@ impl AiRuntimeManager {
         } else {
             bundled_codex_harness_executable()?
         };
-        let history_source = if let Some((target, _)) = regeneration_target.as_ref() {
-            let mut prefix = Vec::new();
-            for message in state
-                .persisted
-                .messages
-                .iter()
-                .filter(|message| message.conversation_id == conversation.conversation_id)
-            {
-                let mut message = message.clone();
-                if message.message_id == target.message_id {
-                    message.content.clone_from(&input_message.content);
-                    prefix.push(message);
-                    break;
-                }
-                prefix.push(message);
-            }
-            prefix
-        } else {
-            state
-                .persisted
-                .messages
-                .iter()
-                .filter(|message| message.conversation_id == conversation.conversation_id)
-                .cloned()
-                .collect()
-        };
-        let history = history_source;
-        if !model
-            .input_modalities
-            .iter()
-            .any(|modality| modality == "image")
-            && history.iter().any(|message| {
-                message
-                    .attachments
-                    .iter()
-                    .any(|item| item.media_type != "document")
-            })
-        {
-            return Err("model_history_incompatible".to_owned());
-        }
-        let run_id = format!("run_{}", uuid::Uuid::new_v4());
-        let application_skill_binding = input_message
-            .application_context
-            .as_ref()
-            .and_then(|context| context.skill_binding.as_ref());
-        let harness_skills = {
-            let server = state
-                .server
-                .as_ref()
-                .ok_or_else(|| "ai_runtime_not_initialized".to_owned())?;
-            let prepared = prepare_harness_skills(
-                server,
-                state
-                    .managed_skills_root
-                    .as_deref()
-                    .ok_or_else(|| "ai_runtime_not_initialized".to_owned())?,
-                &data_dir_for_state(&state)?,
-                &run_id,
-                request.selected_skill_id.as_deref(),
-                application_skill_binding,
-            );
-            if application_skill_binding.is_some() {
-                required_application_harness_skills(prepared)?
-            } else {
-                prepared?
-            }
-        };
-        let classification_nonce = format!("classification_{}", uuid::Uuid::new_v4());
-        let task_candidates = if let Some(project_id) = conversation.context.project_id.as_deref() {
-            let server = state
-                .server
-                .as_ref()
-                .ok_or_else(|| "ai_runtime_not_initialized".to_owned())?;
-            let result = server.request_result(
-                "aiWork/taskCandidates",
-                &serde_json::json!({ "projectId": project_id }),
-            )?;
-            result
-                .get("tasks")
-                .cloned()
-                .ok_or_else(|| "ai_work_task_candidates_invalid".to_owned())?
-        } else {
-            serde_json::Value::Array(Vec::new())
-        };
-        let approval_mode = match request.permission_mode.as_str() {
-            "read-only" | "workspace-write" => "legacy",
-            mode => mode,
-        };
-        let write_allowed = !request.planning && request.permission_mode != "read-only";
-        let turn_context = model_main_turn_context(&conversation, &input_message, &history)?;
-        let (prompt, skill_ids) = {
-            let mut instructions = build_model_harness_instructions(&conversation, write_allowed)?;
-            if request.planning {
-                instructions.push_str("\n本轮为计划模式：仅阅读、分析和提出可供用户审阅的方案。不得执行文件修改、应用业务操作、生图、协作或发布。输出明确步骤和需要用户确认的事项；用户选择执行并发送新消息后才能实施。");
-            }
-            (
-                instructions,
-                harness_skills
-                    .iter()
-                    .map(|skill| skill.skill_id.clone())
-                    .collect::<Vec<_>>(),
-            )
-        };
-        let model_classification = if !request.planning && conversation.context.project_id.is_some()
-        {
-            Some((
-                build_model_classification_instructions(
-                    &conversation,
-                    &classification_nonce,
-                    &task_candidates,
-                )?,
-                model_classification_output_schema(
-                    &classification_nonce,
-                    conversation.context.task_id.as_deref(),
-                ),
-            ))
-        } else {
-            None
-        };
-        let mut run_tools = default_tool_permissions();
-        if write_allowed && !run_tools.iter().any(|item| item == "write-files") {
-            run_tools.push("write-files".to_owned());
-        }
-        if application_context.is_some()
-            && !run_tools
-                .iter()
-                .any(|item| item == "application-read-action")
-        {
-            run_tools.push("application-read-action".to_owned());
-        }
-        let sandbox_mode = if request.planning {
-            "read-only"
-        } else if request.permission_mode == "full-access" {
-            "danger-full-access"
-        } else if write_allowed {
-            "workspace-write"
-        } else {
-            "read-only"
-        };
-        let harness_attachments = prepare_harness_attachments(
-            &input_message.attachments,
-            &data_dir_for_state(&state)?,
-            &run_id,
+        let preparation = LockedPreparation::new(&state, &request, &model);
+        let history = preparation.history(
+            &conversation,
+            &input_message,
+            regeneration_target.as_ref().map(|(target, _)| target),
         )?;
-        let mut initial_events = vec![AgentRunEvent {
+        let RunCapabilities {
+            run_id,
+            harness_skills,
+            classification_nonce,
+            task_candidates,
+            policy,
+            turn_context,
+            model_classification,
+            harness_attachments,
+        } = preparation.capabilities(&conversation, &input_message, &history)?;
+        let RunPolicy {
+            approval_mode,
+            sandbox_mode,
+            run_tools,
+            prompt,
+        } = policy;
+        let skill_ids = harness_skills
+            .iter()
+            .map(|skill| skill.skill_id.clone())
+            .collect();
+        let initial_events = vec![AgentRunEvent {
             sequence: 1,
             event_type: "run.queued".to_owned(),
             summary: "已进入模型 Harness 执行队列".to_owned(),
             created_at: now,
             ..AgentRunEvent::default()
         }];
-        if let Some(discovery) = application_discovery {
-            initial_events.push(AgentRunEvent {
-                sequence: next_event_sequence(&initial_events),
-                event_type: format!("application_discovery.{}", discovery.status),
-                status: if discovery.status == "failed" {
-                    "failed".to_owned()
-                } else {
-                    "completed".to_owned()
-                },
-                summary: discovery.summary,
-                created_at: now,
-                ..AgentRunEvent::default()
-            });
-        }
         let run = AgentRun {
             planning: request.planning,
             run_id: run_id.clone(),
@@ -4984,8 +4140,8 @@ impl AiRuntimeManager {
                 .map(|item| item.permission_request_id.clone()),
             automation_rule_id: automation.map(|rule| rule.automation_rule_id.clone()),
             automation_rule_version: automation.map(|rule| rule.rule_version),
-            sandbox_mode: sandbox_mode.to_owned(),
-            approval_mode: Some(approval_mode.to_owned()),
+            sandbox_mode: sandbox_mode.clone(),
+            approval_mode: Some(approval_mode.clone()),
             events: initial_events,
             artifacts: Vec::new(),
             usage: AgentRunUsage::default(),
@@ -5103,7 +4259,7 @@ impl AiRuntimeManager {
         {
             current.context.clone_from(&conversation.context);
             if approval_mode != "legacy" {
-                current.approval_mode = Some(approval_mode.to_owned());
+                current.approval_mode = Some(approval_mode.clone());
             }
             current.updated_at = now;
         }
@@ -5177,18 +4333,6 @@ impl AiRuntimeManager {
             .and(bound_thread);
         let start_result = (|| -> Result<(), String> {
             {
-                let application_write = application_mcp
-                    .as_ref()
-                    .filter(|scope| !scope.write_tools.is_empty())
-                    .map(|scope| {
-                        let run_id = run_id.clone();
-                        let scope = scope.clone();
-                        Arc::new(move |tool: &ApplicationWriteToolScope, arguments: Value| {
-                            Self::confirm_and_invoke_application_write(
-                                &run_id, &scope, tool, &arguments,
-                            )
-                        }) as ApplicationWriteCallback
-                    });
                 let conversation_text = model_user_input(&input_message, &history, true);
                 let user_input = input_message.content.clone();
                 self.submit_model_harness(
@@ -5229,15 +4373,15 @@ impl AiRuntimeManager {
                         attachments: harness_attachments,
                         skills: harness_skills,
                         application_action,
-                        application_write,
-                        application_mcp,
+                        application_write: None,
+                        application_mcp: None,
                         resume_thread_id: resumable_session_id,
                         persistent_thread: persistent_thread
                             .ok_or_else(|| "thread_binding_invalid".to_owned())?,
-                        approval_mode: approval_mode.to_owned(),
+                        approval_mode,
                         approval_review_model,
                         memory_preferences,
-                        sandbox_mode: sandbox_mode.to_owned(),
+                        sandbox_mode,
                     },
                 )
             }
@@ -5548,15 +4692,6 @@ impl AiRuntimeManager {
             let _ = sender.send(Err("application_write_run_terminated".to_owned()));
         }
         Ok(result)
-    }
-
-    fn confirm_and_invoke_application_write(
-        _run_id: &str,
-        _scope: &ApplicationMcpScope,
-        _tool: &ApplicationWriteToolScope,
-        _arguments: &Value,
-    ) -> Result<Value, String> {
-        Err("enterprise_application_tools_removed".into())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -6243,6 +5378,7 @@ impl AiRuntimeManager {
         if let Some(model_id) = request.model_id.as_deref()
             && !state
                 .model_catalog
+                .models()
                 .iter()
                 .any(|model| model.model_id == model_id)
         {
@@ -6568,7 +5704,7 @@ impl AiRuntimeManager {
         let now = unix_epoch_millis()?;
         let mut state = lock(&self.inner);
         mark_run_start_failed(&mut state.persisted, run_id, now, reason.to_owned())?;
-        self.invalidate_catalog_for_error(&mut state, reason);
+        Self::invalidate_catalog_for_error(&mut state, reason);
         if let Some(run) = state
             .persisted
             .runs
@@ -7219,11 +6355,7 @@ impl AiRuntimeManager {
         persist_or_log(&mut state, "record_harness_approval");
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Harness 进度事件的各类分支共用同一次加锁与落库"
-    )]
-    fn record_harness_progress(&self, run_id: &str, event: CodexHarnessEvent) {
+    fn record_harness_progress(&self, run_id: &str, mut event: CodexHarnessEvent) {
         let released = matches!(
             event.event_type.as_str(),
             "harness.thread_released" | "harness.thread_parked"
@@ -7262,68 +6394,13 @@ impl AiRuntimeManager {
         {
             state.memory_last_error = Some(event.summary.clone());
         }
-        if let Some((client_message_id, content)) = event.steered_input {
+        if let Some((client_message_id, content)) = event.steered_input.take() {
             if state
                 .persisted
-                .messages
-                .iter()
-                .any(|message| message.message_id == client_message_id)
+                .record_steered_message(run_id, client_message_id, content, event)
             {
-                return;
+                persist_or_log(&mut state, "record_harness_progress");
             }
-            let Some(run_index) = state
-                .persisted
-                .runs
-                .iter()
-                .position(|run| run.run_id == run_id)
-            else {
-                return;
-            };
-            let conversation_id = state.persisted.runs[run_index].conversation_id.clone();
-            state.persisted.messages.push(ConversationMessage {
-                message_id: client_message_id,
-                conversation_id: conversation_id.clone(),
-                role: "user".to_owned(),
-                content,
-                attachments: Vec::new(),
-                referenced_materials: Vec::new(),
-                application_context: None,
-                run_id: Some(run_id.to_owned()),
-                created_at: event.created_at,
-            });
-            if let Some(conversation) = state
-                .persisted
-                .conversations
-                .iter_mut()
-                .find(|conversation| conversation.conversation_id == conversation_id)
-            {
-                conversation.updated_at = event.created_at;
-            }
-            let run = &mut state.persisted.runs[run_index];
-            run.events.push(AgentRunEvent {
-                sequence: next_event_sequence(&run.events),
-                event_type: event.event_type,
-                item_id: event.item_id,
-                phase: event.phase,
-                kind: event.kind,
-                status: event.status,
-                summary: event.summary,
-                created_at: event.created_at,
-                ..AgentRunEvent::default()
-            });
-            persist_or_log(&mut state, "record_harness_progress");
-            return;
-        }
-        if let Some(streamed_output) = event.streamed_output {
-            let Some(run) = state
-                .persisted
-                .runs
-                .iter_mut()
-                .find(|run| run.run_id == run_id)
-            else {
-                return;
-            };
-            run.partial_output = (!streamed_output.is_empty()).then_some(streamed_output);
             return;
         }
         let Some(run) = state
@@ -7334,47 +6411,8 @@ impl AiRuntimeManager {
         else {
             return;
         };
-        if event.phase == "reply"
-            && let Some((tokens, window_tokens)) = event.context_usage
-        {
-            run.usage.context = Some(AgentContextUsage {
-                tokens,
-                window_tokens,
-                composition: None,
-            });
-        }
-        run.log_tail.push(event.summary.clone());
-        if run.log_tail.len() > MAX_LOG_LINES {
-            run.log_tail.remove(0);
-        }
-        if let Some(existing) = event.item_id.as_deref().and_then(|item_id| {
-            run.events.iter_mut().rev().find(|current| {
-                current.item_id.as_deref() == Some(item_id) && current.phase == event.phase
-            })
-        }) {
-            existing.event_type = event.event_type;
-            existing.kind = event.kind;
-            existing.status = event.status;
-            existing.summary = event.summary;
-            existing.duration_ms = event.duration_ms.or_else(|| {
-                u64::try_from(event.created_at.saturating_sub(existing.created_at)).ok()
-            });
-            existing.detail_available |= event.detail_available;
-            existing.read_paths = event.read_paths;
-        } else {
-            run.events.push(AgentRunEvent {
-                sequence: next_event_sequence(&run.events),
-                event_type: event.event_type,
-                item_id: event.item_id,
-                phase: event.phase,
-                kind: event.kind,
-                status: event.status,
-                summary: event.summary,
-                duration_ms: event.duration_ms,
-                detail_available: event.detail_available,
-                read_paths: event.read_paths,
-                created_at: event.created_at,
-            });
+        if run.observe_progress(event) == ProgressPersistence::Transient {
+            return;
         }
         if let Err(error) = persist_run_progress(&mut state, run_id) {
             eprintln!("ai_run_persist_failed run={run_id} error={error}");
@@ -7462,7 +6500,7 @@ impl AiRuntimeManager {
             return;
         };
         if let Err(reason) = &result {
-            self.invalidate_catalog_for_error(&mut state, reason);
+            Self::invalidate_catalog_for_error(&mut state, reason);
         }
         state.harness_controls.remove(run_id);
         let state_before_completion = state.persisted.clone();
@@ -8999,13 +8037,6 @@ fn resolve_reasoning_effort(
         return Err("ai_reasoning_effort_unsupported".to_owned());
     }
     Ok(Some(effort.to_owned()))
-}
-
-fn effective_model(agent_model: Option<String>, model_override: Option<String>) -> Option<String> {
-    match model_override {
-        Some(value) => normalized_optional(Some(value)),
-        None => agent_model,
-    }
 }
 
 fn model_session_scope(
@@ -11262,42 +10293,37 @@ fn persist_locked(state: &mut ManagerState) -> Result<(), String> {
 }
 
 fn synchronize_native_catalog(state: &mut ManagerState) -> Result<(), String> {
-    if state.persisted.conversations.is_empty() {
+    let pending = native_catalog::pending_conversations(state);
+    if pending.is_empty() {
         return Ok(());
     }
     let server = state.server.as_ref().ok_or("ai_runtime_not_initialized")?;
-    let default_service = state
+    let service = state
         .codex_threads
         .as_ref()
         .ok_or("codex_thread_service_unavailable")?;
-    // 只有需要核对已有绑定时才读取目录。新对话尚无原生绑定，创建线程不依赖全量历史。
-    for conversation in &state.persisted.conversations {
-        let id = &conversation.conversation_id;
-        if state
-            .persisted
-            .runs
-            .iter()
-            .any(|run| run.conversation_id == *id && run.thread_writer_active)
-        {
-            continue;
-        }
-        let mut changed = false;
-        let journal =
-            server.request_result("aiThread/get", &serde_json::json!({"conversationId":id}))?;
-        let scoped_service = (!journal["binding"]["runtimeScope"].is_null())
-            .then(|| default_service.for_runtime_scope(&journal["binding"]["runtimeScope"]))
-            .transpose()?;
-        let service = scoped_service.as_ref().unwrap_or(default_service);
-        let catalog = journal["binding"]["nativeThreadId"]
-            .as_str()
-            .map(|thread| service.catalog_for_threads([thread]))
-            .transpose()?;
-        if !state.native_catalog.contains_key(id) {
-            changed = true;
-            let thread = if let Some(thread) = journal["binding"]["nativeThreadId"].as_str() {
-                thread.to_owned()
+    let groups = native_catalog::groups(server, service, pending)?;
+    for group in groups {
+        let catalog = group.catalog()?;
+        for binding in group.bindings {
+            let id = binding.conversation_id;
+            let conversation = state
+                .persisted
+                .conversations
+                .iter()
+                .find(|conversation| conversation.conversation_id == id)
+                .ok_or("conversation_not_found")?;
+            let (thread, title, archived) = if let Some(thread) = binding.thread_id {
+                let native = catalog
+                    .get(&thread)
+                    .ok_or("native_history_thread_missing")?;
+                let title = native["name"].as_str().map(str::to_owned);
+                let archived = native["archived"]
+                    .as_bool()
+                    .ok_or("native_history_archive_missing")?;
+                (thread, title, archived)
             } else {
-                let created = service.start_workbench_thread(
+                let created = group.service.start_workbench_thread(
                     &conversation.context.workspace_root,
                     state.persisted.memory_preferences,
                 )?;
@@ -11305,57 +10331,45 @@ fn synchronize_native_catalog(state: &mut ManagerState) -> Result<(), String> {
                     .as_str()
                     .ok_or("native_conversation_create_invalid")?
                     .to_owned();
-                service.import_history(
-                    &serde_json::json!({"threadId":thread,"name":conversation.title,"turns":[]}),
-                )?;
-                service.request(
-                    "thread/name/set",
-                    &serde_json::json!({"threadId":thread,"name":conversation.title}),
-                )?;
-                server.request_result("aiHistory/execute",&serde_json::json!({"action":"bind","payload":{"conversationId":id,"nativeThreadId":thread,"title":conversation.title}}))?;
-                thread
+                group.service.import_history(&serde_json::json!({
+                    "threadId":thread,"name":conversation.title,"turns":[]
+                }))?;
+                server.request_result("aiHistory/execute", &serde_json::json!({
+                    "action":"bind","payload":{"conversationId":id,"nativeThreadId":thread,"title":conversation.title}
+                }))?;
+                (thread, Some(conversation.title.clone()), false)
             };
-            let native = catalog.as_ref().and_then(|catalog| catalog.get(&thread));
-            if journal["binding"]["nativeThreadId"].is_string() && native.is_none() {
-                return Err("native_history_thread_missing".into());
+            if title.as_deref() != Some(conversation.title.as_str()) {
+                group.service.request(
+                    "thread/name/set",
+                    &serde_json::json!({
+                        "threadId":thread,"name":conversation.title
+                    }),
+                )?;
             }
-            let title = native
-                .and_then(|thread| thread["name"].as_str())
-                .unwrap_or(&conversation.title)
-                .to_owned();
-            let archived = native
-                .and_then(|thread| thread["archived"].as_bool())
-                .unwrap_or(false);
-            state
-                .native_catalog
-                .insert(id.clone(), (thread, title, archived));
-        }
-        let (thread, title, archived) = state
-            .native_catalog
-            .get_mut(id)
-            .ok_or("native_conversation_missing")?;
-        if *title != conversation.title {
-            service.request(
-                "thread/name/set",
-                &serde_json::json!({"threadId":thread,"name":conversation.title}),
+            if archived != conversation.archived {
+                group.service.request(
+                    if conversation.archived {
+                        "thread/archive"
+                    } else {
+                        "thread/unarchive"
+                    },
+                    &serde_json::json!({"threadId":thread}),
+                )?;
+            }
+            server.request_result(
+                "aiHistory/execute",
+                &serde_json::json!({
+                    "action":"index","payload":{
+                        "conversationId":id,"nativeThreadId":thread,
+                        "title":conversation.title,"archived":conversation.archived
+                    }
+                }),
             )?;
-            title.clone_from(&conversation.title);
-            changed = true;
-        }
-        if *archived != conversation.archived {
-            service.request(
-                if conversation.archived {
-                    "thread/archive"
-                } else {
-                    "thread/unarchive"
-                },
-                &serde_json::json!({"threadId":thread}),
-            )?;
-            *archived = conversation.archived;
-            changed = true;
-        }
-        if changed {
-            server.request_result("aiHistory/execute",&serde_json::json!({"action":"index","payload":{"conversationId":id,"nativeThreadId":thread,"title":title,"archived":archived}}))?;
+            state.native_catalog.insert(
+                id,
+                (thread, conversation.title.clone(), conversation.archived),
+            );
         }
     }
     Ok(())
@@ -12987,7 +12001,7 @@ mod tests {
         ConversationContext, ConversationMessage, MODEL_HARNESS_PROTOCOL_VERSION,
         MessageAttachment, PersistedAiState, QWEN_MODEL_27B, QWEN_MODEL_35B,
         build_model_classification_instructions, build_model_harness_instructions,
-        build_run_event_detail, classification_error_message, default_agent, effective_model,
+        build_run_event_detail, classification_error_message, default_agent,
         find_regeneration_target, harness_error_message, harness_file_artifacts,
         incident_status_label, incident_task_id, is_legacy_model_response_envelope,
         model_classification_output_schema, model_session_scope, model_user_input, next_run_after,
@@ -13094,7 +12108,7 @@ mod tests {
         context.referenced_materials.clear();
         let saved = serde_json::to_vec(&state.persisted).unwrap();
         let restored: PersistedAiState = serde_json::from_slice(&saved).unwrap();
-        let visible = super::message_for_ui(restored.messages[0].clone());
+        let visible = super::message_for_ui(&restored.messages[0]);
         assert_eq!(visible.referenced_materials, vec![reference.clone()]);
         assert_eq!(fs::read_to_string(path).unwrap(), "验收内容");
         let mut missing = reference.clone();
@@ -13705,14 +12719,13 @@ mod tests {
     fn seed_catalog(manager: &super::AiRuntimeManager, models: Vec<super::ModelInfo>, age: i64) {
         let mut state = super::lock(&manager.inner);
         let time = super::unix_epoch_millis().unwrap() - age;
-        state.model_catalog = models.clone();
-        state.model_catalog_status = Some(super::ModelCatalogStatus {
-            configured: true,
-            models,
-        });
-        state.model_catalog_checked_at = Some(time);
-        state.model_catalog_error = None;
-        state.model_catalog_revision += 1;
+        state.model_catalog.replace(
+            super::ModelCatalogStatus {
+                configured: true,
+                models,
+            },
+            time,
+        );
     }
 
     #[test]
@@ -14103,7 +13116,13 @@ mod tests {
             conversation.context.relative_path = None;
             conversation.context.file_revision = None;
             state.persisted.conversations.push(conversation);
-            state.model_catalog = super::system_model_catalog();
+            state.model_catalog.replace(
+                super::ModelCatalogStatus {
+                    configured: true,
+                    models: super::system_model_catalog(),
+                },
+                super::unix_epoch_millis().unwrap(),
+            );
             state.persisted.approval_review_model = Some("removed-background-model".into());
             state.persisted.memory_preferences = crate::memory::MemoryPreferences::disabled();
             state.persisted.runs.push(serde_json::from_value(serde_json::json!({
@@ -14280,7 +13299,13 @@ mod tests {
     #[test]
     fn approval_review_save_failure_keeps_previous_preference() {
         let manager = super::AiRuntimeManager::new();
-        super::lock(&manager.inner).model_catalog = system_model_catalog();
+        super::lock(&manager.inner).model_catalog.replace(
+            super::ModelCatalogStatus {
+                configured: true,
+                models: system_model_catalog(),
+            },
+            super::unix_epoch_millis().unwrap(),
+        );
         assert!(manager.save_approval_review_model(QWEN_MODEL_27B).is_err());
         assert_eq!(manager.approval_review_settings().model_id.as_deref(), None);
     }
@@ -14299,7 +13324,13 @@ mod tests {
             .unwrap();
         let manager = super::AiRuntimeManager::new();
         manager.initialize(&data_dir, &server).unwrap();
-        super::lock(&manager.inner).model_catalog = system_model_catalog();
+        super::lock(&manager.inner).model_catalog.replace(
+            super::ModelCatalogStatus {
+                configured: true,
+                models: system_model_catalog(),
+            },
+            super::unix_epoch_millis().unwrap(),
+        );
         assert_eq!(manager.approval_review_settings().model_id.as_deref(), None);
         let settings = manager.memory_settings().unwrap();
         assert!(settings.lifecycle_ready);
@@ -14319,7 +13350,13 @@ mod tests {
         manager.shutdown();
         let reloaded = super::AiRuntimeManager::new();
         reloaded.initialize(&data_dir, &server).unwrap();
-        super::lock(&reloaded.inner).model_catalog = system_model_catalog();
+        super::lock(&reloaded.inner).model_catalog.replace(
+            super::ModelCatalogStatus {
+                configured: true,
+                models: system_model_catalog(),
+            },
+            super::unix_epoch_millis().unwrap(),
+        );
         assert_eq!(
             reloaded.approval_review_settings().model_id.as_deref(),
             Some(QWEN_MODEL_27B)
@@ -14419,22 +13456,6 @@ mod tests {
         assert_ne!(
             sha256_hex("run_1\nfailed\n磁盘已满"),
             sha256_hex("run_1\nfailed\n网络不可达")
-        );
-    }
-
-    #[test]
-    fn per_run_model_override_replaces_or_clears_the_agent_model() {
-        assert_eq!(
-            effective_model(Some("agent-model".to_owned()), Some("run-model".to_owned())),
-            Some("run-model".to_owned())
-        );
-        assert_eq!(
-            effective_model(Some("agent-model".to_owned()), Some("  ".to_owned())),
-            None
-        );
-        assert_eq!(
-            effective_model(Some("agent-model".to_owned()), None),
-            Some("agent-model".to_owned())
         );
     }
 
@@ -15893,7 +14914,13 @@ mod tests {
             super::model_test_fixture::seed_simulated_connection(&runtime.server, QWEN_MODEL_35B);
         let agent = {
             let mut state = super::lock(&runtime.manager.inner);
-            state.model_catalog = system_model_catalog();
+            state.model_catalog.replace(
+                super::ModelCatalogStatus {
+                    configured: true,
+                    models: system_model_catalog(),
+                },
+                super::unix_epoch_millis().unwrap(),
+            );
             state.persisted.memory_preferences.enabled = false;
             state.persisted.agents[0].agent_id.clone()
         };
@@ -16051,7 +15078,13 @@ mod tests {
             conversation.context.relative_path = None;
             conversation.context.file_revision = None;
             state.persisted.conversations.push(conversation);
-            state.model_catalog = super::system_model_catalog();
+            state.model_catalog.replace(
+                super::ModelCatalogStatus {
+                    configured: true,
+                    models: super::system_model_catalog(),
+                },
+                super::unix_epoch_millis().unwrap(),
+            );
             state.persisted.approval_review_model = Some(super::QWEN_MODEL_35B.into());
             state.persisted.runs.push(serde_json::from_value(serde_json::json!({
                 "runId":"old-run", "conversationId":"conversation_1", "agentId":agent_id,

@@ -7,9 +7,9 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-contexthub-protocol = { path = "../../crates/protocol", version = "=0.1.0" }
-contexthub-local-transport = { path = "../../crates/local-transport", version = "=0.1.0" }
-contexthub-platform-adapter = { path = "../../crates/platform-adapter", version = "=0.1.0" }
+contexthub-protocol = { path = "../../crates/protocol", version = "=0.1.1" }
+contexthub-local-transport = { path = "../../crates/local-transport", version = "=0.1.1" }
+contexthub-platform-adapter = { path = "../../crates/platform-adapter", version = "=0.1.1" }
 serde_json = "=1.0.151"
 
 [lints]

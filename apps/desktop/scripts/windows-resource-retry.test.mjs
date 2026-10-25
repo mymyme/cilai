@@ -17,7 +17,7 @@ const context = (edit) => ({
 
 async function offlineAfterPack(fixtureRoot) {
   const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-  const fixtureSource = join(fixtureRoot, 'project');
+  const fixtureSource = join(fixtureRoot, 'project', '06代码索引', 'cilai-workbench');
   const copied = new Set();
   async function copy(relativeName) {
     const source = resolve(sourceRoot, relativeName);
@@ -41,7 +41,7 @@ async function offlineAfterPack(fixtureRoot) {
   }
   await module('apps/desktop/scripts/after-pack.mjs');
   for (const name of ['package.json', 'package-lock.json', 'LICENSE', 'NOTICE', 'Cargo.toml', 'apps/desktop/package.json',
-    'apps/desktop/package-lock.json', 'apps/desktop-ui/package.json', 'packages/app-ui/package.json',
+    'apps/desktop/package-lock.json', 'apps/desktop/electron-builder.yml', 'apps/desktop-ui/package.json', 'packages/app-ui/package.json',
     'packages/app-ui/LICENSE', 'packages/app-ui/NOTICE', 'third_party/openai-codex.release.json']) await copy(name);
   const write = async (name, value) => {
     const target = join(fixtureSource, name);
@@ -70,7 +70,18 @@ async function offlineAfterPack(fixtureRoot) {
     'export function installDependencyNotices({ platform, arch }) { if (platform !== "win32" || arch !== "x64") throw new Error("fixture target mismatch"); return { components: 0, files: 0 }; }\n');
   await write('apps/desktop/scripts/package-toolchain-notices.mjs',
     'export function installToolchainNotices() { return { version: "fixture", files: 0 }; }\n');
-  return (await import(pathToFileURL(join(fixtureSource, 'apps/desktop/scripts/after-pack.mjs')))).default;
+  const home = join(fixtureRoot, 'home');
+  await mkdir(home);
+  const previous = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  Object.assign(process.env, { HOME: home, USERPROFILE: home });
+  try {
+    return (await import(pathToFileURL(join(fixtureSource, 'apps/desktop/scripts/after-pack.mjs')))).default;
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 }
 
 test("Windows 资源编辑重试保留签名调用、参数及结果，不重复安装包装", async () => {
@@ -136,7 +147,10 @@ test("仅 Windows 安装资源重试，打包器接口漂移明确失败", async
     for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   });
   const original = ctx.packager.signAndEditResources;
+  const previousHome = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
   const afterPack = await offlineAfterPack(fixtureRoot);
+  assert.deepEqual({ HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE }, previousHome);
+  await assert.rejects(readFile(join(fixtureRoot, 'home/.cilai-personal-builds/desktop/.cilai-personal-build-registration.json')), { code: 'ENOENT' });
   await afterPack(ctx);
   assert.notEqual(ctx.packager.signAndEditResources, original);
   assert.equal(await ctx.packager.signAndEditResources(executable), "done");

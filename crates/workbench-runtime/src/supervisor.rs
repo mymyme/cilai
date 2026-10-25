@@ -85,6 +85,8 @@ type PendingResult = Result<Value, String>;
 struct Inner {
     #[cfg(test)]
     observed_request_methods: Mutex<Vec<String>>,
+    #[cfg(test)]
+    lost_successful_responses: Mutex<HashMap<String, usize>>,
     status: Mutex<AppServerStatus>,
     exit_changed: Condvar,
     writer: Mutex<Option<ConnectionWriter>>,
@@ -154,6 +156,8 @@ impl AppServerSupervisor {
             inner: Arc::new(Inner {
                 #[cfg(test)]
                 observed_request_methods: Mutex::new(Vec::new()),
+                #[cfg(test)]
+                lost_successful_responses: Mutex::new(HashMap::new()),
                 status: Mutex::new(AppServerStatus::default()),
                 exit_changed: Condvar::new(),
                 writer: Mutex::new(None),
@@ -181,6 +185,11 @@ impl AppServerSupervisor {
     #[cfg(test)]
     pub(crate) fn observed_request_methods(&self) -> Vec<String> {
         lock(&self.inner.observed_request_methods).clone()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn lose_next_successful_responses(&self, method: &str, count: usize) {
+        lock(&self.inner.lost_successful_responses).insert(method.to_owned(), count);
     }
 
     /// 启动并完成 initialize/initialized 握手。
@@ -653,6 +662,14 @@ impl AppServerSupervisor {
             return self.request_unified_search(params, search_id);
         }
         let response = self.request(method, params)?;
+        #[cfg(test)]
+        if response_result(&response).is_ok()
+            && let Some(remaining) = lock(&self.inner.lost_successful_responses).get_mut(method)
+            && *remaining > 0
+        {
+            *remaining -= 1;
+            return Err(format!("App Server request timed out: {method}"));
+        }
         response_result(&response).cloned()
     }
 

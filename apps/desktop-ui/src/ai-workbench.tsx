@@ -1,82 +1,80 @@
-import { ConversationInput, ConversationFields, conversationRunLabel, conversationModelLabel } from "@cilai/app-ui/conversation";
-import { skillMessageText } from "./skill-message";
-import { markdownText } from "./markdown-text";
-import { useModelCatalog, ModelCatalogNotice } from "./use-model-catalog";
-import { useWindowsSandbox } from "./use-windows-sandbox";
-import { usePageActive } from "./page-visibility";
-import { displayModelId } from "./model-label";
-import { loadWorkspaceFileSnapshot } from "./workspace-file-pages";
-import type { WorkReuseIntent } from "./work-reuse";
-import { useConversationSessionFlush, useConversationSessionState } from "./conversation-session";
-import { conversationFileArtifacts, type ConversationArtifact } from "./ai-artifacts";
-import { ArtifactVisual, ImageArtifactLightbox, imageArtifactMimeType } from "./artifact-preview";
-export { conversationFileArtifacts } from "./ai-artifacts";
-import { SkillInstallationStatus, useSkillInstallations } from "./skill-installations";
-import { conversationArchiveChanged, mergeArchivedConversations, setConversationsArchived, type ConversationArchiveChange } from "./conversation-archive";
-import { Fragment, type CSSProperties, type ReactNode, type SetStateAction, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "./page-portal";
-import { randomUuid } from "./uuid";
-import { useModelHistoryTransfer, type ModelHistoryTransferConsent } from "./model-history-transfer";
-import { invoke } from "./host";
-import type { DecisionRequestCreateResult, ModelSelection, SkillConversationCatalogItem, SkillConversationCatalogResult, WorkspaceFileItem, WorkspaceSummary } from "./generated/protocol";
-import { rpc, sha256 } from "./app-server-rpc";
-import { describeServerError } from "./server-error";
-import {
-  aiErrorMessage,
-  controlAiRun,
-  discardAiAttachment,
-  emptyAiSnapshot,
-  loadAiActivitySnapshot,
-  loadAiRunEventDetail,
-  loadAiSnapshot, aiRuntimeChangedEvent,
-  regenerateAiMessage,
-  readAiAttachment,
-  resolveAiPermissionRequest,
-  submitAiMessage,
-  dismissAiMessageSubmission,
-  submitAiConversation,
-  isDocumentAttachment,
-  stageAiAttachment,
-  steerAiRun,
-  updateAiConversation,
-  type AiAgentRun,
-  type AiRunEvent,
-  type AiRunEventDetail,
-  type AiApprovalMode,
-  type AiContext,
-  type AiConversation,
-  type AiConversationMode,
-  type AiConversationType,
-  type AiRuntimeSnapshot,
-  type AiWindowsSandboxStatus,
-  type AiMessageAttachment,
-  type AiMaterialReference,
-  type AiPermissionRequest,
-  type AiReasoningEffort,
-  type ApplicationContextSelection,
-} from "./ai-runtime";
-import { writeClipboard } from "./clipboard";
-import { Select } from "./select";
-import { useModal } from "./use-modal";
-import { AiBrowserToggle, type AiBrowserState } from "./ai-browser";
-import { ConversationNavigator, type NavigatorMessage } from "./conversation-navigator";
+import { ConversationFields,ConversationInput,conversationModelLabel } from "@cilai/app-ui/conversation";
+import { Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type SetStateAction } from "react";
+import { conversationFileArtifacts,type ConversationArtifact } from "./ai-artifacts";
+import { AiBrowserToggle,type AiBrowserState } from "./ai-browser";
 import { conversationMinWidth } from "./ai-layout";
-import "./ai-workbench.css";
-import { ContextMenu, openContextMenu, type ContextMenuItem, type ContextMenuState } from "./context-menu";
-import type { MessageSink } from "./app-message";
-import { clockMoment, formatCount, timelineMoment } from "./datetime";
-import { ConfirmDialog } from "./confirm-dialog";
-import { WorkspacePermissions } from "./workspace-permissions";
-import { RichMenu, RichMenuEmpty, RichMenuItem, RichMenuSection, RichMenuSeparator } from "./rich-menu";
-import { ArchiveIcon, MoreIcon, PanelToggleIcon, TrashIcon } from "./icons";
-import { MarkdownContent } from "./markdown-content";
-import { workspaceRelativePath, workspacePathsEqual } from "./workspace-path";
-export { workspaceRelativePath } from "./workspace-path";
-type ArtifactContextHandler = (event: React.MouseEvent, runId: string, artifact: ConversationArtifact) => void;
-import { hostPlatformUi } from "./host-platform-ui";
-import { isPreviewableFile, isPreviewablePath } from "./workspace-state";
+import {
+aiErrorMessage,
+controlAiRun,
+discardAiAttachment,
+dismissAiMessageSubmission,
+isDocumentAttachment,
+regenerateAiMessage,
+resolveAiPermissionRequest,
+stageAiAttachment,
+steerAiRun,
+submitAiConversation,
+submitAiMessage,
+updateAiConversation,
+type AiAgentRun,
+type AiApprovalMode,
+type AiContext,
+type AiConversation,
+type AiConversationMode,
+type AiConversationType,
+type AiMaterialReference,
+type AiMessageAttachment,
+type AiPermissionRequest,
+type AiReasoningEffort,
+type AiRuntimeSnapshot,
+type ApplicationContextSelection
+} from "./ai-runtime";
 import { unclassifiedConversationContext } from "./ai-workbench-context";
+import "./ai-workbench.css";
+import type { MessageSink } from "./app-message";
+import { rpc,sha256 } from "./app-server-rpc";
+import { ArtifactVisual } from "./artifact-preview";
+import { writeClipboard } from "./clipboard";
+import { ConfirmDialog } from "./confirm-dialog";
+import { ContextMenu,openContextMenu,type ContextMenuItem,type ContextMenuState } from "./context-menu";
+import { setConversationsArchived } from "./conversation-archive";
+import { DraftAttachments,MaterialAttachments,MessageAttachments } from './conversation-attachments';
+import { adaptiveControlWidth,assistantMessageBody,contextChips,conversationSummary,conversationTitleFromFirstMessage,conversationTopic,fileNameFromPath,neutralRunProgress,parseDecisionCard,visibleRunProgress,workspaceAbsolutePath } from './conversation-display';
+import { AdvanceBusinessIcon,ApprovalIcon,ArrowDownIcon,ArrowRightIcon,ArtifactsSourcesIcon,CheckIcon,ChevronIcon,CloseIcon,ContextAddIcon,ContextUsageIcon,ConversationIcon,ConversationRailToggle,CopyIcon,DownIcon,EditIcon,EnterIcon,FileIcon,FillBusinessIcon,ImageMaterialIcon,MediaIcon,MoreDotsIcon,OutputIcon,PaperclipIcon,PinIcon,PlusIcon,ProjectFolderIcon,ProjectGroupIcon,QueueAdjustIcon,QueueIcon,RefreshIcon,ReuseIcon,SearchBusinessIcon,ShieldIcon,SkillIcon,StopIcon,WriteBusinessIcon } from './conversation-icons';
+import { ConversationNavigator,type NavigatorMessage } from "./conversation-navigator";
+import { ConversationRun,ImageGenerationPending,imageGenerationProgress,incompleteRunSummary,PendingReplyIntro,RunArtifacts,RunElapsedTime,RunExecutionProcess,runProgress,RunRecordIcon,WindowsSandboxGate,type ArtifactContextHandler } from "./conversation-run-view";
+import { useConversationSessionFlush,useConversationSessionState } from "./conversation-session";
+import { clockMoment,formatCount,timelineMoment } from "./datetime";
+import type { DecisionRequestCreateResult,ModelSelection,SkillConversationCatalogItem,SkillConversationCatalogResult,WorkspaceFileItem,WorkspaceSummary } from "./generated/protocol";
+import { invoke } from "./host";
+import { hostPlatformUi } from "./host-platform-ui";
+import { ArchiveIcon,MoreIcon,TrashIcon } from "./icons";
+import { MarkdownContent } from "./markdown-content";
+import { useModelHistoryTransfer,type ModelHistoryTransferConsent } from "./model-history-transfer";
+import { displayModelId } from "./model-label";
+import { usePageActive } from "./page-visibility";
+import { RichMenu,RichMenuEmpty,RichMenuItem,RichMenuSection,RichMenuSeparator } from "./rich-menu";
+import { Select } from "./select";
+import { describeServerError } from "./server-error";
+import { SkillInstallationStatus,useSkillInstallations } from "./skill-installations";
+import { skillMessageText } from "./skill-message";
+import { activeRunStatuses,lastViewedConversationStorageKey,readLastViewedConversationId,useAiRuntimeSnapshot } from "./use-ai-runtime-snapshot";
+import { useModal } from "./use-modal";
+import { ModelCatalogNotice,useModelCatalog } from "./use-model-catalog";
+import { useWindowsSandbox } from "./use-windows-sandbox";
+import { randomUuid } from "./uuid";
+import type { WorkReuseIntent } from "./work-reuse";
+import { loadWorkspaceFileSnapshot } from "./workspace-file-pages";
+import { workspacePathsEqual,workspaceRelativePath } from "./workspace-path";
+import { WorkspacePermissions } from "./workspace-permissions";
+import { isPreviewableFile,isPreviewablePath } from "./workspace-state";
+export { conversationFileArtifacts } from "./ai-artifacts";
 export { workspaceContext } from "./ai-workbench-context";
+export { MessageAttachments } from './conversation-attachments';
+export { adaptiveControlWidth,assistantMessageBody,conversationDisplayTitle,conversationSummary,conversationTitleFromFirstMessage,conversationTopic,elideMiddle,fileNameFromPath,markdownWorkspaceFile,runDurationLabel,visibleRunProgress,workspaceAbsolutePath } from './conversation-display';
+export { imageGenerationProgress,RunElapsedTime,runFailureSummary } from "./conversation-run-view";
+export { workspaceRelativePath } from "./workspace-path";
+
 
 export interface AiLaunchRequest {
   token: number;
@@ -152,7 +150,7 @@ function projectWorkspaceLabel(project: AiProjectOption) {
 
 const pinnedProjectsStorageKey = "cilai.workbench.ai-pinned-projects";
 const lastExecutionSelectionStorageKey = "cilai.workbench.ai-last-execution-selection";
-const lastViewedConversationStorageKey = "cilai.workbench.ai-last-viewed-conversation";
+
 type ExecutionSelection = { agentId: string | null; modelId: string | null; connectionId?: string | null; reasoningEffort: AiReasoningEffort | null };
 
 function catalogModel(models: AiRuntimeSnapshot["models"], modelId: string | null, connectionId?: string | null) {
@@ -217,10 +215,6 @@ function executionSelectionStorageKey(profileId?: string | null) {
   return profileId ? `${lastExecutionSelectionStorageKey}:${profileId}` : lastExecutionSelectionStorageKey;
 }
 
-function readLastViewedConversationId(): string | null {
-  const value = window.localStorage.getItem(lastViewedConversationStorageKey)?.trim();
-  return value || null;
-}
 
 function readLastExecutionSelection(profileId?: string | null): ExecutionSelection | null {
   const raw = window.localStorage.getItem(executionSelectionStorageKey(profileId));
@@ -239,65 +233,13 @@ const maxConversationRailWidth = 520;
 const conversationRailKeyboardStep = 16;
 const conversationInfoDockWidth = 1040;
 const latestOutputThreshold = 48;
-const activeRunRefreshInterval = 400;
+
 /** 发送已受理、运行尚未出现时，按此间隔重读快照，等运行出现或受理失败。 */
 const submissionRefreshInterval = 600;
 
-function mergeSnapshotEntities<T>(current: T[], updates: T[], key: (item: T) => string, missing = new Set<string>()): T[] {
-  const byId = new Map(updates.map((item) => [key(item), item]));
-  const kept = current.filter((item) => !missing.has(key(item))).map((item) => byId.get(key(item)) ?? item);
-  const existing = new Set(kept.map(key));
-  return [...kept, ...[...byId].filter(([id]) => !existing.has(id)).map(([, item]) => item)];
-}
 
 function clampConversationRailWidth(width: number) {
   return Math.min(maxConversationRailWidth, Math.max(minConversationRailWidth, Math.round(width)));
-}
-
-export function adaptiveControlWidth(value: string, minimumCells: number, maximumCells: number) {
-  const cells = [...value].reduce((total, character) => total + ((character.codePointAt(0) ?? 0) > 0xff ? 2 : 1), 0);
-  return `${Math.min(maximumCells, Math.max(minimumCells, cells + 1))}ch`;
-}
-
-export function assistantMessageBody(content: string, nonce?: string | null): string {
-  if (nonce) {
-    for (const match of content.matchAll(/\n\s*(?:```json\s*)?\{/g)) {
-      let rest = content.slice(match.index + match[0].length);
-      const header: Record<string, unknown> = {};
-      for (let field = 0; field < 3; field++) {
-        const pair = rest.match(/^\s*("(?:[^"\\]|\\.)*")\s*:\s*("(?:[^"\\]|\\.)*"|\d+)\s*([,}])/s);
-        if (!pair) break;
-        try {
-          const key = JSON.parse(pair[1]) as string;
-          if (!["schemaVersion", "nonce", "reply"].includes(key)) break;
-          header[key] = JSON.parse(pair[2]);
-          if (header.schemaVersion === 1 && header.nonce === nonce) return content.slice(0, match.index).trimEnd();
-        } catch { break; }
-        rest = rest.slice(pair[0].length);
-      }
-    }
-  }
-  try {
-    const value = JSON.parse(content) as Record<string, unknown>;
-    if (nonce && value?.schemaVersion === 1 && value.nonce === nonce && typeof value.reply === "string") return value.reply;
-    const keys = Object.keys(value).sort();
-    const legacyKeys = ["classification", "nonce", "reply", "schemaVersion"];
-    if (
-      keys.length === legacyKeys.length
-      && keys.every((key, index) => key === legacyKeys[index])
-      && value.schemaVersion === 1
-      && typeof value.nonce === "string"
-      && value.classification !== null
-      && typeof value.classification === "object"
-      && typeof value.reply === "string"
-      && value.reply.trim() !== ""
-    ) {
-      return value.reply;
-    }
-  } catch {
-    return content;
-  }
-  return content;
 }
 
 function readConversationRailWidth() {
@@ -308,7 +250,7 @@ function readConversationRailWidth() {
 }
 
 /** 尚未落地的运行。它们由对话区那张进行中卡片表达，不再进入下方的运行清单。 */
-const activeRunStatuses = ["queued", "running", "paused", "terminating", "waiting_permission"];
+
 
 function hasReplyEnded(run: AiAgentRun | null) {
   return Boolean(run && (["completed", "failed", "terminated", "interrupted"].includes(run.status)
@@ -328,63 +270,6 @@ function isSupportedMedia(file: File) {
   return ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/webm"].includes(file.type);
 }
 
-function isBackgroundToolDiscoveryEvent(event: AiRunEvent) {
-  return ["application_discovery.", "enterprise_tool_snapshot.", "tool_search."].some((prefix) =>
-    event.eventType.startsWith(prefix),
-  );
-}
-
-function neutralRunProgress() {
-  return "正在处理…";
-}
-
-export function runDurationLabel(elapsedMs: number) {
-  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1_000));
-  const seconds = totalSeconds % 60;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const minutes = totalMinutes % 60;
-  const hours = Math.floor(totalMinutes / 60);
-  return hours > 0
-    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
-    : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-export function RunElapsedTime({ completedAt, startedAt }: { completedAt: number | null; startedAt: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (completedAt !== null) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [completedAt, startedAt]);
-  const elapsedMs = Math.max(0, (completedAt ?? now) - startedAt);
-  const duration = runDurationLabel(elapsedMs);
-  const stateLabel = completedAt === null ? "运行中" : "用时";
-  return <time aria-label={`${stateLabel} ${duration}`} className="ai-run-elapsed" dateTime={`PT${Math.floor(elapsedMs / 1_000)}S`}>{stateLabel} {duration}</time>;
-}
-
-export function visibleRunProgress(run: AiAgentRun) {
-  if (run.status === "waiting_permission") return "等待你确认后继续";
-  if (run.status === "paused") return "已暂停";
-  if (run.status === "terminating") return "正在停止…";
-  const event = [...run.events]
-    .reverse()
-    .find(
-      (item) =>
-        !isBackgroundToolDiscoveryEvent(item) &&
-        !["run.queued", "harness.started", "harness.thread_ready", "thread.tokenUsage.updated"].includes(item.eventType),
-    );
-  if (!event) return neutralRunProgress();
-  const progress = event.summary
-    .replaceAll("模型 Harness", "模型")
-    .replace("模型开始处理本轮请求", "正在理解你的请求…")
-    .replace("模型开始分析", "正在分析…")
-    .replace("模型完成分析", "分析完成")
-    .replace("模型开始生成回复", "正在生成回复…")
-    .replace("模型完成生成回复", "回复已生成")
-    .replace("开始执行工作区命令", "正在执行工作区命令…")
-    .replace("完成执行工作区命令", "命令执行完成");
-  return progress;
-}
 
 export type QueuedFollowUp = {
   queueId: string;
@@ -569,15 +454,6 @@ export function AiWorkbenchPage(props: Props) {
    */
   const reportConversation = props.aiBrowser?.onConversationChange;
   const platformUi = hostPlatformUi(props.hostPlatform);
-  const [snapshot, setSnapshot] = useState<AiRuntimeSnapshot>(emptyAiSnapshot);
-  const [snapshotLoaded, setSnapshotLoaded] = useState(false);
-  const [snapshotError, setSnapshotError] = useState<string | null>(null);
-  const catalog = useModelCatalog(snapshotLoaded);
-  const snapshotRequest = useRef(0);
-  const snapshotInFlight = useRef(false);
-  // null 表示没有后续刷新；true 的目录核对需求优先于仅轮询本机状态的 false。
-  const snapshotRefreshQueued = useRef<boolean | null>(null);
-  const snapshotRefreshWaiters = useRef<Array<(value: AiRuntimeSnapshot | null) => void>>([]);
   /*
    * 已提交但尚未出现在快照里的用户消息。
    *
@@ -588,7 +464,6 @@ export function AiWorkbenchPage(props: Props) {
   useEffect(() => { pageMounted.current = true; return () => { pageMounted.current = false; }; }, []);
   const flushConversationSession = useConversationSessionFlush();
   const [runtimeRevision, setRuntimeRevision] = useConversationSessionState("runtimeRevision", 0);
-  const observedRuntimeRevision = useRef(runtimeRevision);
   const [pendingOutgoing, setPendingOutgoing] = useConversationSessionState<PendingOutgoingMessage[]>("pendingOutgoing", []);
   const [recoveredOutgoing, setRecoveredOutgoing] = useConversationSessionState<PendingOutgoingMessage[]>("recoveredOutgoing", []);
   const [pendingRegeneration, setPendingRegeneration] = useConversationSessionState<PendingRegeneration | null>("pendingRegeneration", null);
@@ -596,6 +471,8 @@ export function AiWorkbenchPage(props: Props) {
   const workspaceRef = useRef(props.workspace);
   workspaceRef.current = props.workspace;
   const [selectedConversationId, setSelectedConversationId] = useConversationSessionState<string | null>("selectedConversationId", readLastViewedConversationId);
+  const { snapshot, setSnapshot, snapshotLoaded, snapshotError, refresh } = useAiRuntimeSnapshot({ workspaceId: props.workspace?.workspaceId, runtimeRevision, onMessage: props.onMessage, setSelectedConversationId });
+  const catalog = useModelCatalog(snapshotLoaded);
   useEffect(() => {
     if (!pageActive) return;
     reportConversation?.(selectedConversationId);
@@ -618,6 +495,7 @@ export function AiWorkbenchPage(props: Props) {
   const [starterFile, setStarterFile] = useConversationSessionState<WorkspaceFileItem | null>("starterFile", null);
   const [starterModelOverride, setStarterModelOverride] = useConversationSessionState<string | null>("starterModelOverride", null);
   const [starterConnectionId, setStarterConnectionId] = useConversationSessionState<string | null>("starterConnectionId", null);
+  const [modelConnectionSelectionRequired, setModelConnectionSelectionRequired] = useConversationSessionState("modelConnectionSelectionRequired", false);
   const [starterReasoningEffort, setStarterReasoningEffort] = useConversationSessionState<AiReasoningEffort | null>("starterReasoningEffort", null);
   const [starterPermissionMode, setStarterPermissionMode] = useConversationSessionState<StarterPermissionMode>("starterPermissionMode", "read-only");
   const effectiveStarterPermissionMode = starterPermissionMode;
@@ -630,23 +508,12 @@ export function AiWorkbenchPage(props: Props) {
   const [skillSelections, setSkillSelections] = useConversationSessionState<Record<string, string | undefined>>("skillSelections", {});
   const [draftMaterialGroups, setDraftMaterialGroups] = useConversationSessionState<Record<string, AiMaterialReference[]>>("draftMaterialGroups", {});
   const [draftAttachmentGroups, setDraftAttachmentGroups] = useConversationSessionState<Record<string, DraftAttachment[]>>("draftAttachmentGroups", {});
-  const [confirmWriteSend, setConfirmWriteSend] = useState(false);
   const [actionBusy, setBusy] = useState(false);
   const [sendingDraftKeys, setSendingDraftKeys] = useConversationSessionState<Set<string>>("sendingDraftKeys", new Set());
   const [sendingDrafts] = useConversationSessionState("sendingDrafts", () => ({ current: new Set<string>() }));
   const [newDraftSequence] = useConversationSessionState("newDraftSequence", () => ({ current: 0 }));
   const [archivingIds, setArchivingIds] = useState<Set<string>>(new Set());
   const archivingConversations = useRef(new Set<string>());
-  const latestArchiveRevision = useRef(0);
-  useEffect(() => {
-    const changed = (event: Event) => {
-      const result = (event as CustomEvent<ConversationArchiveChange>).detail;
-      latestArchiveRevision.current = Math.max(latestArchiveRevision.current, result.stateRevision);
-      setSnapshot((current) => mergeArchivedConversations(current, result));
-    };
-    window.addEventListener(conversationArchiveChanged, changed);
-    return () => window.removeEventListener(conversationArchiveChanged, changed);
-  }, []);
   const [conversationInfoOpen, setConversationInfoOpen] = useState(false);
   const [conversationInfoDocked, setConversationInfoDocked] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
@@ -828,69 +695,6 @@ export function AiWorkbenchPage(props: Props) {
     setMessageEditDraft("");
   }, [selectedConversationId]);
 
-  const refresh = async (refreshNativeCatalog = true): Promise<AiRuntimeSnapshot | null> => {
-    /*
-     * 已有刷新在途时不另发一次，改为排到它后面，并把本次调用挂在等待队列上。
-     * 从前这里直接返回，调用方的 await 立刻兑现却什么也没拿到——发送完成后据此
-     * 判断"消息是否已被服务端记下"，判断的其实是刷新前的旧快照。
-     */
-    if (snapshotInFlight.current) {
-      snapshotRefreshQueued.current = snapshotRefreshQueued.current === true || refreshNativeCatalog;
-      return new Promise<AiRuntimeSnapshot | null>((resolve) => { snapshotRefreshWaiters.current.push(resolve); });
-    }
-    snapshotInFlight.current = true;
-    const requestedWorkspace = workspaceRef.current;
-    const request = ++snapshotRequest.current;
-    let delivered: AiRuntimeSnapshot | null = null;
-    try {
-      const result = await loadAiSnapshot(refreshNativeCatalog);
-      if (request !== snapshotRequest.current || requestedWorkspace?.workspaceId !== workspaceRef.current?.workspaceId) return null;
-      if (result.stateRevision < latestArchiveRevision.current) {
-        snapshotRefreshQueued.current = true;
-        return null;
-      }
-      delivered = result;
-      setSnapshot(result);
-      setSnapshotLoaded(true);
-      setSnapshotError(null);
-      setSelectedConversationId((current) => {
-        const currentConversation = result.conversations.find((item) => item.conversationId === current);
-        if (currentConversation && !currentConversation.archived) return current;
-        const remembered = readLastViewedConversationId();
-        const rememberedConversation = result.conversations.find((item) => item.conversationId === remembered);
-        if (rememberedConversation && !rememberedConversation.archived) return remembered;
-        window.localStorage.removeItem(lastViewedConversationStorageKey);
-        return null;
-      });
-    } catch (error) {
-      setSnapshotError(aiErrorMessage(error));
-    } finally {
-      snapshotInFlight.current = false;
-      if (snapshotRefreshQueued.current !== null) {
-        const queuedNativeCatalog = snapshotRefreshQueued.current;
-        snapshotRefreshQueued.current = null;
-        void refresh(queuedNativeCatalog);
-      } else {
-        const waiters = snapshotRefreshWaiters.current;
-        snapshotRefreshWaiters.current = [];
-        for (const resolve of waiters) resolve(delivered);
-      }
-    }
-    return delivered;
-  };
-
-  useEffect(() => {
-    if (observedRuntimeRevision.current === runtimeRevision) return;
-    observedRuntimeRevision.current = runtimeRevision;
-    void refresh();
-  }, [runtimeRevision]);
-
-  useEffect(() => {
-    void refresh();
-    const changed = () => { void refresh(); };
-    window.addEventListener(aiRuntimeChangedEvent, changed);
-    return () => { snapshotRequest.current += 1; window.removeEventListener(aiRuntimeChangedEvent, changed); };
-  }, [props.workspace?.workspaceId]);
   const [consumedPreferredConversation, setConsumedPreferredConversation] = useConversationSessionState<string | null>("consumedPreferredConversation", null);
   useEffect(() => {
     if (!props.preferredConversationId) setConsumedPreferredConversation(null);
@@ -915,46 +719,6 @@ export function AiWorkbenchPage(props: Props) {
       draftKey: "new:unassigned",
     });
   }, [snapshotLoaded, selectedConversationId, pendingCreate, props.preferredConversationId, props.launchRequest, props.workspace]);
-  const activeRunIdsKey = snapshot.runs.filter((run) => run.threadWriterActive || activeRunStatuses.includes(run.status)).map((run) => run.runId).join("|");
-  useEffect(() => {
-    if (!activeRunIdsKey) return;
-    const runIds = activeRunIdsKey.split("|");
-    let cancelled = false;
-    let timer: number;
-    let reportedFailure = false;
-    const poll = async () => {
-      try {
-        const activities = await Promise.all(Array.from(
-          { length: Math.ceil(runIds.length / 32) },
-          (_, index) => loadAiActivitySnapshot(runIds.slice(index * 32, (index + 1) * 32)),
-        ));
-        if (cancelled || activities.some((activity) => activity.stateRevision < latestArchiveRevision.current)) return;
-        const missing = new Set(activities.flatMap((activity) => activity.missingRunIds));
-        const conversations = activities.flatMap((activity) => activity.conversations);
-        const messages = activities.flatMap((activity) => activity.messages);
-        const runs = activities.flatMap((activity) => activity.runs);
-        const permissionRequests = activities.flatMap((activity) => activity.permissionRequests);
-        setSnapshot((current) => ({
-          ...current,
-          stateRevision: Math.max(current.stateRevision, ...activities.map((activity) => activity.stateRevision)),
-          conversations: mergeSnapshotEntities(current.conversations, conversations, (item) => item.conversationId),
-          messages: mergeSnapshotEntities(current.messages, messages, (item) => item.messageId),
-          runs: mergeSnapshotEntities(current.runs, runs, (item) => item.runId, missing),
-          permissionRequests: mergeSnapshotEntities(current.permissionRequests, permissionRequests, (item) => item.permissionRequestId),
-        }));
-        if (missing.size || runs.some((run) => !activeRunStatuses.includes(run.status))) void refresh();
-      } catch (error) {
-        if (!cancelled && !reportedFailure) {
-          reportedFailure = true;
-          props.onMessage(aiErrorMessage(error), "error");
-        }
-      } finally {
-        if (!cancelled) timer = window.setTimeout(() => void poll(), activeRunRefreshInterval);
-      }
-    };
-    timer = window.setTimeout(() => void poll(), activeRunRefreshInterval);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [activeRunIdsKey, props.workspace?.workspaceId]);
 
   const conversations = useMemo(() => snapshot.conversations
     .filter((item) => !item.archived)
@@ -1088,7 +852,7 @@ export function AiWorkbenchPage(props: Props) {
    */
   const threadVisible = visibleMessages.length > 0 || Boolean(activeRun);
   const selectedAgent = snapshot.agents.find((agent) => agent.agentId === starterAgentId) ?? null;
-  const selectedModel = catalogModel(catalog.models, starterModelOverride, starterConnectionId);
+  const selectedModel = modelConnectionSelectionRequired ? null : catalogModel(catalog.models, starterModelOverride, starterConnectionId);
   const selectedModelReasoningEfforts = selectedModel?.supportedReasoningEfforts ?? [];
   const starterReasoningSelectionInvalid = Boolean(
     selectedModel && starterReasoningEffort && !selectedModelReasoningEfforts.includes(starterReasoningEffort),
@@ -1103,7 +867,6 @@ export function AiWorkbenchPage(props: Props) {
   const modelSandboxReady = props.hostPlatform === "macos"
     || (props.hostPlatform === "windows" && windowsSandboxStatus?.status === "ready");
   const selectedRuntimeReady = Boolean(starterModelOverride && selectedModel) && modelSandboxReady;
-  const starterAgent = snapshot.agents.find((agent) => agent.agentId === starterAgentId) ?? null;
   const starterModel = selectedModel;
   const modelSelection: ModelSelection | null = starterConnectionId && starterModelOverride
     ? { connectionId: starterConnectionId, modelId: starterModelOverride, reasoningEffort: effectiveStarterReasoningEffort }
@@ -1511,7 +1274,7 @@ export function AiWorkbenchPage(props: Props) {
     return { content, applicationContext: null };
   };
   useEffect(() => {
-    if (!snapshotLoaded || !catalog.loaded || initializedSelection === draftKey) return;
+    if (!snapshotLoaded || !catalog.loaded || initializedSelection === draftKey || modelConnectionSelectionRequired) return;
     setInitializedSelection(draftKey);
     const latestRun = snapshot.runs
       .filter((run) => run.conversationId === conversation?.conversationId)
@@ -1561,6 +1324,7 @@ export function AiWorkbenchPage(props: Props) {
     if (agentId) setStarterAgentId(agentId);
     setStarterModelOverride(modelId);
     setStarterConnectionId(connectionId ?? null);
+    setModelConnectionSelectionRequired(false);
     setStarterReasoningEffort(reasoningEffort);
     rememberExecutionSelection({ agentId, modelId, reasoningEffort, ...(connectionId ? { connectionId } : {}) });
     if (!modelApprovalOptionsForHost(props.hostPlatform).some((option) => option.value === starterPermissionMode)) {
@@ -1746,17 +1510,13 @@ export function AiWorkbenchPage(props: Props) {
     }));
   };
 
-  const startConversation = async (writeConfirmed = false) => {
+  const startConversation = async () => {
     if (starterPermissionSelectionInvalid) return;
     if (starterReasoningSelectionInvalid) {
       props.onMessage("当前思考深度已不受所选模型支持，请重新选择。", "error");
       return;
     }
     if ((!conversation && !pendingCreate) || !starterAgentId || !starterRuntimeReady || (!draft.trim() && !draftAttachments.length && !draftMaterials.length) || busy) return;
-    if (!starterModelOverride && starterPermissionMode === "workspace-write" && !writeConfirmed) {
-      setConfirmWriteSend(true);
-      return;
-    }
     const agent = snapshot.agents.find((item) => item.agentId === starterAgentId);
     const model = catalogModel(catalog.models, starterModelOverride, starterConnectionId);
     if (!agent || !model) {
@@ -2068,6 +1828,7 @@ export function AiWorkbenchPage(props: Props) {
     setStarterAgentId(recovery.agentId);
     setStarterModelOverride(recovery.modelOverride);
     setStarterConnectionId(recovery.modelSelection?.connectionId ?? null);
+    setModelConnectionSelectionRequired(Boolean(modelConnectionSelectionRequired && recovery.modelOverride && !recovery.modelSelection));
     setStarterReasoningEffort(recovery.reasoningEffort);
     setStarterPermissionMode(recovery.permissionMode);
     setStarterFile(recovery.file);
@@ -2216,6 +1977,7 @@ export function AiWorkbenchPage(props: Props) {
     setQueuedFollowUps((current) => current.filter((item) => item.queueId !== queueId));
     setStarterModelOverride(queued.modelOverride);
     setStarterConnectionId(queued.modelSelection?.connectionId ?? null);
+    setModelConnectionSelectionRequired(Boolean(modelConnectionSelectionRequired && queued.modelOverride && !queued.modelSelection));
     setStarterReasoningEffort(queued.reasoningEffort);
     setStarterPermissionMode(queued.permissionMode);
     setDraft(queued.content);
@@ -2773,6 +2535,7 @@ export function AiWorkbenchPage(props: Props) {
               <button aria-label={`移除${chip.label}上下文`} disabled={busy || Boolean(activeRun)} onClick={() => void updateContext(chip.clear(conversation.context))} type="button"><CloseIcon/></button>
             </span>) : null}
             <div className="ai-composer-actions">
+              {modelConnectionSelectionRequired ? <span role="status">原模型连接未记录，请重新选择模型连接。</span> : null}
               <StarterModelPicker displayModel={catalog.error ? catalogModel(catalog.displayModels, starterModelOverride, starterConnectionId) ?? undefined : undefined} onOpen={catalog.refreshOnOpen} historical={Boolean(conversation)} loading={!catalog.loaded && !catalog.error && (!snapshotLoaded || catalog.loading)} agents={snapshot.agents} disabled={busy || !snapshotLoaded} models={catalog.models} onSelectModel={selectStarterModel} selectedAgentId={starterAgentId} selectedModelId={starterModelOverride} selectedConnectionId={starterConnectionId} selectedReasoningEffort={starterReasoningEffort}/>
               <StarterPermissionPicker disabled={busy} hostPlatform={props.hostPlatform} modelMode={Boolean(starterModelOverride)} onChange={selectStarterPermissionMode} value={effectiveStarterPermissionMode}/>
               {conversationStarted ? <ComposerActionControl
@@ -2842,13 +2605,6 @@ export function AiWorkbenchPage(props: Props) {
       title="归档这个项目的全部会话？"
       onCancel={() => setPendingArchive(null)}
       onConfirm={() => void archiveProjectConversations(pendingArchive.ids)}/> : null}
-    {confirmWriteSend ? <ConfirmDialog
-      busy={busy}
-      confirmLabel="确认并运行"
-      description={<><p>本次运行的文件工具可以在当前工作区中创建或编辑文件。</p><p>运行仍不得访问网络或凭据，也不会自动改变项目、任务、阶段或交付物的正式状态。请确认本次任务确实需要修改文件。</p></>}
-      title="允许修改工作区文件？"
-      onCancel={() => setConfirmWriteSend(false)}
-      onConfirm={() => { setConfirmWriteSend(false); void startConversation(true); }}/>: null}
     {filePickerOpen ? <StarterFilePicker workspaces={props.workspaces} currentWorkspaceId={props.workspace?.workspaceId ?? null} files={props.files} selectedFileId={draftMaterials.at(-1)?.localFileId ?? null} onCancel={() => setFilePickerOpen(false)} onPick={(files) => {
       setFilePickerOpen(false);
       const materials = new Map(draftMaterials.map((item) => [`${item.workspaceId ?? ""}:${item.localFileId}`, item]));
@@ -2901,68 +2657,6 @@ function StarterFilePicker(props: { workspaces?: WorkspaceSummary[]; currentWork
       {files.length > visibleCount ? <button className="starter-file-more" type="button" onClick={() => setVisibleCount((value) => value + 100)}>继续显示 · {visibleCount}/{files.length}</button> : null}
       <footer className="starter-file-actions"><span>{selected.size} 项</span><button disabled={!selected.size} onClick={() => props.onPick([...selected.values()].sort((a,b) => `${a.sourceWorkspaceId ?? ""}/${a.relativePath}`.localeCompare(`${b.sourceWorkspaceId ?? ""}/${b.relativePath}`, "zh-CN")))} type="button">添加</button></footer>
       {!files.length ? <p className="starter-file-empty">当前工作区没有匹配的可用文件。</p> : null}
-    </section>
-  </div>;
-}
-
-function MaterialAttachments({ materials, onRemove }: { materials: AiMaterialReference[]; onRemove?: (material: AiMaterialReference) => void }) {
-  return <div aria-label={onRemove ? "待发送文件" : "消息文件"} className={onRemove ? "ai-draft-attachments" : "ai-message-attachments"}>{materials.map((material) => <div className="ai-draft-attachment ai-file-attachment" key={`${material.workspaceId ?? ""}:${material.localFileId}:${material.fileRevision}`} title={material.relativePath}>
-    <span className="ai-document-attachment"><FileIcon/><span>{fileNameFromPath(material.relativePath)}</span></span>
-    {onRemove ? <button aria-label={`移除文件 ${fileNameFromPath(material.relativePath)}`} className="ai-attachment-remove" onClick={() => onRemove(material)} type="button"><CloseIcon/></button> : null}
-  </div>)}</div>;
-}
-
-function DraftAttachments({ items, onRemove, removable = true }: { items: DraftAttachment[]; onRemove: (attachmentId: string) => void; removable?: boolean }) {
-  return <div aria-label="待发送附件" className="ai-draft-attachments">{items.map(({ attachment, previewUrl }) => <div className={`ai-draft-attachment${attachment.mediaType === "document" ? " ai-file-attachment" : ""}`} key={attachment.attachmentId}>
-    <>{attachment.mediaType === "document" ? <span className="ai-document-attachment"><FileIcon/><span>{attachment.fileName}<small>{Math.ceil(attachment.sizeBytes / 1024)} KB</small></span></span> : previewUrl ? <MediaThumbnail attachment={attachment} previewUrl={previewUrl}/> : <StoredAttachmentThumbnail attachment={attachment}/>}</>
-    {removable ? <button aria-label={`移除附件 ${attachment.fileName}`} className="ai-attachment-remove" onClick={() => onRemove(attachment.attachmentId)} type="button"><CloseIcon/></button> : null}
-  </div>)}</div>;
-}
-
-export function MessageAttachments({ attachments }: { attachments: AiMessageAttachment[] }) {
-  return <div aria-label="消息附件" className="ai-message-attachments">{attachments.map((attachment) => attachment.mediaType === "document" ? <span className="ai-document-attachment" key={attachment.attachmentId}><FileIcon/><span>{attachment.fileName}<small>已提供 · 读取记录见执行过程</small></span></span> : <StoredAttachmentThumbnail attachment={attachment} key={attachment.attachmentId}/>)}</div>;
-}
-
-function StoredAttachmentThumbnail({ attachment }: { attachment: AiMessageAttachment }) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let disposed = false;
-    let objectUrl: string | null = null;
-    void readAiAttachment(attachment.attachmentId).then((bytes) => {
-      if (disposed) return;
-      objectUrl = URL.createObjectURL(new Blob([bytes], { type: attachment.mimeType }));
-      setPreviewUrl(objectUrl);
-    }).catch(() => { if (!disposed) setPreviewUrl(""); });
-    return () => {
-      disposed = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [attachment.attachmentId, attachment.mimeType]);
-  if (previewUrl === null) return <span aria-label={`正在加载 ${attachment.fileName}`} className="ai-attachment-thumbnail loading"/>;
-  if (!previewUrl) return <span aria-label={`无法显示 ${attachment.fileName}`} className="ai-attachment-thumbnail unavailable"><MediaIcon/></span>;
-  return <MediaThumbnail attachment={attachment} previewUrl={previewUrl}/>;
-}
-
-function MediaThumbnail({ attachment, previewUrl }: { attachment: AiMessageAttachment; previewUrl: string }) {
-  const [open, setOpen] = useState(false);
-  return <>
-    <button aria-label={`查看${attachment.mediaType === "image" ? "图片" : "视频"} ${attachment.fileName}`} className="ai-attachment-thumbnail" onClick={() => setOpen(true)} title="点击放大查看" type="button">
-      {attachment.mediaType === "image"
-        ? <img alt={attachment.fileName} src={previewUrl}/>
-        : <video aria-label={attachment.fileName} muted playsInline preload="metadata" src={previewUrl}/>}
-    </button>
-    {open ? <MediaLightbox attachment={attachment} onClose={() => setOpen(false)} previewUrl={previewUrl}/> : null}
-  </>;
-}
-
-function MediaLightbox({ attachment, onClose, previewUrl }: { attachment: AiMessageAttachment; onClose: () => void; previewUrl: string }) {
-  const modalRef = useModal<HTMLDivElement>({ onClose });
-  return <div aria-label={`查看${attachment.mediaType === "image" ? "图片" : "视频"} ${attachment.fileName}`} aria-modal="true" className="ai-media-lightbox" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} ref={modalRef} role="dialog">
-    <section>
-      <button aria-label="关闭媒体预览" autoFocus onClick={onClose} type="button"><CloseIcon/></button>
-      {attachment.mediaType === "image"
-        ? <img alt={attachment.fileName} src={previewUrl}/>
-        : <video aria-label={attachment.fileName} autoPlay controls playsInline src={previewUrl}/>}
     </section>
   </div>;
 }
@@ -3662,24 +3356,6 @@ function ConversationInfoSectionHeader({ controls, expanded, label, onToggle }: 
   return <button aria-controls={controls} aria-expanded={expanded} className="ai-conversation-info-section-toggle" onClick={onToggle} type="button"><span aria-level={2} className="ai-conversation-info-section-title" role="heading">{label}</span><DownIcon/></button>;
 }
 
-function runProgress(run: AiAgentRun | null) {
-  if (!run) return {
-    summary: "尚未运行",
-    description: "发送任务后，这里会显示执行进度。",
-    steps: ["current", "pending", "pending"].map((state, index) => ({ label: ["等待任务", "执行中", "已完成"][index], state })),
-  } as const;
-  const failed = ["failed", "interrupted", "terminated"].includes(run.status);
-  const completed = run.status === "completed";
-  return {
-    summary: runStatusLabel(run.status),
-    description: runStatusLabel(run.status),
-    steps: [
-      { label: "任务已接收", state: "complete" },
-      { label: "执行中", state: run.status === "queued" ? "current" : "complete" },
-      { label: failed ? runStatusLabel(run.status) : "已完成", state: failed ? "error" : completed ? "complete" : "pending" },
-    ],
-  } as const;
-}
 
 function conversationReferencedMaterials(context: AiContext) {
   return materialReferences(context).map((material) => ({
@@ -3763,609 +3439,4 @@ function QueuedFollowUps({ busy, supplementUnavailableReason, items, onDelete, o
       </article>;
     })}
   </section>;
-}
-
-const openExecutionRuns = new Set<string>();
-
-type EventDetailState = { loading: boolean; value?: AiRunEventDetail; error?: string };
-
-function executionEventStatus(event: AiRunEvent) {
-  if (event.eventType.endsWith("started")) return "started";
-  if (event.eventType.includes("failed")) return "failed";
-  return event.status ?? "completed";
-}
-
-function executionEventSummary(event: AiRunEvent) {
-  return event.summary
-    .replaceAll("模型 Harness", "模型")
-    .replace("模型开始处理本轮请求", "正在理解你的请求")
-    .replace("模型开始分析", "正在分析上下文与约束")
-    .replace("模型完成分析", "已分析上下文与约束")
-    .replace("模型开始生成回复", "正在生成回复")
-    .replace("模型完成生成回复", "已生成回复")
-    .replace("开始执行工作区命令", "执行工作区操作")
-    .replace("完成执行工作区命令", "已执行工作区操作")
-    .replace("开始处理候选文件变更", "处理文件变更")
-    .replace("完成处理候选文件变更", "已编辑文件")
-    .replace("开始调用已授权工具", "调用已授权工具")
-    .replace("完成调用已授权工具", "已调用工具");
-}
-
-type ExecutionEntry = { event: AiRunEvent; mode: "narrative" | "activity"; summary: string };
-
-type ExecutionEventKind = NonNullable<AiRunEvent["kind"]>;
-
-function executionEventKind(event: AiRunEvent): ExecutionEventKind {
-  if (event.kind && event.kind !== "status") return event.kind;
-  if (/工作区命令|工作区操作/.test(event.summary)) return "command";
-  if (/候选文件变更|文件变更|编辑文件/.test(event.summary)) return "file_change";
-  if (/授权工具|调用工具/.test(event.summary)) return "mcp";
-  if (/分析/.test(event.summary)) return "reasoning";
-  if (/生成回复/.test(event.summary)) return "message";
-  if (/计划/.test(event.summary)) return "plan";
-  return "status";
-}
-
-function executionEntry(event: AiRunEvent, active: boolean, phase: "reply" | "classification"): ExecutionEntry | null {
-  if (phase !== "reply") return null;
-  if (isBackgroundToolDiscoveryEvent(event)) return null;
-  const status = executionEventStatus(event);
-  const kind = executionEventKind(event);
-  const summary = executionEventSummary(event).trim();
-  if (!summary) return null;
-  if (["command", "mcp", "file_change", "plan", "context"].includes(kind)) return { event, mode: "activity", summary };
-  if (kind === "reasoning") {
-    if (["正在分析上下文与约束", "已分析上下文与约束", "分析完成"].includes(summary)) {
-      return active && status === "started" ? { event, mode: "activity", summary } : null;
-    }
-    return { event, mode: "narrative", summary };
-  }
-  if (kind === "message") {
-    if (["正在生成回复", "已生成回复", "回复生成完成"].includes(summary)) return null;
-    return { event, mode: "narrative", summary };
-  }
-  if (status === "failed") return { event, mode: "activity", summary };
-  return null;
-}
-
-function executionEntries(events: AiRunEvent[], active: boolean) {
-  const entries: ExecutionEntry[] = [];
-  const pendingLegacyActivities = new Map<ExecutionEventKind, number>();
-  let legacyPhase: "reply" | "classification" = "reply";
-  for (const event of events) {
-    if (!event.phase && event.eventType === "harness.classification_started") legacyPhase = "classification";
-    const entry = executionEntry(event, active, event.phase ?? legacyPhase);
-    if (!entry) continue;
-    const kind = executionEventKind(event);
-    const status = executionEventStatus(event);
-    const legacyActivity = !event.itemId && ["command", "mcp", "file_change", "plan"].includes(kind);
-    if (!legacyActivity) {
-      entries.push(entry);
-      continue;
-    }
-    if (status === "started") {
-      pendingLegacyActivities.set(kind, entries.length);
-      entries.push(entry);
-      continue;
-    }
-    const pendingIndex = pendingLegacyActivities.get(kind);
-    if (pendingIndex === undefined) {
-      entries.push(entry);
-    } else {
-      entries[pendingIndex] = entry;
-      pendingLegacyActivities.delete(kind);
-    }
-  }
-  return entries;
-}
-
-function ExecutionActivityIcon({ event }: { event: AiRunEvent }) {
-  if (executionEventStatus(event) === "started") return <span aria-hidden="true" className="ai-running-mark"/>;
-  const kind = executionEventKind(event);
-  if (kind === "file_change") return <FileChangeActivityIcon/>;
-  if (kind === "mcp") return <ToolActivityIcon/>;
-  if (kind === "plan") return <PlanActivityIcon/>;
-  if (kind === "context") return <ContextActivityIcon/>;
-  if (kind === "reasoning") return <ReasoningActivityIcon/>;
-  return <CommandActivityIcon/>;
-}
-
-function RunEventDetail({ detail }: { detail: AiRunEventDetail }) {
-  const copyText = [
-    `工具：${detail.toolName}`,
-    `操作：${detail.operation}`,
-    detail.target ? `对象：${detail.target}` : null,
-    detail.parameters ? `参数：\n${detail.parameters}` : null,
-    detail.output ? `输出：\n${detail.output}` : null,
-    detail.exitCode !== null ? `退出码：${detail.exitCode}` : null,
-    detail.error ? `错误：\n${detail.error}` : null,
-    detail.truncated ? "详情已截断" : null,
-  ].filter(Boolean).join("\n");
-  return <div className="ai-execution-detail">
-    <header><strong>步骤详情</strong><button aria-label="复制已脱敏的步骤详情" onClick={() => void writeClipboard(copyText)} title="复制" type="button"><CopyIcon/></button></header>
-    <dl>
-      <div><dt>工具</dt><dd>{detail.toolName}</dd></div>
-      <div><dt>操作</dt><dd>{detail.operation}</dd></div>
-      {detail.target ? <div><dt>对象</dt><dd>{detail.target}</dd></div> : null}
-      {detail.exitCode !== null ? <div><dt>退出码</dt><dd>{detail.exitCode}</dd></div> : null}
-    </dl>
-    {detail.parameters ? <section><strong>参数</strong><pre>{detail.parameters}</pre></section> : null}
-    {detail.output ? <section><strong>输出摘要</strong><pre>{detail.output}</pre></section> : null}
-    {detail.error ? <section className="error"><strong>错误</strong><pre>{detail.error}</pre></section> : null}
-    {detail.truncated ? <small>内容较长，已按安全上限截断。</small> : null}
-  </div>;
-}
-
-function PendingReplyIntro() {
-  return <div aria-label="回复准备中" className="ai-pending-reply-intro" role="status"><span aria-hidden="true" className="ai-pending-reply-dots"><i/><i/><i/></span></div>;
-}
-
-function RunExecutionProcess({ active = false, progress, readOnly = false, run }: { active?: boolean; progress?: string; readOnly?: boolean; run: Pick<AiAgentRun, "runId" | "events"> | null }) {
-  const [open, setOpen] = useState(() => Boolean(run && openExecutionRuns.has(run.runId)));
-  const [detailOpen, setDetailOpen] = useState<Record<string, boolean>>({});
-  const [details, setDetails] = useState<Record<string, EventDetailState>>({});
-  const entries = executionEntries(run?.events ?? [], active);
-  const toggleOpen = () => {
-    const next = !open;
-    setOpen(next);
-    if (run) {
-      if (next) openExecutionRuns.add(run.runId); else openExecutionRuns.delete(run.runId);
-    }
-  };
-  const toggleDetail = async (event: AiRunEvent) => {
-    if (!run || !event.itemId || !event.detailAvailable) return;
-    const key = `${event.phase ?? "reply"}:${event.itemId}`;
-    const next = !detailOpen[key];
-    setDetailOpen((current) => ({ ...current, [key]: next }));
-    if (!next || details[key]) return;
-    setDetails((current) => ({ ...current, [key]: { loading: true } }));
-    try {
-      const value = await loadAiRunEventDetail(run.runId, event.itemId);
-      setDetails((current) => ({ ...current, [key]: { loading: false, value } }));
-    } catch (error) {
-      setDetails((current) => ({ ...current, [key]: { loading: false, error: aiErrorMessage(error) } }));
-    }
-  };
-  const renderEntry = ({ event, mode, summary }: ExecutionEntry) => {
-    const status = executionEventStatus(event);
-    const key = `${event.phase ?? "reply"}:${event.itemId ?? event.sequence}`;
-    const expandable = Boolean(!readOnly && event.detailAvailable && event.itemId);
-    const detail = details[key];
-    if (mode === "narrative") return <div className="ai-execution-narrative" key={key}><MarkdownContent diagramIdPrefix={`execution-${run?.runId ?? "pending"}`}>{summary}</MarkdownContent></div>;
-    return <div className="ai-execution-activity" data-status={status} key={key}>
-      <span className="ai-execution-activity-icon"><ExecutionActivityIcon event={event}/></span>
-      {expandable ? <button aria-expanded={Boolean(detailOpen[key])} className="ai-execution-step-button" onClick={() => void toggleDetail(event)} type="button"><span>{summary}</span><ChevronIcon direction={detailOpen[key] ? "down" : "right"}/></button> : <div className="ai-execution-step-label"><span>{summary}</span></div>}
-      {expandable && detailOpen[key] ? detail?.loading ? <p className="ai-execution-detail-state">正在读取安全详情…</p> : detail?.error ? <p className="ai-execution-detail-state error">{detail.error}</p> : detail?.value ? <RunEventDetail detail={detail.value}/> : null : null}
-    </div>;
-  };
-  const toggleLabel = active ? progress ?? "正在处理…" : "执行过程";
-  if (readOnly && !entries.length) return null;
-  return <section className="ai-execution-process" data-active={active || undefined}>
-    <button aria-expanded={open} aria-label={`${open ? "收起" : "展开"}执行过程：${toggleLabel}`} aria-live={active ? "polite" : undefined} className="ai-execution-toggle" onClick={toggleOpen} type="button">
-      <strong>{toggleLabel}</strong>
-      <ChevronIcon direction={open ? "down" : "right"}/>
-    </button>
-    {open ? <div className="ai-execution-body">
-      {entries.length ? entries.map(renderEntry) : <p className="ai-execution-empty">{active ? "正在处理…" : "本次运行没有可展示的执行记录"}</p>}
-    </div> : null}
-  </section>;
-}
-
-function RunArtifacts({ onOpen, onContext, run }: { onOpen: (artifact: ConversationArtifact) => void; onContext: ArtifactContextHandler; run: AiAgentRun }) {
-  const artifacts = conversationFileArtifacts([{ runId: run.runId, artifacts: run.artifacts }]).reverse();
-  if (!artifacts.length) return null;
-  const images = artifacts.filter(({ artifact }) => artifact.artifactType === "image").map(({ artifact }) => artifact);
-  const documents = artifacts.filter(({ artifact }) => artifact.artifactType !== "image").map(({ artifact }) => artifact);
-  return <>
-    {images.length ? <ImageArtifactGallery artifacts={images} onContext={onContext} runId={run.runId}/> : null}
-    {documents.length ? <section aria-label="本次运行文件" className="ai-run-artifacts">
-      <header><FileChangeActivityIcon/><strong>已生成 {documents.length} 个文件</strong></header>
-      <div>{documents.map((artifact) => <button aria-label={`打开文件 ${fileNameFromPath(artifact.path!)}`} key={artifact.artifactId} onClick={() => onOpen(artifact)} onContextMenu={(event) => onContext(event, run.runId, artifact)} title={artifact.path!} type="button"><ArtifactVisual artifact={artifact} runId={run.runId}/><span><strong>{fileNameFromPath(artifact.path!)}</strong><small>{artifact.path}</small></span><ChevronIcon direction="right"/></button>)}</div>
-    </section> : null}
-  </>;
-}
-
-export function imageGenerationProgress(run: AiAgentRun): "generating" | "saving" | null {
-  if (run.artifacts?.some((artifact) => artifact.artifactType === "image")) return null;
-  const event = [...(run.events ?? [])].reverse().find((item) => item.phase !== "classification"
-    && item.kind === "mcp"
-    && /\bgenerate_image\b/i.test(item.summary));
-  if (!event || executionEventStatus(event) === "failed") return null;
-  return executionEventStatus(event) === "started" ? "generating" : "saving";
-}
-
-function ImageGenerationPending({ phase }: { phase: "generating" | "saving" }) {
-  const label = phase === "generating" ? "正在生成图片" : "正在保存图片";
-  return <section aria-label="图片生成中" aria-live="polite" className="ai-run-image-pending" role="status">
-    <header><ImageMaterialIcon/><strong>{label}</strong></header>
-    <div><ImageMaterialIcon/><span>{label}</span></div>
-  </section>;
-}
-
-function ImageArtifactGallery({ artifacts, runId, onContext }: { artifacts: ConversationArtifact[]; runId: string; onContext: ArtifactContextHandler }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const previews = useArtifactImagePreviews(artifacts, runId);
-  const active = artifacts[Math.min(activeIndex, artifacts.length - 1)];
-  const preview = previews[active.artifactId];
-  const previewUrl = preview || null;
-  const previewUnavailable = preview === "";
-  return <section aria-label="本次运行图片" className="ai-run-image-gallery" onContextMenu={(event) => onContext(event, runId, active)}>
-    <header><ImageMaterialIcon/><strong>已生成 {artifacts.length} 张图片</strong><span>{fileNameFromPath(active.path!)}</span></header>
-    <div className="ai-run-image-gallery-body">
-      <button aria-label={`查看图片 ${fileNameFromPath(active.path!)}`} className="ai-run-image-main" disabled={!previewUrl} onClick={() => setLightboxOpen(true)} title="点击全屏查看" type="button">
-        {previewUrl ? <img alt={fileNameFromPath(active.path!)} src={previewUrl}/> : previewUnavailable ? <span className="ai-run-image-unavailable"><ImageMaterialIcon/>无法显示图片</span> : <span aria-label="正在加载图片" className="ai-run-image-loading"><ImageMaterialIcon/></span>}
-        {previewUrl ? <span className="ai-run-image-expand"><ExpandIcon/>全屏</span> : null}
-      </button>
-      {artifacts.length > 1 ? <div aria-label="图片列表" className="ai-run-image-thumbnails" role="list">
-        {artifacts.map((artifact, index) => {
-          const source = previews[artifact.artifactId];
-          return <button aria-current={index === activeIndex ? "true" : undefined} aria-label={`选择图片 ${index + 1}：${fileNameFromPath(artifact.path!)}`} key={artifact.artifactId} onContextMenu={(event) => onContext(event, runId, artifact)} onClick={() => setActiveIndex(index)} role="listitem" title={fileNameFromPath(artifact.path!)} type="button">
-            {source ? <img alt="" src={source}/> : <ImageMaterialIcon/>}
-          </button>;
-        })}
-      </div> : null}
-    </div>
-    {lightboxOpen && previewUrl ? <ImageArtifactLightbox activeIndex={activeIndex} artifacts={artifacts} onChange={setActiveIndex} onClose={() => setLightboxOpen(false)} previews={previews}/> : null}
-  </section>;
-}
-
-function useArtifactImagePreviews(artifacts: ConversationArtifact[], runId: string) {
-  const [previews, setPreviews] = useState<Record<string, string>>({});
-  const artifactKey = artifacts.map((artifact) => `${artifact.artifactId}:${artifact.path ?? ""}`).join("|");
-  useEffect(() => {
-    let disposed = false;
-    const objectUrls: string[] = [];
-    setPreviews({});
-    for (const artifact of artifacts) {
-      void invoke<ArrayBuffer | Uint8Array | number[]>("ai_artifact_read_image", {
-        runId,
-        artifactId: artifact.artifactId,
-      }).then((payload) => {
-        if (disposed) return;
-        const source = payload instanceof ArrayBuffer
-          ? new Uint8Array(payload)
-          : payload instanceof Uint8Array
-            ? payload
-            : Uint8Array.from(payload);
-        const bytes = new Uint8Array(source.byteLength);
-        bytes.set(source);
-        const objectUrl = URL.createObjectURL(new Blob([bytes], { type: imageArtifactMimeType(artifact.path) }));
-        objectUrls.push(objectUrl);
-        setPreviews((current) => ({ ...current, [artifact.artifactId]: objectUrl }));
-      }).catch(() => {
-        if (!disposed) setPreviews((current) => ({ ...current, [artifact.artifactId]: "" }));
-      });
-    }
-    return () => {
-      disposed = true;
-      objectUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [artifactKey, runId]);
-  return previews;
-}
-
-function WindowsSandboxGate(props: { loading: boolean; settingUp: boolean; status: AiWindowsSandboxStatus | null; onOpenSettings: () => void }) {
-  const label = props.settingUp ? "正在自动修复 Windows 安全沙箱，请在系统弹窗中批准"
-    : props.loading ? "正在检查 Windows 安全沙箱"
-    : props.status?.status === "notConfigured" ? "Windows 安全沙箱未初始化"
-      : props.status?.status === "updateRequired" ? "Windows 安全沙箱需要更新"
-        : "Windows 安全沙箱不可用";
-  return <button aria-label={`${label}，打开设置`} className="ai-windows-sandbox-gate" onClick={props.onOpenSettings} type="button">
-    <span><SandboxGateIcon/>{label}</span><strong>打开设置</strong>
-  </button>;
-}
-
-function classificationFailureDetail(reason: string) {
-  const code = reason.match(/\bAI-CLASSIFY-00[12]\b/)?.[0]
-    ?? (/格式|解析|schema|structured|invalid\s+json/i.test(reason) ? "AI-CLASSIFY-002" : "AI-CLASSIFY-001");
-  const requestId = reason.match(/(?:请求编号|request(?:[ _-]?id)?)\s*[:：=]\s*([a-z0-9-]{8,})/i)?.[1];
-  const summary = code === "AI-CLASSIFY-002"
-    ? "工作归类结果格式不符合要求，本次回复已保留，任务状态未更新。"
-    : "工作归类暂时失败，本次回复已保留，任务状态未更新。";
-  return { summary, code, requestId, text: `${summary}\n错误代码：${code}${requestId ? `\n请求编号：${requestId}` : ""}` };
-}
-
-/** 正常运行的执行记录跟随对应回复；这里只保留无法附着到回复的异常事实。 */
-function ConversationRun({ hasAssistantMessage, modelLabel, run }: { hasAssistantMessage: boolean; modelLabel: string | null; run: AiAgentRun | null }) {
-  const [open, setOpen] = useState(false);
-  if (!run) return null;
-  const classificationFailed = run.classificationStatus === "failed";
-  const healthy = run.status === "completed" && !run.errorReason && !classificationFailed;
-  if (healthy) return null;
-  const statusLabel = classificationFailed && run.status === "completed" ? "回复已生成" : runStatusLabel(run.status);
-  const summary = run.errorReason ? runFailureSummary(run.errorReason) : classificationFailed ? "工作归类失败，任务状态未更新" : run.status === "completed" ? "回复已保存到对话" : runStatusDescription(run.status);
-  const tone = run.status === "completed" ? classificationFailed ? "warning" : "success" : "danger";
-  return <section aria-label={run.status === "completed" ? "最近一次运行提示" : "最近一次运行异常"} className="ai-conversation-runs">
-    {!hasAssistantMessage ? <RunExecutionProcess run={run}/> : null}
-    <button aria-haspopup="dialog" aria-label={`查看运行详情：${statusLabel}，${summary}`} className="ai-run-record-trigger" data-tone={tone} onClick={() => setOpen(true)} type="button">
-      <span className="ai-run-record-state"><RunRecordIcon status={run.status}/><strong>{statusLabel}</strong></span>
-      <span className="ai-run-record-summary">{summary}</span>
-      <span aria-hidden="true" className="ai-run-record-action">详情<ChevronIcon direction="right"/></span>
-    </button>
-    {open ? <RunDetailDialog key={run.runId} modelLabel={modelLabel} onClose={() => setOpen(false)} run={run} statusLabel={statusLabel} summary={summary} tone={tone}/> : null}
-  </section>;
-}
-
-function RunDetailDialog({ modelLabel, onClose, run, statusLabel, summary, tone }: {
-  modelLabel: string | null; onClose: () => void; run: AiAgentRun; statusLabel: string; summary: string; tone: string;
-}) {
-  const modalRef = useModal<HTMLDivElement>({ onClose });
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
-  const classification = !run.errorReason && run.classificationError ? classificationFailureDetail(run.classificationError) : null;
-  const detailError = run.errorReason ?? classification?.text;
-  const copyDetails = async () => {
-    if (!detailError) return;
-    try {
-      await writeClipboard(detailError);
-      setCopyState("copied");
-    } catch {
-      setCopyState("failed");
-    }
-  };
-  return createPortal(<div aria-label="运行详情" aria-modal="true" className="confirm-backdrop ai-run-detail-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { event.preventDefault(); onClose(); } }} ref={modalRef} role="dialog">
-    <section className="confirm-dialog ai-run-detail-dialog" data-tone={tone}>
-      <header className="ai-run-detail-header"><h3>运行详情</h3><button aria-label="关闭" autoFocus className="ai-run-detail-close" onClick={onClose} type="button"><CloseIcon/></button></header>
-      <div className="ai-run-detail-body">
-        <div className="ai-run-detail-outcome"><span className="ai-run-record-state"><RunRecordIcon status={run.status}/><strong>{statusLabel}</strong></span><p>{summary}</p></div>
-        <dl className="ai-run-detail-meta">
-          <div><dt>执行方式</dt><dd>{run.executionTarget === "model" ? "直接模型" : "本地 Agent"}</dd></div>
-          <div><dt>模型</dt><dd>{modelLabel ?? "当前模型"}</dd></div>
-          <div><dt>权限</dt><dd>{run.sandboxMode === "danger-full-access" ? "完全访问" : run.sandboxMode === "workspace-write" ? "可修改工作区" : "只读"}</dd></div>
-        </dl>
-        {detailError ? <section className="ai-run-diagnostics">
-          <h4>{classification ? "归类详情" : "技术详情"}</h4>
-          {classification ? <><p>{classification.summary}</p><dl className="ai-run-diagnostic-ids">
-            <div><dt>错误代码</dt><dd><code>{classification.code}</code></dd></div>
-            {classification.requestId ? <div><dt>请求编号</dt><dd><code>{classification.requestId}</code></dd></div> : null}
-          </dl></> : <pre>{detailError}</pre>}
-        </section> : <p className="ai-run-detail-empty">本次运行结果已保存在对话中。</p>}
-      </div>
-      <footer className="ai-run-detail-footer">
-        <span aria-live="polite" className="ai-run-copy-feedback" data-error={copyState === "failed" || undefined}>{copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败，请重试" : ""}</span>
-        {detailError ? <button onClick={() => void copyDetails()} type="button"><CopyIcon/>复制详情</button> : null}
-      </footer>
-    </section>
-  </div>, document.body);
-}
-
-function incompleteRunSummary(run: AiAgentRun) {
-  const summary = run.errorReason ? runFailureSummary(run.errorReason) : runStatusDescription(run.status);
-  return summary === "运行未能完成" && ["interrupted", "terminated"].includes(run.status)
-    ? runStatusDescription(run.status)
-    : summary;
-}
-
-export function runFailureSummary(reason: string) {
-  if (reason.includes("工作台登录已失效")) return "请重新登录";
-  if (reason.includes("当前企业会话已变更")) return "企业会话已变更";
-  if (reason.includes("AI-SVC-001")) return "模型服务暂时不可用";
-  if (reason.includes("AI-SVC-002")) return "模型服务繁忙";
-  if (reason.includes("AI-QUOTA-001")) return "模型额度不足";
-  if (reason.includes("AI-QUOTA-002")) return "企业额度账尚未就绪";
-  if (reason.includes("AI-LIMIT-001")) return "企业模型并发已达上限";
-  if (reason.includes("AI-LIMIT-002")) return "请求过于频繁";
-  if (reason.includes("AI-AUTH-001")) return "本次运行凭据已失效";
-  if (reason.includes("AI-AUTH-002")) return "无权使用此模型";
-  if (reason.includes("AI-AUTH-003")) return "无权执行此操作";
-  if (reason.includes("AI-REQ-002")) return "所选模型不支持图片";
-  if (reason.includes("AI-REQ-003")) return "输入内容超过模型限制";
-  if (reason.includes("AI-REQ-001")) return "请求内容无法处理";
-  if (reason.includes("AI-EXEC-001")) return "本次回复未完整完成";
-  if (reason.includes("AI-EXEC-002")) return "上一次请求仍在处理中";
-  if (reason.includes("AI-EXEC-003")) return "模型响应超时";
-  if (reason.includes("AI-MODEL-001")) return "所选模型当前不可用";
-  if (reason.includes("AI-SYS-001")) return "模型运行未能完成";
-  const threadFailure = ["上一轮仍在收尾", "上一轮执行状态待核验", "消息接收状态待核实", "对话接续未完成", "对话恢复失败", "历史上下文尚未完整恢复", "单条历史内容过大"]
-    .find((title) => reason.startsWith(`${title}：`));
-  if (threadFailure) return threadFailure;
-  if (reason.includes("Windows 沙箱尚未初始化")) return "请先初始化 Windows 安全沙箱";
-  if (reason.includes("Windows 沙箱需要更新")) return "请先更新 Windows 安全沙箱";
-  if (reason.includes("Windows 沙箱运行组件不完整")) return "Windows 安全沙箱组件不完整";
-  if (reason.includes("无法确认 Windows 沙箱状态")) return "请检查 Windows 安全沙箱";
-  if (reason.startsWith("AI 回复未通过结构化协议校验")) return "回复格式校验失败";
-  if (reason.startsWith("模型额度不足：")) return reason;
-  if (reason.includes("额度不足")) return "模型额度不足";
-  if (/\bMODEL_REQUEST_REJECTED\b/.test(reason)) return "模型服务拒绝了请求";
-  // 网关以 HTTP 状态拒绝的请求不是员工可处理的权限确认，文案里的“权限”二字不能作为判断依据
-  const gatewayRejection = /unexpected status \d{3}/.test(reason);
-  if (!gatewayRejection && (reason.includes("permission") || reason.includes("权限"))) return "运行需要权限处理";
-  if (reason.includes("credential") || reason.includes("凭据")) return "模型凭据不可用";
-  if (reason.includes("timed_out") || reason.includes("超时")) return "运行等待超时";
-  return "运行未能完成";
-}
-
-function runStatusDescription(status: string) {
-  if (status === "interrupted") return "运行被意外中断";
-  if (status === "terminated") return "运行已由用户终止";
-  if (status === "waiting_permission") return "需要确认后才能继续";
-  if (status === "permission_approved") return "权限已确认，可以安全重试";
-  return "查看本次运行详情";
-}
-
-function RunRecordIcon({ status }: { status: string }) {
-  if (status === "completed") return <svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="m6.8 10 2 2 4.4-4.4"/></svg>;
-  if (["failed", "interrupted", "terminated"].includes(status)) return <svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6.5v4M10 13.5h.01"/></svg>;
-  return <svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 1.5"/></svg>;
-}
-
-function SandboxGateIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m10 2.5 6 2.6v4.2c0 4-2.4 6.9-6 8.2-3.6-1.3-6-4.2-6-8.2V5.1z"/><path d="M10 6.2v4.1M10 13.2h.01"/></svg>;
-}
-
-function runStatusLabel(status: string) { return conversationRunLabel(status); }
-
-
-// 会话标题在创建时就写入了完整相对路径（如「讨论 00项目总览/项目目录结构与产品分类.md」）。
-// 标题是已持久化的数据，这里只在渲染时压缩，不回写、不改动存储内容；
-// 完整路径仍由上下文条和上下文面板的“文件”行完整呈现。
-export function fileNameFromPath(path: string): string {
-  const segments = path.replaceAll("\\", "/").split("/").filter((segment) => segment.length > 0);
-  return segments.length ? segments[segments.length - 1] : path;
-}
-
-export function workspaceAbsolutePath(workspaceRoot: string, relativePath: string): string {
-  const windows = workspaceRoot.includes("\\");
-  const separator = windows ? "\\" : "/";
-  const root = workspaceRoot.replace(/[\\/]+$/, "");
-  const relative = windows ? relativePath.replaceAll("/", "\\") : relativePath.replaceAll("\\", "/");
-  return `${root}${separator}${relative}`;
-}
-
-export function markdownWorkspaceFile(href: string, workspaceRoot: string, files: WorkspaceFileItem[]): WorkspaceFileItem | null {
-  const path = workspaceRelativePath(href, workspaceRoot);
-  return path ? files.find((file) => workspacePathsEqual(file.relativePath, path, workspaceRoot)) ?? null : null;
-}
-
-type ContextChip = { label: string; value: string; display: string; clear: (current: AiContext) => AiContext };
-
-/** 会话实际带上的上下文，逐项可移除。没带上的不占位。 */
-function contextChips(context: AiContext): ContextChip[] {
-  type Candidate = { label: string; value: string | null; short?: (value: string) => string; clear: (current: AiContext) => AiContext };
-  const candidates: Candidate[] = [
-    { label: "阶段", value: context.phaseName, clear: (current) => ({ ...current, phaseId: null, phaseName: null }) },
-    { label: "交付物", value: context.deliverableName, clear: (current) => ({ ...current, deliverableId: null, deliverableName: null }) },
-  ];
-  return candidates
-    .filter((chip): chip is Candidate & { value: string } => Boolean(chip.value))
-    .map(({ label, value, short, clear }) => ({ label, value, display: elideMiddle(short ? short(value) : value), clear }));
-}
-
-/** 标签上只留一眼能认出的长度。超出的从中间省略而不是掐尾——文件名的扩展名和结尾的
-    编号都在尾部，掐尾会让一批同目录文件在标签上长得一模一样。完整值始终在悬停提示里。 */
-export function elideMiddle(text: string, max = 10): string {
-  if (text.length <= max) return text;
-  const head = Math.ceil((max - 1) / 2);
-  return `${text.slice(0, head)}…${text.slice(text.length - (max - 1 - head))}`;
-}
-
-export function conversationDisplayTitle(title: string): string {
-  return title.split(/(\s+)/).map((part) => (part.includes("/") ? fileNameFromPath(part) : part)).join("");
-}
-
-export function conversationTitleFromFirstMessage(content: string, attachmentName?: string): string {
-  const firstLine = content.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "";
-  const title = firstLine.replace(/[#>*_`~\[\]]/g, "").replace(/\s+/g, " ").trim();
-  return compactConversationText(title || attachmentName?.trim() || "附件对话", 32);
-}
-
-const genericConversationTitles = new Set(["新对话", "项目工作对话", "工作区对话"]);
-
-/** 会话身份优先来自用户真正讨论的主题。历史数据不回写，文件仍只是可移除的上下文。 */
-export function conversationTopic(conversation: AiConversation, messages: AiRuntimeSnapshot["messages"]): string {
-  const firstPrompt = messages.find((message) => message.role === "user")?.content;
-  const titleTarget = conversation.title.startsWith("讨论 ") ? conversation.title.slice(3).trim() : "";
-  const fileNamed = Boolean(titleTarget) && (Boolean(conversation.context.relativePath) || titleTarget.includes("/") || /\.[\p{L}\p{N}]{1,10}$/u.test(titleTarget));
-  if ((genericConversationTitles.has(conversation.title) || fileNamed) && firstPrompt) return compactConversationText(firstPrompt, 28);
-  if (fileNamed) return "文件讨论";
-  return compactConversationText(conversationDisplayTitle(conversation.title), 32);
-}
-
-export function conversationSummary(conversation: AiConversation, messages: AiRuntimeSnapshot["messages"], installations: Array<{ messageId: string | null; displayContent: string | null }> = [], runs: AiRuntimeSnapshot["runs"] = []): string {
-  const latest = messages.at(-1);
-  if (latest) {
-    const installation = latest.role === "assistant" ? installations?.find(item => item.messageId === latest.messageId) : undefined;
-    return compactConversationText(installation ? skillMessageText(assistantMessageBody(latest.content, runs.find(run => run.runId === latest.runId)?.classificationNonce)) : (latest.role === "assistant" ? assistantMessageBody(latest.content, runs.find(run => run.runId === latest.runId)?.classificationNonce) : latest.content), 34);
-  }
-  return conversation.context.relativePath ? `尚未发送消息 · 引用 ${fileNameFromPath(conversation.context.relativePath)}` : "尚未发送消息";
-}
-
-function compactConversationText(content: string, max: number): string {
-  const text = markdownText(content).replace(/\s+/g, " ").trim();
-  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
-}
-
-
-
-function parseDecisionCard(content: string): { question: string; options: string; impact: string; evidence: string; recommendation: string; consequence: string } | null {
-  const headingMap: Array<[keyof ReturnTypeShape, string]> = [
-    ["question", "决策问题"],
-    ["options", "可选方案"],
-    ["impact", "影响范围"],
-    ["evidence", "证据"],
-    ["recommendation", "建议与理由"],
-    ["consequence", "不决定的后果"],
-  ];
-  const result: ReturnTypeShape = { question: "", options: "", impact: "", evidence: "", recommendation: "", consequence: "" };
-  for (let index = 0; index < headingMap.length; index += 1) {
-    const [key, heading] = headingMap[index];
-    const start = content.search(new RegExp(`^#{1,3}\\s+${heading}\\s*$`, "m"));
-    if (start < 0) return null;
-    const bodyStart = content.indexOf("\n", start);
-    if (bodyStart < 0) return null;
-    const nextHeading = headingMap.slice(index + 1).map(([, value]) => content.search(new RegExp(`^#{1,3}\\s+${value}\\s*$`, "m"))).filter((value) => value > bodyStart).sort((left, right) => left - right)[0] ?? content.length;
-    result[key] = content.slice(bodyStart + 1, nextHeading).trim();
-    if (!result[key]) return null;
-  }
-  return result;
-}
-type ReturnTypeShape = { question: string; options: string; impact: string; evidence: string; recommendation: string; consequence: string };
-
-function Icon({ children }: { children: ReactNode }) { return <svg aria-hidden="true" viewBox="0 0 24 24">{children}</svg>; }
-function AiSparkIcon() { return <Icon><path d="m12 2 1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2Z"/><path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></Icon>; }
-function PlusIcon() { return <Icon><path d="M12 5v14M5 12h14"/></Icon>; }
-function PinIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M8 3h4l-.6 4.2 2.6 2.3H5.9l2.7-2.3z"/><path d="M10 9.5V16"/></svg>; }
-function MoreDotsIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M5 10h.01M10 10h.01M15 10h.01"/></svg>; }
-function ProjectFolderIcon({ expanded }: { expanded: boolean }) {
-  return <svg aria-hidden="true" data-state={expanded ? "expanded" : "collapsed"} viewBox="0 0 20 20">
-    {expanded ? <><path d="M2.5 14.8V5.5h5l2 2h8v2"/><path d="M3.8 9.5h13.7l-2 6H2.5l1.3-6Z"/></> : <path d="M2.5 5.5h5l2 2h8v8h-15v-10Z"/>}
-  </svg>;
-}
-function ProjectGroupIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="6" height="6" rx="1"/><rect x="11.5" y="2.5" width="6" height="6" rx="1"/><rect x="2.5" y="11.5" width="6" height="6" rx="1"/><rect x="11.5" y="11.5" width="6" height="6" rx="1"/></svg>; }
-function ConversationIcon() { return <Icon><path d="M5 5.5h14v10H9l-4 3v-13Z"/></Icon>; }
-function ContextUsageIcon({ percent }: { percent: number }) {
-  const circumference = Math.PI * 17;
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><circle className="ai-context-usage-track" cx="12" cy="12" r="8.5"/><circle className="ai-context-usage-value" cx="12" cy="12" r="8.5" strokeDasharray={`${circumference * percent / 100} ${circumference}`}/></svg>;
-}
-function ShieldIcon() { return <Icon><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></Icon>; }
-function ApprovalIcon() { return <Icon><path d="M8.5 11V6.5a1.5 1.5 0 0 1 3 0V10 5.5a1.5 1.5 0 0 1 3 0V10 7a1.5 1.5 0 0 1 3 0v6.5A6.5 6.5 0 0 1 11 20h-.5A6.5 6.5 0 0 1 4 13.5V11a1.5 1.5 0 0 1 3 0v2"/></Icon>; }
-function RunsIcon() { return <Icon><path d="M5 12h3l2-5 4 10 2-5h3"/><path d="M4 4h16v16H4z"/></Icon>; }
-function EnterIcon() { return <svg aria-hidden="true" className="ai-enter-icon" viewBox="0 0 24 24"><path d="M19 5v5a5 5 0 0 1-5 5H5"/><path d="m9 11-4 4 4 4"/></svg>; }
-/* 递减的三条线：这是一列待办中的一条。此前用的是时钟，读起来是"在等时间"，而不是"排在队里" */
-function QueueIcon() { return <Icon><path d="M4.5 7h15"/><path d="M4.5 12h10"/><path d="M4.5 17h6"/></Icon>; }
-/* 折线箭头：把这一条拐进正在进行的那一轮里 */
-function QueueAdjustIcon() { return <Icon><path d="M6.5 5v6.5a3 3 0 0 0 3 3h8"/><path d="m14.5 11 3.5 3.5-3.5 3.5"/></Icon>; }
-function StopIcon() { return <Icon><rect x="7" y="7" width="10" height="10" rx="1.5"/></Icon>; }
-function CopyIcon() { return <Icon><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></Icon>; }
-function EditIcon() { return <Icon><path d="M5 19h4L19 9l-4-4L5 15v4Z"/><path d="m13.5 6.5 4 4"/></Icon>; }
-function RefreshIcon() { return <Icon><path d="M20 6v5h-5"/><path d="M18 16a7 7 0 1 1 1.5-7.6L20 11"/></Icon>; }
-function CloseIcon() { return <Icon><path d="m7 7 10 10M17 7 7 17"/></Icon>; }
-function ExpandIcon() { return <Icon><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></Icon>; }
-function ChevronIcon({ direction }: { direction: "down" | "left" | "right" }) {
-  const path = direction === "down" ? "m7 10 5 5 5-5" : direction === "right" ? "m10 7 5 5-5 5" : "m14 7-5 5 5 5";
-  return <Icon><path d={path}/></Icon>;
-}
-function ConversationRailToggle({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
-  const label = expanded ? "收起对话记录" : "展开对话记录";
-  return <button aria-controls="ai-conversation-rail" aria-expanded={expanded} aria-label={label} className="ai-conversation-rail-toggle" data-tip={label} onClick={onToggle} type="button"><PanelToggleIcon expanded={expanded}/></button>;
-}
-function ArrowDownIcon() { return <Icon><path d="M12 5v13M7 13l5 5 5-5"/></Icon>; }
-function DownIcon() { return <Icon><path d="m8 10 4 4 4-4"/></Icon>; }
-function ReasoningActivityIcon() { return <Icon><path d="M8 16.5h8M9.5 20h5"/><path d="M8.2 13.5A6 6 0 1 1 15.8 13.5c-1 .8-1.5 1.5-1.6 2.2H9.8c-.1-.7-.6-1.4-1.6-2.2Z"/></Icon>; }
-function CommandActivityIcon() { return <Icon><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="m7 10 2.5 2L7 14M12 15h5"/></Icon>; }
-function ToolActivityIcon() { return <Icon><path d="M8.5 4.5 12 3l3.5 1.5L17 8l3.5 1.5V14L17 15.5 15.5 19 12 20.5 8.5 19 7 15.5 3.5 14V9.5L7 8l1.5-3.5Z"/><circle cx="12" cy="12" r="2.5"/></Icon>; }
-function FileChangeActivityIcon() { return <Icon><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 16l5-5 2 2-5 5H9v-2Z"/></Icon>; }
-function PlanActivityIcon() { return <Icon><path d="m5 7 1.5 1.5L9 6M11 7h8M5 12l1.5 1.5L9 11M11 12h8M5 17l1.5 1.5L9 16M11 17h8"/></Icon>; }
-function ContextActivityIcon() { return <Icon><path d="M4 5h16M4 19h16M8 9l4 3 4-3M8 15l4-3 4 3"/></Icon>; }
-function SearchBusinessIcon() { return <Icon><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></Icon>; }
-function WriteBusinessIcon() { return <Icon><path d="M5 19h4L19 9l-4-4L5 15v4Z"/><path d="m13.5 6.5 4 4M5 19l3-3"/></Icon>; }
-function FillBusinessIcon() { return <Icon><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6V7H9zM9 11h6M9 15h6"/></Icon>; }
-function AdvanceBusinessIcon() { return <Icon><path d="M4 18V6M4 18h16"/><path d="m7 14 4-4 3 2 5-6"/><path d="M16 6h3v3"/></Icon>; }
-function ArrowRightIcon() { return <Icon><path d="M6 12h12M14 8l4 4-4 4"/></Icon>; }
-function FileIcon() { return <Icon><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></Icon>; }
-function ImageMaterialIcon() { return <Icon><rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="9" cy="9" r="1.5"/><path d="m6.5 17 4-4 2.5 2.5 2-2 2.5 3.5"/></Icon>; }
-function OutputIcon() { return <Icon><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 16v-4M11 16V9M15 16v-6M19 16V7"/></Icon>; }
-function ContextAddIcon() { return <Icon><path d="M3.5 6.5h6l2 2h9v11h-17v-13Z"/><path d="M15.5 11.5v5M13 14h5"/></Icon>; }
-function CheckIcon() { return <Icon><path d="m6 12 4 4 8-8"/></Icon>; }
-function PaperclipIcon() { return <Icon><path d="m9 12.5 5.8-5.8a3 3 0 0 1 4.2 4.2l-7.3 7.3a5 5 0 0 1-7.1-7.1l7-7"/><path d="m7.5 14.5 7.4-7.4"/></Icon>; }
-function MediaIcon() { return <Icon><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.5"/><path d="m5.5 17 4-4 3 3 2.5-2.5 3.5 3.5"/><path d="m16 7.5 3 2-3 2v-4Z"/></Icon>; }
-function SkillIcon() { return <Icon><path d="M9 3h6l1 3 3 1v6l-3 1-1 3H9l-1-3-3-1V7l3-1 1-3Z"/><circle cx="12" cy="10" r="2.5"/></Icon>; }
-
-function ReuseIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 7a6 6 0 0 1 10-2l2 2M16 3v4h-4M16 13a6 6 0 0 1-10 2l-2-2M4 17v-4h4"/></svg>; }
-
-function ArtifactsSourcesIcon({ open }: { open: boolean }) {
-  return <svg aria-hidden="true" data-open={open} viewBox="0 0 20 20">
-    {open ? <path className="ai-info-panel-fill" d="M5 2.5h6.5L16 7v9.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1Z"/> : null}
-    <path d="M11.5 2.5H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7Zm0 0V7H16M7 10h6M7 13h4"/>
-  </svg>;
 }

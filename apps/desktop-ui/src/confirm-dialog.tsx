@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { createPortal } from "./page-portal";
 import { useModal } from "./use-modal";
 import "./confirm-dialog.css";

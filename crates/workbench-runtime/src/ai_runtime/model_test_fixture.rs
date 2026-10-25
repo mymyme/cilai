@@ -14,16 +14,56 @@ use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
+mod build_location {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../scripts/personal-build-fixture.rs"
+    ));
+}
+
+pub(crate) use build_location::personal_build_root;
+
 pub(crate) fn fixture_root(label: &str) -> PathBuf {
-    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(4)
-        .unwrap();
-    let root = project
-        .join(".personal-build/target-runtime-audit/fixtures")
+    let root = personal_build_root()
+        .join("target-runtime-audit/fixtures")
         .join(format!("{label}-{}", uuid::Uuid::new_v4().simple()));
     fs::create_dir_all(&root).unwrap();
     root
+}
+
+#[test]
+fn fixture_build_root_is_shared_by_source_and_personal_staging_layouts() {
+    let home = std::env::temp_dir().join("cilai-fixture-home");
+    let project = std::env::temp_dir().join("cilai-fixture-layout");
+    let source = project.join("06代码索引/cilai-workbench");
+    let expected = home.join(".cilai-personal-builds/desktop");
+    let registration = serde_json::json!({"schemaVersion": 1, "applicationId": "cn.cilai.personal.workbench", "buildRoot": expected, "sourceRoot": source, "projectRoot": project});
+    for manifest in [
+        source.join("crates/workbench-runtime"),
+        expected.join("crates/workbench-runtime"),
+        expected.join("runtime-source/crates/workbench-runtime"),
+    ] {
+        assert_eq!(
+            build_location::personal_build_root_for(&manifest, &home, &registration).unwrap(),
+            expected
+        );
+    }
+    assert!(
+        build_location::personal_build_root_for(
+            &project.join("other/crates/workbench-runtime"),
+            &home,
+            &registration
+        )
+        .is_err()
+    );
+    assert!(
+        build_location::personal_build_root_for(
+            Path::new("relative/crates/workbench-runtime"),
+            &home,
+            &registration
+        )
+        .is_err()
+    );
 }
 
 pub(crate) fn profile_data_root(owner: &Path) -> PathBuf {

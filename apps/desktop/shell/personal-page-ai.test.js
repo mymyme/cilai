@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createPersonalDocuments } = require("./personal-documents");
 const { createPersonalPageAi } = require("./personal-page-ai");
+const pageTiming = require("./personal-page-ai-timing.json");
 
 function fixture(t, options = {}) {
   const owner = { isDestroyed: () => false, mainFrame: { url: "app://localhost/", frames: [] } };
@@ -9,7 +10,7 @@ function fixture(t, options = {}) {
   const documents = createPersonalDocuments(() => owner);
   const calls = [];
   const service = { call: async (command, args) => { calls.push({ command, args }); return options.call ? options.call(command, args) : { retired: true, processesExited: true, cleanupPending: false, auditPending: false }; } };
-  const page = createPersonalPageAi({ getOwner: () => owner, documents, service, actionTimeoutMs: 20 });
+  const page = createPersonalPageAi({ getOwner: () => owner, documents, service, actionTimeoutMs: options.actionTimeoutMs });
   t.after(() => page.stop());
   const binding = { creationProjectId: "personal1", expectedPackageDigest: `sha256:${"a".repeat(64)}` };
   const url = documents.invoke(event, { command: "personal_document_create", args: { html: "<p>page</p>", pageBinding: binding } });
@@ -86,7 +87,7 @@ test("可信确认单独调用，页内方法表不能到达它", async t => {
 });
 
 test("动作只在原生绑定页面调用固定入口，超时后退役且不重复执行", async t => {
-  const f = fixture(t);
+  const f = fixture(t, { actionTimeoutMs: 20 });
   await f.dispatch();
   const action = { documentId: f.calls[0].args.documentId, actionId: "setTitle", arguments: { text: "');globalThis.injected=true;//" } };
   assert.deepEqual(await f.page.action(action), { applied: true });
@@ -96,6 +97,33 @@ test("动作只在原生绑定页面调用固定入口，超时后退役且不�
   await assert.rejects(f.page.action(action), /outcome_unconfirmed/);
   await assert.rejects(f.page.action(action), /document_closed/);
   assert.equal(executions, 1);
+});
+
+test("页面动作超过二十秒仍能在完整预算内正常完成", async t => {
+  const f = fixture(t);
+  await f.dispatch();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  f.frame.executeJavaScript = () => new Promise(resolve => setTimeout(() => resolve({ applied: true }), 25_000));
+  const completed = f.page.action({ documentId: f.calls[0].args.documentId, actionId: 'setTitle', arguments: {} });
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(await completed, { applied: true });
+  assert.equal(f.calls.some(call => call.command === 'personal_page_ai_close_internal'), false);
+});
+
+test("动作截止时间使用共享契约，超时后关闭范围", async t => {
+  const f = fixture(t);
+  await f.dispatch();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  f.frame.executeJavaScript = () => new Promise(() => {});
+  let settled = false;
+  const failed = assert.rejects(f.page.action({ documentId: f.calls[0].args.documentId, actionId: 'setTitle', arguments: {} }), /outcome_unconfirmed/).then(() => { settled = true; });
+  t.mock.timers.tick(pageTiming.actionTimeoutMs - 1);
+  await Promise.resolve();
+  assert.equal(settled, false);
+  t.mock.timers.tick(1);
+  await failed;
+  await assert.rejects(f.dispatch(), /document_closed/);
+  assert.ok(pageTiming.hostCallbackGraceMs > 0);
 });
 
 test("撤销未确认时封住新请求，明确重新核对后才能恢复", async t => {
@@ -112,12 +140,12 @@ test("撤销未确认时封住新请求，明确重新核对后才能恢复", as
 
 test("锁定Electron真实iframe执行SDK动作，重载撤权且不能自批", { skip: process.env.CILAI_PERSONAL_PAGE_AI_NATIVE !== "1", timeout: 45_000 }, () => {
   const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto"), { spawnSync } = require("node:child_process");
-  const source = path.resolve(__dirname, "../../.."), project = path.resolve(source, "../..");
-  const parent = path.join(project, ".personal-build/page-ai-fixtures"); fs.mkdirSync(parent, { recursive: true });
+  const source = path.resolve(__dirname, "../../.."), project = require("./personal-isolation").personalProjectRoot(), buildRoot = require("./personal-isolation").personalBuildRoot();
+  const parent = path.join(buildRoot, "page-ai-fixtures"); fs.mkdirSync(parent, { recursive: true });
   const root = fs.mkdtempSync(path.join(parent, "native-"));
   for (const folder of ["home", "tmp", "userData", "session", "logs"]) fs.mkdirSync(path.join(root, folder));
-  const executable = path.join(project, ".personal-build/apps/desktop/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron");
-  assert.ok(fs.realpathSync(executable).startsWith(path.join(project, ".personal-build") + path.sep));
+  const executable = path.join(buildRoot, "apps/desktop/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron");
+  assert.ok(fs.realpathSync(executable).startsWith(buildRoot + path.sep));
   const driver = path.join(project, "07测试/实施证据/T4-执行脚本/electron-personal-page-ai.cjs");
   const sdkSource = path.join(source, "apps/desktop-ui/src/personal-page-ai-sdk.ts");
   const typescript = require(path.join(source, "node_modules/typescript"));
@@ -136,6 +164,6 @@ test("锁定Electron真实iframe执行SDK动作，重载撤权且不能自批", 
     electronSha256: crypto.createHash("sha256").update(fs.readFileSync(executable)).digest("hex"), result: fs.existsSync(config.result) ? JSON.parse(fs.readFileSync(config.result)) : null, stderr: result.stderr };
   fs.writeFileSync(path.join(project, `07测试/实施证据/T4-页面AI真实Electron-${path.basename(root)}-20261022.json`), JSON.stringify(evidence, null, 2));
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(evidence.result.electron, "44.4.4");
+  assert.equal(evidence.result.electron, require("../package.json").devDependencies.electron);
   console.log(result.stdout.trim());
 });

@@ -1,6 +1,6 @@
 {
   "name": "contexthub-desktop-workspace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "workspaces": [
     "apps/desktop-ui"
@@ -10,26 +10,35 @@
   },
   "scripts": {
     "check:toolchain": "node scripts/check-toolchain.mjs",
+    "check:host-commands": "node scripts/generate-host-commands.mjs",
+    "generate:host-commands": "node scripts/generate-host-commands.mjs --write",
     "dev": "npm run dev --workspace @contexthub/desktop-ui",
-    "build": "npm run build --workspace @contexthub/desktop-ui",
+    "build": "node scripts/managed-verification.mjs -- npm run build:ui",
     "fixtures:generate": "node scripts/generate-fixtures.mjs",
     "typecheck": "npm run typecheck --workspace @contexthub/desktop-ui",
     "test:toolchain": "node --test scripts/check-toolchain.test.mjs",
     "test:platform-boundary": "node --test scripts/platform-boundary.test.mjs",
-    "test": "npm run test:toolchain && npm run test:conversation-package && npm run test:build-config && npm run test:build-lock && npm run test:stage-build && npm run test:stage-binaries && npm run test:platform-boundary && npm --prefix apps/desktop run test:shell && npm run test --workspace @contexthub/desktop-ui",
+    "test": "node scripts/managed-verification.mjs -- npm run test:unit",
     "test:stage-build": "node --test scripts/stage-build.test.mjs",
     "test:stage-binaries": "node --test apps/desktop/scripts/stage-binaries.test.mjs apps/desktop/scripts/verify-package-layout.test.mjs scripts/prepare-git-runtime.test.mjs scripts/prepare-codex-runtime.test.mjs scripts/macos-binary-integrity.test.mjs",
     "package": "node scripts/package-entry.mjs",
     "package:release": "node scripts/package-entry.mjs --release",
     "launch": "node scripts/package-entry.mjs --launch",
-    "test:build-config": "node --test scripts/personal-build.test.mjs scripts/package-processes.test.mjs scripts/build-config.test.mjs scripts/pdf-assets.test.mjs apps/desktop/scripts/windows-resource-retry.test.mjs apps/desktop/scripts/windows-electron-distribution.test.mjs apps/desktop/scripts/verify-public-artifact.test.mjs apps/desktop/scripts/portable-package.test.mjs apps/desktop/scripts/update-configuration.test.mjs apps/desktop/scripts/package-output.test.mjs apps/desktop/scripts/local-macos-signing.test.mjs apps/desktop/scripts/package-runtime-notices.test.mjs apps/desktop/scripts/package-pdf-notices.test.mjs apps/desktop/scripts/package-workbench-notices.test.mjs apps/desktop/scripts/package-dependency-notices.test.mjs apps/desktop/scripts/package-toolchain-notices.test.mjs",
+    "test:build-config": "node --test scripts/personal-build.test.mjs scripts/prepare-rust-test-node.test.mjs scripts/package-processes.test.mjs scripts/build-config.test.mjs scripts/pdf-assets.test.mjs apps/desktop/scripts/windows-resource-retry.test.mjs apps/desktop/scripts/windows-electron-distribution.test.mjs apps/desktop/scripts/verify-public-artifact.test.mjs apps/desktop/scripts/portable-package.test.mjs apps/desktop/scripts/update-configuration.test.mjs apps/desktop/scripts/package-output.test.mjs apps/desktop/scripts/local-macos-signing.test.mjs apps/desktop/scripts/package-runtime-notices.test.mjs apps/desktop/scripts/package-pdf-notices.test.mjs apps/desktop/scripts/package-workbench-notices.test.mjs apps/desktop/scripts/package-dependency-notices.test.mjs apps/desktop/scripts/package-toolchain-notices.test.mjs",
     "package:portable": "node scripts/package-entry.mjs --portable",
     "package:online-test": "node scripts/package-entry.mjs --online-test",
     "sync:conversation-package": "node scripts/conversation-package.mjs --sync",
     "check:conversation-package": "node scripts/conversation-package.mjs",
     "test:conversation-package": "node --test scripts/conversation-package.test.mjs",
     "test:build-lock": "node --test scripts/build-lock.test.mjs",
-    "test:native-extensions": "node scripts/test-native-extensions.mjs"
+    "test:native-extensions": "node scripts/test-native-extensions.mjs",
+    "verify:managed": "node scripts/managed-verification.mjs --",
+    "verify:build-reuse": "node scripts/verify-build-reuse.mjs",
+    "verify:package-reuse": "node scripts/verify-build-reuse.mjs --package",
+    "storage:backup": "node scripts/verified-backups.mjs",
+    "test:storage": "node --test scripts/storage-lifecycle.test.mjs scripts/run-swift.test.mjs scripts/verified-backups.test.mjs scripts/verify-build-reuse.test.mjs scripts/verify-skill-delivery.test.mjs scripts/ensure-build-dependencies.test.mjs apps/desktop/scripts/verify-personal-smoke.test.mjs scripts/managed-verification.test.mjs scripts/verification-fixture.test.mjs scripts/managed-harness.test.mjs",
+    "test:unit": "npm run test:toolchain && npm run test:storage && npm run check:host-commands && npm run test:conversation-package && npm run test:build-config && npm run test:build-lock && npm run test:stage-build && npm run test:stage-binaries && npm run test:platform-boundary && npm --prefix apps/desktop run test:shell && npm run test --workspace @contexthub/desktop-ui",
+    "build:ui": "npm run build --workspace @contexthub/desktop-ui"
   },
   "license": "Apache-2.0"
 }

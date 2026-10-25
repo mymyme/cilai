@@ -381,7 +381,7 @@ fn schema76_backup_removes_action_authority_and_restore_keeps_source_receipt_int
         ));
     contexthub_platform_adapter::security::ensure_restricted_directory(&candidate_dir).unwrap();
     let path = candidate_dir.join("contexthub.db");
-    assert_eq!(f.db.snapshot_personal_data_database(&path).unwrap(), 76);
+    assert_eq!(f.db.snapshot_personal_data_database(&path).unwrap(), 77);
     let mut candidate = SqlitePersistence::open(&path, "test").unwrap();
     assert!(
         candidate

@@ -15,9 +15,9 @@ publish.workspace = true
 [dependencies]
 base64 = "=0.22.1"
 chrono = { version = "=0.4.44", default-features = false, features = ["clock", "std"] }
-contexthub-local-transport = { path = "../local-transport", version = "=0.1.0" }
-contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.0" }
-contexthub-protocol = { path = "../protocol", version = "=0.1.0" }
+contexthub-local-transport = { path = "../local-transport", version = "=0.1.1" }
+contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.1" }
+contexthub-protocol = { path = "../protocol", version = "=0.1.1" }
 futures-util = "=0.3.33"
 http-body-util = "=0.1.4"
 hyper = { version = "=1.11.0", features = ["server", "http1"] }
@@ -38,7 +38,7 @@ uuid = { version = "=1.24.0", features = ["v4"] }
 zip = { version = "=9.0.4", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
-contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.0" }
+contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.1" }
 rusqlite = { version = "=0.39.0", features = ["bundled"] }
 
 [lints]

@@ -6,6 +6,19 @@ import {ConfirmDialog} from "./confirm-dialog";
 import "./mcp-connections.css";
 import {Select} from "./select";
 
+function localCommandUnavailable(platform:string|null,children:boolean,networkMode:McpConnectionConfig["network"]["mode"]):string|null {
+  if(platform==="windows")return "Windows 暂不支持任意本地命令，请使用远程 HTTP。";
+  if(platform!=="macos")return "本地命令的系统隔离能力尚未确认。";
+  if(children)return "暂不支持子进程，请取消此权限后保存。";
+  if(networkMode!=="direct")return "本地命令仅支持直连，请重新选择。";
+  return null;
+}
+
+function executionUnavailable(connection:McpConnection,platform:string|null):string|null {
+  const source=connection.config.source;
+  return source.kind==="local_command"?localCommandUnavailable(platform,source.permissions.childProcesses,connection.config.network.mode):null;
+}
+
 function sourceLabel(connection:McpConnection) {
   return connection.config.source.kind==="remote_http"?connection.config.source.url:connection.config.source.program;
 }
@@ -65,9 +78,10 @@ export function mcpError(reason:unknown) {
   return "操作未确认，请刷新状态后核对。";
 }
 
-function McpEditor(props:{connection?:McpConnection;change?:McpConnectionChange;busy:boolean;blocked?:boolean;onClose:()=>void;
+function McpEditor(props:{hostPlatform:string|null;connection?:McpConnection;change?:McpConnectionChange;busy:boolean;blocked?:boolean;onClose:()=>void;
   onSave:(config:McpConnectionConfig,secrets:Record<string,string>|null)=>void}) {
   const initial=props.connection?.config;
+  const localSupported=props.hostPlatform==="macos";
   const [name,setName]=useState(initial?.name??"");
   const [kind,setKind]=useState<"local_command"|"remote_http">(initial?.source.kind??"remote_http");
   const [url,setUrl]=useState(initial?.source.kind==="remote_http"?initial.source.url:"");
@@ -91,9 +105,10 @@ function McpEditor(props:{connection?:McpConnection;change?:McpConnectionChange;
   const legacyReference=Boolean(props.connection?.credentialRef)&&!localReference;
   const legacyKeep=frozen&&props.change?.credentialAction==="keep"&&auth!=="none"&&!localReference;
   const requiresInput=auth!=="none"&&(!localReference||props.change?.credentialAction==="replace");
+  const unavailable=kind==="local_command"?localCommandUnavailable(props.hostPlatform,children,networkMode):null;
   const submit=(event:React.FormEvent)=>{
     event.preventDefault();setError("");
-    if(props.busy||props.blocked||legacyKeep)return;
+    if(props.busy||props.blocked||legacyKeep||unavailable)return;
     let parsed:unknown;
     try {parsed=JSON.parse(args);}catch {setError("参数需填写 JSON 字符串数组。");return;}
     if(!Array.isArray(parsed)||parsed.some(value=>typeof value!=="string")){setError("参数需填写 JSON 字符串数组。");return;}
@@ -111,19 +126,20 @@ function McpEditor(props:{connection?:McpConnection;change?:McpConnectionChange;
     <form ref={form} onSubmit={submit}>
       <fieldset disabled={props.busy||props.blocked||frozen}>
         <label>名称<input required value={name} onChange={event=>setName(event.target.value)}/></label>
-        <label>来源<Select ariaLabel="来源" disabled={props.busy||props.blocked||frozen} value={kind} onChange={value=>{setKind(value as typeof kind);setAuth("none");}} options={[{value:"remote_http",label:"远程 HTTP"},{value:"local_command",label:"本地命令"}]}/></label>
+        <label>来源<Select ariaLabel="来源" disabled={props.busy||props.blocked||frozen} value={kind} onChange={value=>{if(value==="local_command"&&!localSupported)return;setKind(value as typeof kind);setAuth("none");}} options={[{value:"remote_http",label:"远程 HTTP"},{value:"local_command",label:localSupported?"本地命令":"本地命令（不可用）",disabled:!localSupported}]}/></label>
+        {kind==="remote_http"&&!localSupported?<p>{localCommandUnavailable(props.hostPlatform,false,"direct")}</p>:null}
         {kind==="remote_http"?<label>服务地址<input required value={url} onChange={event=>setUrl(event.target.value)} placeholder="https://example.com/mcp"/></label>:<>
-          <label>程序<input required value={program} onChange={event=>setProgram(event.target.value)} placeholder="绝对路径"/></label>
-          <label>参数<textarea value={args} onChange={event=>setArgs(event.target.value)} rows={2}/></label>
-          <label>工作目录<input required value={cwd} onChange={event=>setCwd(event.target.value)} placeholder="绝对路径"/></label>
-          <label>只读目录<textarea value={readRoots} onChange={event=>setReadRoots(event.target.value)} rows={2}/></label>
-          <label>可写目录<textarea value={writeRoots} onChange={event=>setWriteRoots(event.target.value)} rows={2}/></label>
-          <div className="mcp-inline"><label><input type="checkbox" checked={network} onChange={event=>setNetwork(event.target.checked)}/>允许联网</label><label><input type="checkbox" checked={children} onChange={event=>setChildren(event.target.checked)}/>允许子进程</label></div>
+          <label>程序<input required disabled={!localSupported} value={program} onChange={event=>setProgram(event.target.value)} placeholder="绝对路径"/></label>
+          <label>参数<textarea disabled={!localSupported} value={args} onChange={event=>setArgs(event.target.value)} rows={2}/></label>
+          <label>工作目录<input required disabled={!localSupported} value={cwd} onChange={event=>setCwd(event.target.value)} placeholder="绝对路径"/></label>
+          <label>只读目录<textarea disabled={!localSupported} value={readRoots} onChange={event=>setReadRoots(event.target.value)} rows={2}/></label>
+          <label>可写目录<textarea disabled={!localSupported} value={writeRoots} onChange={event=>setWriteRoots(event.target.value)} rows={2}/></label>
+          <div className="mcp-inline"><label><input type="checkbox" disabled={!localSupported} checked={network} onChange={event=>setNetwork(event.target.checked)}/>允许联网</label><label><input type="checkbox" disabled={!localSupported||!children} checked={children} onChange={()=>setChildren(false)}/>允许子进程</label></div>
         </>}
         <label>认证<Select ariaLabel="认证" disabled={props.busy||props.blocked||frozen} value={auth} onChange={value=>setAuth(value as typeof auth)} options={[{value:"none",label:"无"},kind==="remote_http"?{value:"bearer",label:"Bearer"}:{value:"environment",label:"环境变量"}]}/></label>
         {auth==="environment"?<label>凭据变量名<textarea value={variables} onChange={event=>setVariables(event.target.value)} rows={2}/></label>:null}
         <label>网络<Select ariaLabel="网络" disabled={props.busy||props.blocked||frozen} value={networkMode} onChange={value=>setNetworkMode(value as typeof networkMode)} options={[{value:"direct",label:"直连"},...(kind==="remote_http"?[{value:"system_proxy",label:"系统代理"},{value:"custom_proxy",label:"指定代理"}]:networkMode!=="direct"?[{value:networkMode,label:`${networkMode==="system_proxy"?"系统代理":"指定代理"}（不支持）`,disabled:true}]:[])]}/></label>
-        {kind==="local_command"?<p>联网由程序使用，工作台不为本地命令设置代理。</p>:null}
+        {kind==="local_command"?<p>联网由程序使用，工作台不为本地命令设置代理。{!children&&localSupported?"当前不支持子进程。":""}</p>:null}
         {networkMode==="custom_proxy"?<label>代理地址<input value={proxy} onChange={event=>setProxy(event.target.value)}/></label>:null}
       </fieldset>
       {auth!=="none"?<fieldset disabled={props.busy||props.blocked||(frozen&&props.change?.credentialAction!=="replace")} className="mcp-credentials"><legend>{frozen&&props.change?.credentialAction==="replace"?"重新输入原操作凭据":"凭据"}</legend>
@@ -131,8 +147,9 @@ function McpEditor(props:{connection?:McpConnection;change?:McpConnectionChange;
         {legacyReference?<p>需重新保存到工作台</p>:null}
         <p>{legacyKeep?"请取消此操作后重新输入凭据。":frozen&&props.change?.credentialAction!=="replace"?"此操作保留本地凭据，无需重新输入。":localReference&&!frozen?"本地凭据已登记。留空保留原凭据。":"保存到工作台本地加密凭据库。"}</p>
       </fieldset>:null}
+      {unavailable?<p role="status">{unavailable}</p>:null}
       {error?<p role="alert">{error}</p>:null}
-      <footer><button type="submit" disabled={props.busy||props.blocked||legacyKeep}>{props.busy?"处理中…":frozen?"继续保存":"保存"}</button></footer>
+      <footer><button type="submit" disabled={props.busy||props.blocked||legacyKeep||Boolean(unavailable)}>{props.busy?"处理中…":frozen?"继续保存":"保存"}</button></footer>
     </form>
   </section>;
 }
@@ -161,7 +178,7 @@ function cleanupConfirmed(change:McpConnectionChange,reference:McpConnectionChan
     &&result.cleanupReferences.some(matches)&&Array.isArray(result.cleanedReferences)&&result.cleanedReferences.some(matches));
 }
 
-export function McpConnectionSettings() {
+export function McpConnectionSettings(props:{hostPlatform:string|null}) {
   const [connections,setConnections]=useState<McpConnection[]>([]);
   const [changes,setChanges]=useState<McpConnectionChange[]>([]);
   const [busy,setBusy]=useState(true);
@@ -206,14 +223,15 @@ export function McpConnectionSettings() {
   const disabled=busy||unknown;
   return <section className="mcp-settings" aria-label="工具连接"><header><h1>工具连接</h1><div><button type="button" disabled={busy} onClick={()=>void refresh()}>刷新</button><button disabled={disabled} type="button" onClick={()=>setEditor({})}>添加</button></div></header>
     {busy?<p role="status">正在处理…</p>:null}{error?<p role="alert">{error}</p>:null}{notice?<p role="status">{notice}</p>:null}
-    {editor?<McpEditor key={editor.change?.operationId??editor.connection?.connectionId??"new"} {...editor} busy={busy} blocked={unknown} onClose={()=>setEditor(null)} onSave={save}/>:null}
+    {editor?<McpEditor key={editor.change?.operationId??editor.connection?.connectionId??"new"} {...editor} hostPlatform={props.hostPlatform} busy={busy} blocked={unknown} onClose={()=>setEditor(null)} onSave={save}/>:null}
     <div className="mcp-list">{connections.filter(item=>!item.deleted).map(connection=><article key={connection.connectionId}><header><h2>{connection.config.name}</h2><span>{connection.enabled?"已启用":"已停用"}</span></header>
       <code>{sourceLabel(connection)}</code>{connection.credentialRef&&!hasWorkbenchCredentialLocation(connection.credentialRef,"mcp")?<p>需重新保存到工作台</p>:null}<p>{connection.config.source.kind==="local_command"?"本地命令":"远程服务"} · {connection.config.authMode==="none"?"无认证":"独立凭据"}</p>
       {connection.validation?.state==="failed"?<p role="alert">{mcpError(connection.validation.reasonCode)}</p>:null}
-      <footer><button type="button" disabled={disabled} onClick={()=>setEditor({connection})}>编辑</button><button type="button" disabled={disabled} onClick={()=>setConfirm({action:"validate",connection})}>验证</button>
+      {executionUnavailable(connection,props.hostPlatform)?<p role="status">{executionUnavailable(connection,props.hostPlatform)}</p>:null}
+      <footer><button type="button" disabled={disabled} onClick={()=>setEditor({connection})}>编辑</button><button type="button" disabled={disabled||Boolean(executionUnavailable(connection,props.hostPlatform))} onClick={()=>{if(!executionUnavailable(connection,props.hostPlatform))setConfirm({action:"validate",connection});}}>验证</button>
         {connection.enabled?<button type="button" disabled={disabled} onClick={()=>void mutate("mcp_connection_disable",{connectionId:connection.connectionId,expectedRevision:connection.revision},"已停用。")}>停用</button>:null}
         <button type="button" disabled={disabled} onClick={()=>setConfirm({action:"delete",connection})}>删除</button></footer>
-      {!connection.enabled?<McpGrant key={connection.validation?.validationId??connection.revision} connection={connection} busy={disabled} onGrant={(names,purposes)=>void mutate("mcp_connection_grant",{
+      {!connection.enabled?<McpGrant key={connection.validation?.validationId??connection.revision} connection={connection} busy={disabled||Boolean(executionUnavailable(connection,props.hostPlatform))} onGrant={(names,purposes)=>void mutate("mcp_connection_grant",{
         connectionId:connection.connectionId,expectedRevision:connection.revision,validationId:connection.validation?.validationId,approvedToolNames:names,purposes,sourceConsent:true},"已启用。")}/>:null}
     </article>)}</div>
     {!busy&&!error&&!connections.some(item=>!item.deleted)?<p>尚无工具连接。</p>:null}

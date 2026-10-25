@@ -2,10 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const APPLICATION_ID = 'cn.cilai.personal.workbench';
-let stagedRoot = path.resolve(__dirname);
-while (path.basename(stagedRoot) !== '.personal-build' && path.dirname(stagedRoot) !== stagedRoot) stagedRoot = path.dirname(stagedRoot);
-const projectRoot = path.basename(stagedRoot) === '.personal-build' ? path.dirname(stagedRoot) : path.resolve(__dirname, '../../../../..');
-const buildRoot = path.join(projectRoot, '.personal-build');
+const location = require('./personal-build-location');
+const sourceRoot = path.resolve(__dirname, '../../..');
+const personalProjectRoot = () => location.sourceContext(sourceRoot).projectRoot;
 
 function rejectLinkedAncestors(directory) {
   let current = path.resolve(directory);
@@ -22,7 +21,7 @@ function rejectLinkedAncestors(directory) {
 }
 
 function personalDirectories({ packaged, appData, requestedUserData = '' }) {
-  const root = packaged ? path.join(appData, APPLICATION_ID) : path.join(projectRoot, '.personal-run', APPLICATION_ID);
+  const root = packaged ? path.join(appData, APPLICATION_ID) : path.join(personalProjectRoot(), '.personal-run', APPLICATION_ID);
   if (requestedUserData && path.resolve(requestedUserData) !== root) throw new Error('个人版只能使用已登记的独立资料目录。');
   rejectLinkedAncestors(root);
   return { userData: root, sessionData: path.join(root, 'browser'), logs: path.join(root, 'logs'),
@@ -30,16 +29,23 @@ function personalDirectories({ packaged, appData, requestedUserData = '' }) {
 }
 
 function personalBuildRoot(requested) {
-  if (requested && path.resolve(requested) !== buildRoot) throw new Error('个人版构建目录必须使用已登记的 .personal-build。');
+  const buildRoot = location.personalBuildRoot();
+  if (requested && path.resolve(requested) !== buildRoot) throw new Error('个人版构建目录必须使用已登记的本地构建根。');
   rejectLinkedAncestors(buildRoot);
   return buildRoot;
 }
 
-function personalServiceEnvironment(source = {}) {
-  return Object.fromEntries(Object.entries(source).filter(([key]) => !(
+function personalServiceEnvironment(source = {}, explicit = {}) {
+  const environment = Object.fromEntries(Object.entries(source).filter(([key]) => !(
     /^CILAI_/i.test(key) && !['CILAI_BROWSER_MCP_URL', 'CILAI_BROWSER_MCP_TOKEN', 'CILAI_MEMORY_GIT_RUNTIME'].includes(key)
     || /^(CODEX_|OPENAI_|ANTHROPIC_)/i.test(key)
   )));
+  if (Object.hasOwn(explicit, 'CILAI_DATA_ENVIRONMENT')) {
+    const selected = explicit.CILAI_DATA_ENVIRONMENT;
+    if (selected !== 'dev' && selected !== 'prod') throw new Error('数据环境配置无效，只允许 dev 或 prod。');
+    environment.CILAI_DATA_ENVIRONMENT = selected;
+  }
+  return environment;
 }
 
-module.exports = { APPLICATION_ID, personalDirectories, personalBuildRoot, personalServiceEnvironment, rejectLinkedAncestors };
+module.exports = { APPLICATION_ID, personalDirectories, personalBuildRoot, personalProjectRoot, personalServiceEnvironment, rejectLinkedAncestors };

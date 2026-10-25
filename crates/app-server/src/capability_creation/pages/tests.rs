@@ -89,11 +89,7 @@ impl Fixture {
         Self::for_target("web_application")
     }
     fn for_target(target: &str) -> Self {
-        let parent = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(4)
-            .unwrap()
-            .join(".personal-build/page-ai-fixtures");
+        let parent = std::env::temp_dir().join("cilai-page-ai-fixtures");
         fs::create_dir_all(&parent).unwrap();
         reject_symlink(&parent).unwrap();
         let base = parent

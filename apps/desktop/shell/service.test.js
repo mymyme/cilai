@@ -6,6 +6,7 @@ const path = require("node:path");
 const { once } = require("node:events");
 
 const { HostService, resolveBinary, resolveServiceEnvironment } = require("./service");
+const { loadDataEnvironment } = require("./data-environment");
 
 test("正常停止向真实宿主交付输入结束并等待自身收尾，不发送终止信号", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cilai-host-eof-"));
@@ -58,8 +59,50 @@ test("个人宿主清除继承的企业、模型环境，保留已授权浏览�
   assert.deepEqual(resolveServiceEnvironment({}), {});
 });
 
+test("数据环境只接收可信显式选择，不继承外部进程的同名变量", () => {
+  const inherited = { PATH: '/usr/bin', CILAI_DATA_ENVIRONMENT: 'prod', cilai_data_environment: 'dev' };
+  assert.deepEqual(resolveServiceEnvironment(inherited), { PATH: '/usr/bin' });
+  for (const selected of ['dev', 'prod']) {
+    assert.deepEqual(resolveServiceEnvironment(inherited, { CILAI_DATA_ENVIRONMENT: selected }), {
+      PATH: '/usr/bin', CILAI_DATA_ENVIRONMENT: selected,
+    });
+  }
+  for (const selected of ['', '../dev', 'DEV', undefined, null]) {
+    assert.throws(() => resolveServiceEnvironment(inherited, { CILAI_DATA_ENVIRONMENT: selected }), /数据环境配置无效/);
+  }
+  assert.deepEqual(resolveServiceEnvironment(inherited, { CILAI_ENTERPRISE_ORIGIN: 'https://enterprise.invalid', OPENAI_API_KEY: 'test-only' }), { PATH: '/usr/bin' });
+});
+
+test("保存的数据环境实际传入宿主子进程且不会放开继承的企业配置", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'cilai-host-environment-'));
+  const result = path.join(root, 'environment.json');
+  const probe = path.join(root, 'probe.cjs');
+  writeFileSync(probe, `require('node:fs').writeFileSync(${JSON.stringify(result)},JSON.stringify({environment:process.env.CILAI_DATA_ENVIRONMENT,enterprise:process.env.CILAI_ENTERPRISE_ORIGIN}));process.stdin.resume();`);
+  const inheritedEnvironment = process.env.CILAI_DATA_ENVIRONMENT;
+  const service = new HostService(process.execPath, (_binary, env) => env);
+  let child;
+  try {
+    const selected = loadDataEnvironment({ userData: root, args: ['--adopt-data-environment=dev'] });
+    process.env.CILAI_DATA_ENVIRONMENT = 'prod';
+    service.start({ ...selected, CILAI_ENTERPRISE_ORIGIN: 'https://enterprise.invalid', NODE_OPTIONS: `--require=${JSON.stringify(probe)}` });
+    child = service.child;
+    assert.ok(child, service.startError);
+    for (let i = 0; i < 200 && !existsSync(result); i++) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.ok(existsSync(result), '宿主环境探针未就绪');
+    assert.deepEqual(JSON.parse(readFileSync(result, 'utf8')), { environment: 'dev' });
+    const exited = once(child, 'exit');
+    service.stop();
+    await exited;
+  } finally {
+    if (inheritedEnvironment === undefined) delete process.env.CILAI_DATA_ENVIRONMENT;
+    else process.env.CILAI_DATA_ENVIRONMENT = inheritedEnvironment;
+    if (child && child.exitCode === null) child.kill();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("开发宿主拒绝企业构建目录并使用个人目录", () => {
   assert.throws(() => resolveBinary({platform:'darwin', packaged:false, buildRoot:'/forbidden/desktop'}), /个人版构建目录/);
-  assert.match(resolveBinary({platform:'darwin',packaged:false,buildRoot:undefined}), /\.personal-build\/target\/debug\/cilai-host-service$/);
+  assert.match(resolveBinary({platform:'darwin',packaged:false,buildRoot:undefined}), /\.cilai-personal-builds\/desktop\/target\/debug\/cilai-host-service$/);
   assert.equal(resolveBinary({platform:'win32',packaged:true,resourcesPath:'C:\\Personal\\resources'}), 'C:\\Personal\\resources\\sidecar\\cilai-host-service.exe');
 });

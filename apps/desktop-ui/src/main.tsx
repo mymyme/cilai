@@ -2,7 +2,6 @@ import { ModelCatalogProvider } from "./use-model-catalog";
 import { WindowsSandboxProvider } from "./use-windows-sandbox";
 import { RetainedPage } from "./retained-page";
 import type { SettingsSection } from "./settings";
-import { LoadFailure } from "./load-failure";
 import { ExportDiagnosticsButton } from "./test-diagnostics";
 import { StartupPermissions } from "./startup-permissions";
 import { PersonalMaintenanceRecovery, PersonalRestoreStatus } from "./personal-data";
@@ -19,7 +18,7 @@ import { randomUuid } from "./uuid";
 import { HoverTip } from "./hover-tip";
 import { StrictMode, Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createRoot } from "react-dom/client";
-import type { DeliverableItem, DeliverableListResult, MyWorkItem, ProjectAttachWorkspaceResult, ProjectDetachWorkspaceResult, ProjectGetResult, ProjectPortfolioListResult, UnifiedSearchItem, WorkspaceCreateResult, WorkspaceFileItem, WorkspaceFilesResult, WorkspaceListResult, WorkspaceSummary } from "./generated/protocol";
+import type { DeliverableItem, DeliverableListResult, MyWorkItem, ProjectAttachWorkspaceResult, ProjectDetachWorkspaceResult, ProjectGetResult, ProjectPortfolioListResult, UnifiedSearchItem, WorkspaceCreateResult, WorkspaceFileItem, WorkspaceListResult, WorkspaceSummary } from "./generated/protocol";
 import type { AiLaunchRequest, AiProjectOption } from "./ai-workbench";
 import { workspaceContext, unclassifiedConversationContext } from "./ai-workbench-context";
 import { ProjectCreatePanel } from "./project-create";
@@ -35,20 +34,19 @@ import { activityBarWidthFor, clampAiBrowserWidth, aiBrowserWidthStorageKey,
 import type { AppMessage, MessageSink, MessageTone } from "./app-message";
 import { ContextMenu, openContextMenu, type ContextMenuState } from "./context-menu";
 import { ProjectEditDialog, type ProjectEditTarget } from "./project-edit";
-import { loadAiSnapshot, type AiContext, type AiConversationMode, type AiConversationType } from "./ai-runtime";
+import { loadAiRuntimeQuery, type AiContext, type AiConversationMode, type AiConversationType } from "./ai-runtime";
 import { rpc, sha256 } from "./app-server-rpc";
 import { writeClipboard } from "./clipboard";
 import "./styles.css";
-import { AddFolderIcon, ApplicationsIcon, AutomationIcon, BackArrowIcon, BackIcon, ChatBubbleIcon, CheckIcon, ChevronIcon, CloseIcon, ConfirmIcon, DiffIcon, ExternalOpenIcon, EyeIcon, EyeOffIcon, FileIcon, Folder, GlobalSearchIcon, HomeIcon, InfoIcon, MoreIcon, PanelToggleIcon, PortfolioIcon, RefreshIcon, RunsIcon, SearchIcon, SkillIcon, SwitcherIcon, TreeFolderIcon, WorkspaceIcon } from "./icons";
-import { buildStatusChips, StatusChip, confirmationLabel, confirmationNeedsAction, conflictLabel, localChangeLabel, localStatusLabel, presenceLabel } from "./file-status";
-import { VirtualFileTree, WorkspacePage, WorkspaceSwitcher, WorkspaceFileSearch } from "./workspace-page";
+import { AddFolderIcon, ApplicationsIcon, AutomationIcon, BackArrowIcon, ChatBubbleIcon, EyeIcon, EyeOffIcon, Folder, GlobalSearchIcon, HomeIcon, PanelToggleIcon, PortfolioIcon, RefreshIcon, SkillIcon, SwitcherIcon, WorkspaceIcon } from "./icons";
+import { WorkspacePage, WorkspaceSwitcher, WorkspaceFileSearch } from "./workspace-page";
 import { useAppServer, type AppServerStatus } from "./use-app-server";
 import { useWorkbenchEventSignals } from "./use-workbench-event-signals";
 import { clearStoredProjectDetail, readStoredPage, readStoredProjectDetail, writeStoredPage, writeStoredProjectDetail } from "./project-context-storage";
 import { fileContextMenuItems } from "./file-context-menu";
 import { describeServerError } from "./server-error";
 import { useAgentIncidentReporting } from "./use-agent-incidents";
-import { initialWorkspaceState, isPresentFile, isPreviewableFile, workspaceReducer } from "./workspace-state";
+import { initialWorkspaceState, isPreviewableFile, workspaceReducer } from "./workspace-state";
 import { useNavigationGuards } from "./navigation-guards";
 import { loadWorkspaceFileSnapshot } from "./workspace-file-pages";
 import { LazyFileTree } from "./lazy-file-tree";
@@ -206,8 +204,8 @@ export function App() {
   const [applicationSearchOpenIntent, setApplicationSearchOpenIntent] = useState<ApplicationSearchOpenIntent | null>(null);
   const [automationOpenIntent, setAutomationOpenIntent] = useState<{ruleId:string;token:string}|null>(null);
   const [notificationOpenIntent, setNotificationOpenIntent] = useState<PersonalNotificationOpen|null>(null);
-  const [portfolioCreateIntent, setPortfolioCreateIntent] = useState(0);
-  const [portfolioDeleteProjectId, setPortfolioDeleteProjectId] = useState<string | null>(null);
+  const portfolioCreateIntent = 0;
+  const portfolioDeleteProjectId = null;
   const [myWorkRefreshToken, setMyWorkRefreshToken] = useState(0);
 
   useEffect(() => {
@@ -302,8 +300,8 @@ export function App() {
 
   const openRunConversation = useCallback(async (runId: string) => {
     try {
-      const snapshot = await loadAiSnapshot();
-      const run = snapshot.runs.find((item) => item.runId === runId);
+      const snapshot = await loadAiRuntimeQuery({ scope: "run", runId });
+      const run = snapshot.runDetails.find((item) => item.runId === runId);
       if (!run) {
         setMessage("未找到对应对话。", "error");
         return;
@@ -1287,7 +1285,7 @@ export function App() {
         setAiProjectCreateOpen(false);
         setProjectCreateForFolder(false);
       }}
-      onCreated={(project, workspaceId) => {
+      onCreated={(_project, workspaceId) => {
         setAiProjectCreateOpen(false);
         setProjectCreateForFolder(false);
         setAiProjectRefreshToken((value) => value + 1);

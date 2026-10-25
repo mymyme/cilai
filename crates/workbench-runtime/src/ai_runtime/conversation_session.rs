@@ -1,50 +1,10 @@
 use super::*;
 
 const QUEUE: &str = "queuedFollowUps";
-const KEYS: &[&str] = &[
-    "applicationHandoffs",
-    "drafts",
-    "queuedFollowUps",
-    "selectedConversationId",
-    "starterAgentId",
-    "starterBusinessId",
-    "starterFile",
-    "starterModelOverride",
-    "starterConnectionId",
-    "starterReasoningEffort",
-    "starterPermissionMode",
-    "applicationContextSelections",
-    "skillSelections",
-    "draftAttachmentGroups",
-    "draftMaterialGroups",
-    "pendingCreate",
-    "initializedSelection",
-    "pendingOutgoing",
-    "recoveredOutgoing",
-];
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConversationSessionSnapshot {
-    session_id: String,
-    revision: u64,
-    values: BTreeMap<String, Value>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ConversationSessionPatch {
-    session_id: String,
-    changes: Vec<SessionChange>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SessionChange {
-    key: String,
-    previous: Value,
-    value: Value,
-}
+use contexthub_protocol::{
+    CONVERSATION_SESSION_KEYS as KEYS, ConversationSessionChange as SessionChange,
+};
+pub use contexthub_protocol::{ConversationSessionPatch, ConversationSessionSnapshot};
 
 pub struct ClaimedFollowUp {
     pub queue_id: String,
@@ -52,12 +12,36 @@ pub struct ClaimedFollowUp {
     pub operation: LocalOperationGuard,
 }
 
-fn snapshot(state: &ManagerState) -> ConversationSessionSnapshot {
-    ConversationSessionSnapshot {
-        session_id: state.conversation_session_id.clone(),
-        revision: state.conversation_session_revision,
-        values: state.persisted.conversation_session.clone(),
+#[derive(Default)]
+pub(super) struct SessionState {
+    id: String,
+    revision: u64,
+}
+
+impl SessionState {
+    pub(super) fn reset(&mut self) {
+        self.id = uuid::Uuid::new_v4().to_string();
+        self.revision = 0;
     }
+    pub(super) fn id(&self) -> &str {
+        &self.id
+    }
+    pub(super) fn changed(&mut self) {
+        self.revision += 1;
+    }
+    fn snapshot(&self, values: &BTreeMap<String, Value>) -> ConversationSessionSnapshot {
+        ConversationSessionSnapshot {
+            session_id: self.id.clone(),
+            revision: self.revision,
+            values: values.clone(),
+        }
+    }
+}
+
+fn snapshot(state: &ManagerState) -> ConversationSessionSnapshot {
+    state
+        .session
+        .snapshot(&state.persisted.conversation_session)
 }
 
 fn entries(values: &BTreeMap<String, Value>) -> Vec<Value> {
@@ -364,12 +348,21 @@ fn apply_changes(
 }
 
 fn save_values(state: &mut ManagerState, values: BTreeMap<String, Value>) -> Result<(), String> {
+    let changed = values != state.persisted.conversation_session;
     let previous = std::mem::replace(&mut state.persisted.conversation_session, values);
     if let Err(error) = persist_session_locked(state) {
-        state.persisted.conversation_session = previous;
+        let retained = persistence_outcome_unknown(state);
+        restore_after_save_rejection(state, |persisted| {
+            persisted.conversation_session = previous;
+        });
+        if retained && changed {
+            state.session.changed();
+        }
         return Err(error);
     }
-    state.conversation_session_revision += 1;
+    if changed {
+        state.session.changed();
+    }
     Ok(())
 }
 
@@ -419,11 +412,11 @@ impl AiRuntimeManager {
         let mut state = lock(&self.inner);
         ensure_profile_admission(&state)?;
         data_dir_for_state(&state)?;
-        if patch.session_id != state.conversation_session_id {
+        if patch.session_id != state.session.id() {
             return Err("ai_profile_changed".to_owned());
         }
         let values = apply_changes(&state.persisted.conversation_session, patch.changes)?;
-        if values != state.persisted.conversation_session {
+        if values != state.persisted.conversation_session || persistence_outcome_unknown(&state) {
             save_values(&mut state, values)?;
         }
         Ok(snapshot(&state))

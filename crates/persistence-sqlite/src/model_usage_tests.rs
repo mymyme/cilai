@@ -20,8 +20,10 @@ impl Fixture {
             .unwrap()
     }
     fn new() -> Self {
-        let root =
-            std::env::temp_dir().join(format!("model-usage-{}", uuid::Uuid::new_v4().simple()));
+        let root = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("model-usage-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir(&root).unwrap();
         let mut db = SqlitePersistence::open(&root.join("contexthub.db"), "usage").unwrap();
         db.begin_personal_profile_upgrade(PROFILE, INSTANCE)

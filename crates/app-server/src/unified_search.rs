@@ -6,6 +6,7 @@ use contexthub_protocol::{
 };
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::time::Instant;
 
@@ -13,33 +14,38 @@ const LOCAL_PROVIDER_ID: &str = "com.cilai.workbench.local";
 
 type CursorEntry = (String, u32, global_search::SearchPosition, Instant);
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct LocalSearchCursors {
-    entries: HashMap<String, CursorEntry>,
+    entries: Arc<Mutex<HashMap<String, CursorEntry>>>,
 }
 impl LocalSearchCursors {
     fn page(
         &mut self,
-        persistence: &mut contexthub_persistence_sqlite::SqlitePersistence,
+        reader: &mut contexthub_persistence_sqlite::GlobalSearchReader,
         params: &UnifiedSearchParams,
     ) -> Result<UnifiedSearchGroup, String> {
-        self.entries
-            .retain(|_, entry| entry.3.elapsed() < Duration::from_mins(20));
         let query = params.query.trim();
-        let after = params
-            .cursors
-            .iter()
-            .find(|cursor| cursor.provider_id == LOCAL_PROVIDER_ID)
-            .map(|cursor| {
-                self.entries
-                    .get(&cursor.value)
-                    .filter(|entry| entry.0 == query && entry.1 == params.limit)
-                    .map(|entry| entry.2.clone())
-                    .ok_or_else(|| "unified_search_cursor_expired".to_owned())
-            })
-            .transpose()?;
-        let (page, next) = global_search::query_page(
-            persistence,
+        let after = {
+            let mut entries = self
+                .entries
+                .lock()
+                .map_err(|_| "unified_search_cursor_unavailable".to_owned())?;
+            entries.retain(|_, entry| entry.3.elapsed() < Duration::from_mins(20));
+            params
+                .cursors
+                .iter()
+                .find(|cursor| cursor.provider_id == LOCAL_PROVIDER_ID)
+                .map(|cursor| {
+                    entries
+                        .get(&cursor.value)
+                        .filter(|entry| entry.0 == query && entry.1 == params.limit)
+                        .map(|entry| entry.2.clone())
+                        .ok_or_else(|| "unified_search_cursor_expired".to_owned())
+                })
+                .transpose()?
+        };
+        let (page, next) = global_search::query_reader_page(
+            reader,
             &GlobalSearchParams {
                 query: query.to_owned(),
                 limit: params.limit,
@@ -49,17 +55,20 @@ impl LocalSearchCursors {
         .map_err(|error| error.reason().unwrap_or("local_search_failed").to_owned())?;
         let mut group = local_group(page.items);
         if let Some(after) = next {
-            if self.entries.len() >= 256
-                && let Some(oldest) = self
-                    .entries
+            let mut entries = self
+                .entries
+                .lock()
+                .map_err(|_| "unified_search_cursor_unavailable".to_owned())?;
+            if entries.len() >= 256
+                && let Some(oldest) = entries
                     .iter()
                     .min_by_key(|(_, entry)| entry.3)
                     .map(|(key, _)| key.clone())
             {
-                self.entries.remove(&oldest);
+                entries.remove(&oldest);
             }
             let cursor = uuid::Uuid::new_v4().to_string();
-            self.entries.insert(
+            entries.insert(
                 cursor.clone(),
                 (query.to_owned(), params.limit, after, Instant::now()),
             );
@@ -71,8 +80,8 @@ impl LocalSearchCursors {
 
 pub(super) struct UnifiedSearchPlan {
     request_id: String,
-    groups: Vec<UnifiedSearchGroup>,
-    partial_failures: Vec<UnifiedSearchPartialFailure>,
+    local: Result<contexthub_persistence_sqlite::GlobalSearchReader, String>,
+    cursors: LocalSearchCursors,
 }
 
 impl AppServerServices {
@@ -81,42 +90,46 @@ impl AppServerServices {
         params: &UnifiedSearchParams,
     ) -> Result<UnifiedSearchPlan, ServiceError> {
         validate_params(params)?;
-        let mut groups = Vec::new();
-        let mut partial_failures = Vec::new();
-        match self.persistence.as_mut() {
-            Some(persistence) => match self.search_cursors.page(persistence, params) {
-                Ok(group) => groups.push(group),
-                Err(code) => partial_failures.push(UnifiedSearchPartialFailure {
-                    group_id: "local".to_owned(),
-                    provider_id: LOCAL_PROVIDER_ID.to_owned(),
-                    code,
-                    message: "本地检索未完成；分页失效时请重新搜索".to_owned(),
-                }),
-            },
-            None => partial_failures.push(UnifiedSearchPartialFailure {
-                group_id: "local".to_owned(),
-                provider_id: LOCAL_PROVIDER_ID.to_owned(),
-                code: "persistence_unavailable".to_owned(),
-                message: "本地工作数据当前不可用".to_owned(),
-            }),
-        }
+        let local = self
+            .persistence
+            .as_ref()
+            .ok_or_else(|| "persistence_unavailable".to_owned())
+            .and_then(|persistence| {
+                persistence
+                    .global_search_reader()
+                    .map_err(|error| error.reason().unwrap_or("local_search_failed").to_owned())
+            });
         Ok(UnifiedSearchPlan {
             request_id: uuid::Uuid::new_v4().to_string(),
-            groups,
-            partial_failures,
+            local,
+            cursors: self.search_cursors.clone(),
         })
     }
 }
 
 pub(super) fn complete_unified_search(
-    plan: UnifiedSearchPlan,
-    _params: &UnifiedSearchParams,
+    mut plan: UnifiedSearchPlan,
+    params: &UnifiedSearchParams,
 ) -> UnifiedSearchResult {
+    let mut groups = Vec::new();
+    let mut partial_failures = Vec::new();
+    let result = plan
+        .local
+        .and_then(|mut reader| plan.cursors.page(&mut reader, params));
+    match result {
+        Ok(group) => groups.push(group),
+        Err(code) => partial_failures.push(UnifiedSearchPartialFailure {
+            group_id: "local".to_owned(),
+            provider_id: LOCAL_PROVIDER_ID.to_owned(),
+            code,
+            message: "本地检索未完成；分页失效时请重新搜索".to_owned(),
+        }),
+    }
     UnifiedSearchResult {
         request_id: plan.request_id,
         authorization_revision: None,
-        groups: plan.groups,
-        partial_failures: plan.partial_failures,
+        groups,
+        partial_failures,
     }
 }
 

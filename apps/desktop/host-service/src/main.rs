@@ -28,6 +28,7 @@ use ai_runtime::AiRuntimeManager;
 use supervisor::{AppServerPhase, AppServerStatus, AppServerSupervisor};
 
 mod headless_data;
+mod host_commands_generated;
 mod macos_disk_access;
 mod mcp_connections;
 mod model_connections;
@@ -42,6 +43,8 @@ mod personal_storage;
 mod powershell_policy;
 mod startup_permissions;
 mod test_diagnostics;
+#[cfg(test)]
+mod test_support;
 mod workspace_permissions;
 
 /// 壳发来的行：或是一条命令，或是一次反向调用的回执。字段不重叠，按内容区分。
@@ -231,6 +234,30 @@ struct HostBridge {
 /// 壳未在此时限内回执即判定失败：让调用方拿到明确错误，而不是无限期挂着。
 const HOST_CALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PersonalPageActionTiming {
+    action_timeout_ms: u64,
+    host_callback_grace_ms: u64,
+}
+
+fn host_callback_timeout(command: &str) -> std::time::Duration {
+    static ACTION_TIMEOUT: OnceLock<std::time::Duration> = OnceLock::new();
+    if command != "personal_page_ai_ui_action" {
+        return HOST_CALLBACK_TIMEOUT;
+    }
+    *ACTION_TIMEOUT.get_or_init(|| {
+        let timing: PersonalPageActionTiming =
+            serde_json::from_str(include_str!("../../shell/personal-page-ai-timing.json"))
+                .expect("页面动作时限契约无效");
+        let timeout_ms = timing
+            .action_timeout_ms
+            .checked_add(timing.host_callback_grace_ms)
+            .expect("页面动作时限超出范围");
+        std::time::Duration::from_millis(timeout_ms)
+    })
+}
+
 impl HostBridge {
     fn request(
         &self,
@@ -250,7 +277,7 @@ impl HostBridge {
             drop(self.pending.lock().map(|mut table| table.remove(&id)));
             return Err(error);
         }
-        if let Ok(result) = receiver.recv_timeout(HOST_CALLBACK_TIMEOUT) {
+        if let Ok(result) = receiver.recv_timeout(host_callback_timeout(command)) {
             result
         } else {
             drop(self.pending.lock().map(|mut table| table.remove(&id)));
@@ -532,32 +559,8 @@ fn handle(command: &str, args: &serde_json::Value) -> Result<serde_json::Value, 
         return Err("personal_data_restart_required".into());
     }
     let gate = DATA_ACCESS.get_or_init(|| std::sync::RwLock::new(()));
-    let exclusive = matches!(
-        command,
-        "personal_data_backup_capture"
-            | "personal_data_restore_apply"
-            | "personal_storage_execute"
-            | "personal_memory_reset_confirm"
-            | "personal_capability_upgrade"
-            | "personal_package_import_commit"
-            | "personal_application_data_rollback"
-            | "personal_namespace_storage_execute_internal"
-            | "personal_namespace_storage_finish"
-    );
-    let observation = personal_page_ai::is_command(command)
-        || matches!(
-            command,
-            "app_server_status"
-                | "host_platform"
-                | "test_runtime_diagnostics"
-                | "personal_namespace_storage_action_begin_internal"
-                | "personal_namespace_storage_action_ack_internal"
-                | "personal_namespace_storage_segment_sync_internal"
-                | "personal_namespace_storage_get"
-                | "personal_namespace_storage_list"
-                | "personal_namespace_storage_reconcile"
-                | "ai_automation_trigger_history"
-        );
+    let exclusive = host_commands_generated::requires_exclusive_data(command);
+    let observation = host_commands_generated::is_data_observation(command);
     let _write = if exclusive {
         Some(gate.try_write().map_err(|_| "personal_data_host_busy")?)
     } else {
@@ -1165,6 +1168,7 @@ fn handle_inner(command: &str, args: &serde_json::Value) -> Result<serde_json::V
             }))
         }
 
+        "ai_runtime_query" => encode(ai_manager().query(&arg(args, "request")?)?),
         "ai_runtime_snapshot" => {
             if arg::<Option<bool>>(args, "refresh_native_catalog")?.unwrap_or(true) {
                 encode(ai_manager().snapshot()?)
@@ -1281,13 +1285,7 @@ fn unified_search_params(request: &Request) -> Option<serde_json::Value> {
 }
 
 fn command_changes_local_context(command: &str) -> bool {
-    matches!(
-        command,
-        "app_server_restart"
-            | "startup_permissions_check"
-            | "startup_permissions_repair"
-            | "powershell_policy_apply"
-    )
+    host_commands_generated::changes_local_context(command)
 }
 
 fn write_response(id: u64, result: Result<serde_json::Value, String>) -> Result<(), String> {
@@ -1522,13 +1520,13 @@ fn start_model_catalog_publisher() -> tokio::task::JoinHandle<()> {
 /// 逐条受理命令：发送类命令交给独立线程，其余按到达顺序执行。
 fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) {
     let in_flight = Arc::new(InFlight::default());
+    let mut next_follow_up = Instant::now() + FOLLOW_UP_INTERVAL;
     loop {
-        let queued = match incoming.recv_timeout(std::time::Duration::from_millis(500)) {
+        let queued = match receive_with_follow_up(incoming, &mut next_follow_up, || {
+            dispatch_follow_up(&in_flight);
+        }) {
             Ok(queued) => queued,
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                dispatch_follow_up(&in_flight);
-                continue;
-            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         };
         let request = queued.request;
@@ -1592,48 +1590,34 @@ fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) {
     in_flight.wait_idle();
 }
 
+const FOLLOW_UP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+
+fn receive_with_follow_up<T>(
+    incoming: &std::sync::mpsc::Receiver<T>,
+    next_follow_up: &mut Instant,
+    mut follow_up: impl FnMut(),
+) -> Result<T, std::sync::mpsc::RecvTimeoutError> {
+    let received = incoming.recv_timeout(next_follow_up.saturating_duration_since(Instant::now()));
+    if matches!(
+        &received,
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected)
+    ) {
+        return received;
+    }
+    if Instant::now() >= *next_follow_up {
+        follow_up();
+        *next_follow_up = Instant::now() + FOLLOW_UP_INTERVAL;
+    }
+    received
+}
+
 /// 需要多次网络往返的发送类命令，在独立线程执行。
 ///
 /// 宿主逐条处理命令时，一次发送的准备和运行启动会让归档、
 /// 刷新列表、打开文件等所有命令都排在它后面。这些命令本就会被后台自动化从其他线程
 /// 并发调用，运行时管理器以内部锁保证一致。
 fn runs_in_parallel(command: &str, args: &serde_json::Value) -> bool {
-    personal_page_ai::is_command(command)
-        || personal_notifications::is_command(command)
-        || matches!(
-            command,
-            "personal_data_backup_capture"
-                | "personal_data_restore_apply"
-                | "personal_storage_execute"
-                | "personal_namespace_storage_execute_internal"
-                | "personal_namespace_storage_action_begin_internal"
-                | "personal_namespace_storage_action_ack_internal"
-                | "personal_namespace_storage_segment_sync_internal"
-                | "personal_namespace_storage_finish"
-                | "personal_memory_reset_confirm"
-                | "personal_capability_upgrade"
-                | "personal_package_import_commit"
-                | "personal_application_data_rollback"
-                | "mcp_connection_validate"
-                | "ai_conversation_search"
-                | "ai_conversation_start"
-                | "ai_message_send"
-                | "ai_message_submit"
-                | "ai_conversation_submit"
-                | "ai_message_regenerate"
-                | "ai_automation_rule_run"
-                | "ai_model_catalog_read"
-                | "model_connection_auth_read"
-                | "model_execution_preflight"
-                | "model_connection_catalog_refresh"
-                | "model_connection_validate"
-                | "model_connection_auth_start"
-                | "model_connection_auth_cancel"
-                | "model_connection_auth_logout"
-                | "model_connection_auth_resume"
-                | "model_connection_auth_finish_logout"
-                | "model_connection_auth_cancel_readonly"
-        )
+    host_commands_generated::is_parallel_command(command)
         || (command == "app_server_request"
             && args
                 .get("method")
@@ -1643,7 +1627,7 @@ fn runs_in_parallel(command: &str, args: &serde_json::Value) -> bool {
 
 /// 可能等待远端或本地文件系统的读取与文件操作使用同一并发闸门，避免阻塞后续宿主命令。
 fn waits_for_local_files(method: &str) -> bool {
-    method == "workspace/listDirectory"
+    host_commands_generated::is_parallel_app_server_method(method)
 }
 
 /// 并行中的命令数。重启本地服务或调整执行环境前须等待其归零。
@@ -1881,9 +1865,10 @@ mod tests {
 
     use super::{
         DEFAULT_ENVIRONMENT, InFlight, Request, app_runtime_status, app_server_failure_message,
-        command_changes_local_context, handle, open_registered_artifact, personal_command_allowed,
-        reject_retired_application_context, resolve_data_environment, runs_in_parallel,
-        runtime_initialization_error, spawn_in_flight, unified_search_params,
+        command_changes_local_context, handle, host_callback_timeout, open_registered_artifact,
+        personal_command_allowed, receive_with_follow_up, reject_retired_application_context,
+        resolve_data_environment, runs_in_parallel, runtime_initialization_error, spawn_in_flight,
+        unified_search_params,
     };
     use contexthub_workbench_runtime::supervisor::{AppServerPhase, AppServerStatus};
 
@@ -2120,6 +2105,59 @@ mod tests {
         }
         assert!(!command_changes_local_context("enterprise_switch_tenant"));
         assert!(!command_changes_local_context("application_catalog_list"));
+    }
+
+    #[test]
+    fn queued_commands_do_not_starve_follow_up_dispatch() {
+        let (sender, incoming) = std::sync::mpsc::channel();
+        for value in 0..1000 {
+            sender.send(value).unwrap();
+        }
+        let mut next_follow_up = std::time::Instant::now() + super::FOLLOW_UP_INTERVAL;
+        let mut follow_ups = 0;
+        let mut handled = 0;
+        while follow_ups == 0 && handled < 1000 {
+            let request = receive_with_follow_up(&incoming, &mut next_follow_up, || {
+                follow_ups += 1;
+            })
+            .unwrap();
+            assert_eq!(request, handled);
+            handled += 1;
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert_eq!(follow_ups, 1);
+        assert!(handled < 1000, "后续任务不能等待命令队列排空");
+        assert!(incoming.try_recv().is_ok());
+    }
+
+    #[test]
+    fn closed_command_input_does_not_start_another_follow_up() {
+        let (sender, incoming) = std::sync::mpsc::channel::<()>();
+        drop(sender);
+        let mut next_follow_up = std::time::Instant::now();
+        let mut follow_ups = 0;
+        assert!(matches!(
+            receive_with_follow_up(&incoming, &mut next_follow_up, || follow_ups += 1),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected)
+        ));
+        assert_eq!(follow_ups, 0);
+    }
+
+    #[test]
+    fn page_action_callbacks_include_execution_budget_and_reply_grace() {
+        let timing: super::PersonalPageActionTiming =
+            serde_json::from_str(include_str!("../../shell/personal-page-ai-timing.json")).unwrap();
+        assert_eq!(timing.action_timeout_ms, 60_000);
+        assert!(timing.host_callback_grace_ms > 0);
+        assert_eq!(
+            host_callback_timeout("personal_page_ai_ui_action"),
+            std::time::Duration::from_millis(
+                timing.action_timeout_ms + timing.host_callback_grace_ms
+            )
+        );
+        for command in ["notify_renderer", "personal_namespace_storage_execute"] {
+            assert_eq!(host_callback_timeout(command), super::HOST_CALLBACK_TIMEOUT);
+        }
     }
 
     #[test]

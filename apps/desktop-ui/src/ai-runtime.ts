@@ -1,5 +1,5 @@
 import { invoke } from "./host";
-import type { ModelSelection } from "./generated/protocol";
+import type { AiRuntimeQuery, AiRuntimeQueryScope, ModelSelection } from "./generated/protocol";
 import type { ModelHistoryTransferConsent } from "./model-history-transfer";
 
 export type AiConversationMode = "discuss" | "edit" | "review" | "decision";
@@ -372,6 +372,34 @@ export interface AiMessageSubmission {
   status: "preparing" | "failed";
   reason: string | null;
   acceptedAt: number;
+}
+
+export type { AiRuntimeQuery, AiRuntimeQueryScope } from "./generated/protocol";
+
+export type AiRunSummary = Pick<AiAgentRun,
+  "runId" | "conversationId" | "agentId" | "inputMessageId" | "retryOfRunId" |
+  "superseded" | "provider" | "model" | "modelLabel" | "status" | "startedAt" |
+  "completedAt" | "errorReason" | "automationRuleId" | "automationRuleVersion" | "artifacts"
+> & { outputPreview: string | null };
+
+export interface AiRuntimeQuerySnapshot {
+  scope: AiRuntimeQueryScope;
+  stateRevision: number;
+  agents: AiAgentProfile[];
+  conversations: AiConversation[];
+  messages: AiConversationMessage[];
+  runs: AiRunSummary[];
+  runDetails: AiAgentRun[];
+  permissionRequests: AiPermissionRequest[];
+  automationRules: AiAutomationRule[];
+}
+
+export function emptyAiQuerySnapshot(scope: AiRuntimeQueryScope): AiRuntimeQuerySnapshot {
+  return { scope, stateRevision: 0, agents: [], conversations: [], messages: [], runs: [], runDetails: [], permissionRequests: [], automationRules: [] };
+}
+
+export function loadAiRuntimeQuery(request: AiRuntimeQuery): Promise<AiRuntimeQuerySnapshot> {
+  return invoke<AiRuntimeQuerySnapshot>("ai_runtime_query", { request });
 }
 
 export interface AiRuntimeActivitySnapshot {

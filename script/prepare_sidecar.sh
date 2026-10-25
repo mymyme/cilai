@@ -96,7 +96,7 @@ fi
 SWIFT_CACHE="$BUILD_ROOT/tmp/swift-module-cache"
 mkdir -p "$SWIFT_CACHE"
 CLANG_MODULE_CACHE_PATH="$SWIFT_CACHE" SWIFT_MODULE_CACHE_PATH="$SWIFT_CACHE" \
-  /usr/bin/xcrun swiftc "${SWIFT_FLAGS[@]}" script/pdf_renderer.swift -o "$PDF_RENDERER"
+  node scripts/run-swift.mjs "${SWIFT_FLAGS[@]}" script/pdf_renderer.swift -o "$PDF_RENDERER"
 test -x "$PDF_RENDERER"
 node scripts/verify-native-build-paths.mjs "$BUILD_ROOT" "$RUST_SYSROOT" \
   "$SIDECAR_DIR/cilai-app-server-$TARGET_TRIPLE" "target/$PROFILE_DIR/cilai-host-service" "$PDF_RENDERER"

@@ -1,7 +1,9 @@
 import { conversationArchiveChanged, mergeArchivedConversations, setConversationsArchived, type ConversationArchiveChange } from "./conversation-archive";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { aiErrorMessage, deleteAiConversations, emptyAiSnapshot, loadAiSnapshot, type AiConversation, type AiRuntimeSnapshot } from "./ai-runtime";
-import { assistantMessageBody, conversationTopic, MessageAttachments, type AiProjectOption } from "./ai-workbench";
+import { aiErrorMessage, deleteAiConversations, emptyAiQuerySnapshot, loadAiRuntimeQuery, type AiConversation, type AiRuntimeQuerySnapshot } from "./ai-runtime";
+import { assistantMessageBody, conversationTopic } from "./conversation-display";
+import { MessageAttachments } from "./conversation-attachments";
+import type { AiProjectOption } from "./ai-workbench";
 import type { MessageSink } from "./app-message";
 import { ConfirmDialog } from "./confirm-dialog";
 import { auditMoment } from "./datetime";
@@ -21,8 +23,11 @@ function ArchiveTrashIcon() {
 }
 
 export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; onMessage: MessageSink; openIntent?: { conversationId: string; token: number } | null }) {
-  const [snapshot, setSnapshot] = useState<AiRuntimeSnapshot>(emptyAiSnapshot);
+  const [snapshot, setSnapshot] = useState<AiRuntimeQuerySnapshot>(() => emptyAiQuerySnapshot("archive"));
   const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<AiRuntimeQuerySnapshot | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
@@ -57,7 +62,7 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void loadAiSnapshot().then((result) => {
+    void loadAiRuntimeQuery({ scope: "archive" }).then((result) => {
       if (cancelled) return;
       if (result.stateRevision < latestArchiveRevision.current) { setRetry((current) => current + 1); return; }
       setSnapshot(result);
@@ -71,16 +76,19 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
 
   useEffect(() => { heading.current?.focus(); }, [selectedId]);
 
-  const messagesByConversation = useMemo(() => {
-    const result = new Map<string, AiRuntimeSnapshot["messages"]>();
-    for (const message of snapshot.messages) {
-      const messages = result.get(message.conversationId) ?? [];
-      messages.push(message);
-      result.set(message.conversationId, messages);
-    }
-    for (const messages of result.values()) messages.sort((left, right) => left.createdAt - right.createdAt);
-    return result;
-  }, [snapshot.messages]);
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(null);
+    setDetailError(null);
+    if (!selectedId) { setDetailLoading(false); return; }
+    setDetailLoading(true);
+    void loadAiRuntimeQuery({ scope: "conversation", conversationId: selectedId }).then((result) => {
+      if (!cancelled) setDetail(result);
+    }).catch((reason: unknown) => {
+      if (!cancelled) setDetailError(aiErrorMessage(reason));
+    }).finally(() => { if (!cancelled) setDetailLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedId, retry]);
 
   const groups = useMemo(() => {
     const result = new Map<string, { key: string; name: string; items: { conversation: AiConversation; title: string }[] }>();
@@ -92,11 +100,11 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
       const key = projectId ? `project:${projectId}` : "unassigned";
       const name = projectId ? projectNames.get(projectId) ?? conversation.context.projectName ?? "原项目" : "未分类";
       const group = result.get(key) ?? { key, name, items: [] };
-      group.items.push({ conversation, title: conversationTopic(conversation, messagesByConversation.get(conversation.conversationId) ?? []) });
+      group.items.push({ conversation, title: conversation.title });
       result.set(key, group);
     }
     return [...result.values()];
-  }, [snapshot.conversations, props.projects, messagesByConversation]);
+  }, [snapshot.conversations, props.projects]);
 
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
   const filteredGroups = groups.filter((group) => projectFilter === "all" || group.key === projectFilter)
@@ -108,7 +116,7 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
   const filteredIds = filteredGroups.flatMap((group) => group.items.map((item) => item.conversation.conversationId));
   const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
   const selected = snapshot.conversations.find((conversation) => conversation.conversationId === selectedId && conversation.archived);
-  const selectedMessages = selected ? messagesByConversation.get(selected.conversationId) ?? [] : [];
+  const selectedMessages = selected && detail?.conversations.some((conversation) => conversation.conversationId === selected.conversationId) ? [...detail.messages].sort((left, right) => left.createdAt - right.createdAt) : [];
   const selectedGroup = selected ? groups.find((group) => group.items.some((item) => item.conversation.conversationId === selected.conversationId)) : null;
 
   const clearSelection = () => {
@@ -191,7 +199,7 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
   };
 
   const restoreButton = (conversation: AiConversation) => <button
-    aria-label={`取消归档：${conversationTopic(conversation, messagesByConversation.get(conversation.conversationId) ?? [])}`}
+    aria-label={`取消归档：${conversation.title}`}
     className="archive-restore" disabled={restoringId !== null || deleting}
     onClick={() => void restore(conversation)} type="button">
     {restoringId === conversation.conversationId ? "正在恢复…" : "取消归档"}
@@ -217,7 +225,7 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
           <p className="archive-readonly"><ArchiveIcon/>当前为只读查看，取消归档后可继续对话。</p>
         </header>
         <div className="archive-messages" aria-label="归档会话消息">
-          {selectedMessages.length ? selectedMessages.map((message) => <article className="archive-message" data-role={message.role} key={message.messageId}>
+          {detailLoading ? <div className="archive-empty" role="status"><p>正在读取消息…</p></div> : detailError ? <div className="archive-empty" role="alert"><p>{detailError}</p><button onClick={() => setRetry((value) => value + 1)} type="button">重新加载</button></div> : selectedMessages.length ? selectedMessages.map((message) => <article className="archive-message" data-role={message.role} key={message.messageId}>
             <header><strong>{message.role === "user" ? "你" : "助手"}</strong><time dateTime={new Date(message.createdAt).toISOString()}>{auditMoment(message.createdAt)}</time></header>
             {message.attachments?.length ? <MessageAttachments attachments={message.attachments}/> : null}
             {message.role === "assistant" ? <MarkdownContent diagramIdPrefix="archive">{assistantMessageBody(message.content)}</MarkdownContent> : <p className="archive-user-text">{message.content}</p>}
@@ -275,13 +283,14 @@ function groupKey(conversation: AiConversation): string {
   return conversation.context.projectId ? `project:${conversation.context.projectId}` : "unassigned";
 }
 
-function pruneDeletedConversations(snapshot: AiRuntimeSnapshot, deletedIds: Set<string>): AiRuntimeSnapshot {
+function pruneDeletedConversations(snapshot: AiRuntimeQuerySnapshot, deletedIds: Set<string>): AiRuntimeQuerySnapshot {
   const deletedRunIds = new Set(snapshot.runs.filter((run) => deletedIds.has(run.conversationId)).map((run) => run.runId));
   return {
     ...snapshot,
     conversations: snapshot.conversations.filter((conversation) => !deletedIds.has(conversation.conversationId)),
     messages: snapshot.messages.filter((message) => !deletedIds.has(message.conversationId)),
     runs: snapshot.runs.filter((run) => !deletedIds.has(run.conversationId)),
+    runDetails: snapshot.runDetails.filter((run) => !deletedIds.has(run.conversationId)),
     permissionRequests: snapshot.permissionRequests.filter((request) => !deletedRunIds.has(request.runId)),
   };
 }

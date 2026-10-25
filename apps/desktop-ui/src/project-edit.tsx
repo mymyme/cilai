@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useModal } from "./use-modal";
 import type { ProjectSummary, ProjectUpdateResult, WorkspaceSummary } from "./generated/protocol";
 import { rpc } from "./app-server-rpc";

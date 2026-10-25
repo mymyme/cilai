@@ -25,15 +25,15 @@ const macTriple = "aarch64-apple-darwin";
 const windowsTriple = "x86_64-pc-windows-msvc";
 
 test("两端测试包只允许从个人项目构建根生成，release 同样受约束", () => {
-  for (const [platform, project, expected] of [
-    ['darwin', '/Users/tester/personal', '/Users/tester/personal/.personal-build'],
-    ['win32', 'D:\\personal', 'D:\\personal\\.personal-build'],
+  for (const [platform, home, expected] of [
+    ['darwin', '/Users/tester', '/Users/tester/.cilai-personal-builds/desktop'],
+    ['win32', 'D:\\Users\\tester', 'D:\\Users\\tester\\.cilai-personal-builds\\desktop'],
   ]) {
-    const buildRoot = canonicalDebugBuildRoot({ platform, project });
+    const buildRoot = canonicalDebugBuildRoot({ platform, home });
     assert.equal(buildRoot, expected);
     for (const profile of ['debug', 'release']) {
-      assert.doesNotThrow(() => assertDebugPackageLocation({ platform, project, profile, projectRoot: buildRoot, buildRoot }));
-      assert.throws(() => assertDebugPackageLocation({ platform, project, profile, projectRoot: project, buildRoot }), /个人构建目录/);
+      assert.doesNotThrow(() => assertDebugPackageLocation({ platform, home, profile, projectRoot: buildRoot, buildRoot }));
+      assert.throws(() => assertDebugPackageLocation({ platform, home, profile, projectRoot: home, buildRoot }), /个人构建目录/);
     }
   }
 });

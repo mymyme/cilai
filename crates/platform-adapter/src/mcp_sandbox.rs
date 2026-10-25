@@ -457,12 +457,8 @@ mod tests {
     impl Fixture {
         fn new() -> Self {
             static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-            let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .ancestors()
-                .nth(4)
-                .unwrap();
-            let root = project
-                .join(".personal-build/mcp-kernel-fixtures")
+            let root = crate::test_support::personal_build_root()
+                .join("mcp-kernel-fixtures")
                 .join(format!(
                     "probe-{}-{}-{}",
                     std::process::id(),

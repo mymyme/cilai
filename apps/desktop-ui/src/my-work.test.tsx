@@ -88,9 +88,9 @@ const snapshot = {
     { messageId: "message-4", conversationId: "conversation-2", role: "assistant", content: "已经补充状态展示", runId: "run-2", createdAt: 1_700_000_000_300 },
   ],
   runs: [{
-    runId: "run-1", conversationId: "conversation-1", agentId: "agent-1", inputMessageId: "message-1", retryOfRunId: null, provider: "codex", model: "Qwen3.6-35B-A3B-NVFP4", executionTarget: "model", status: "completed", pid: null, startedAt: 1_700_000_000_000, completedAt: 1_700_000_000_100, output: "已经形成任务详情方案", errorReason: null, classificationStatus: "applied", sessionId: null, skillIds: [], toolPermissions: [], permissionRequestId: null, automationRuleId: null, automationRuleVersion: null, sandboxMode: "read-only", events: [], artifacts: [{ artifactId: "artifact-old", artifactType: "document", label: "任务详情旧稿", path: "/tmp/task-detail.md" }, { artifactId: "artifact-1", artifactType: "document", label: "任务详情说明", path: "/tmp/task-detail-latest.md" }], usage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 20 }, logTail: [],
+    runId: "run-1", conversationId: "conversation-1", agentId: "agent-1", inputMessageId: "message-1", retryOfRunId: null, provider: "codex", model: "Qwen3.6-35B-A3B-NVFP4", executionTarget: "model", status: "completed", pid: null, startedAt: 1_700_000_000_000, completedAt: 1_700_000_000_100, outputPreview: "已经形成任务详情方案", errorReason: null, classificationStatus: "applied", sessionId: null, skillIds: [], toolPermissions: [], permissionRequestId: null, automationRuleId: null, automationRuleVersion: null, sandboxMode: "read-only", events: [], artifacts: [{ artifactId: "artifact-old", artifactType: "document", label: "任务详情旧稿", path: "/tmp/task-detail.md" }, { artifactId: "artifact-1", artifactType: "document", label: "任务详情说明", path: "/tmp/task-detail-latest.md" }], usage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 20 }, logTail: [],
   }, {
-    runId: "run-2", conversationId: "conversation-2", agentId: "agent-1", inputMessageId: "message-3", retryOfRunId: null, provider: "codex", model: "Qwen3.8-27B-NVFP4", executionTarget: "model", status: "completed", pid: null, startedAt: 1_700_000_000_200, completedAt: 1_700_000_000_300, output: "已经补充状态展示", errorReason: null, classificationStatus: "applied", sessionId: null, skillIds: [], toolPermissions: [], permissionRequestId: null, automationRuleId: null, automationRuleVersion: null, sandboxMode: "read-only", events: [], artifacts: [{ artifactId: "artifact-2", artifactType: "document", label: "任务详情验收标准", path: "/tmp/task-acceptance.md" }], usage: { inputTokens: 12, cachedInputTokens: 0, outputTokens: 24 }, logTail: [],
+    runId: "run-2", conversationId: "conversation-2", agentId: "agent-1", inputMessageId: "message-3", retryOfRunId: null, provider: "codex", model: "Qwen3.8-27B-NVFP4", executionTarget: "model", status: "completed", pid: null, startedAt: 1_700_000_000_200, completedAt: 1_700_000_000_300, outputPreview: "已经补充状态展示", errorReason: null, classificationStatus: "applied", sessionId: null, skillIds: [], toolPermissions: [], permissionRequestId: null, automationRuleId: null, automationRuleVersion: null, sandboxMode: "read-only", events: [], artifacts: [{ artifactId: "artifact-2", artifactType: "document", label: "任务详情验收标准", path: "/tmp/task-acceptance.md" }], usage: { inputTokens: 12, cachedInputTokens: 0, outputTokens: 24 }, logTail: [],
   }],
 };
 
@@ -100,7 +100,7 @@ beforeEach(() => {
   invoke.mockImplementation((command: string, args?: { method?: string }) => {
     if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [workItem], total: 1 });
     if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: businessTask, contributions });
-    if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+    if (command === "ai_runtime_query") return Promise.resolve(snapshot);
     return Promise.resolve(null);
   });
 });
@@ -123,7 +123,7 @@ describe("工作台卡片对话入口", () => {
         { ...contributions[0], stage: focusGroup === "todo" ? "review" : "todo" },
         { ...contributions[1], stage: focusGroup },
       ] });
-      if (command === "ai_runtime_snapshot") return Promise.resolve({ ...snapshot, conversations: [
+      if (command === "ai_runtime_query") return Promise.resolve({ ...snapshot, conversations: [
         ...snapshot.conversations,
         { ...snapshot.conversations[0], conversationId: "unrelated", updatedAt: 1_800_000_000_000 },
       ] });
@@ -147,7 +147,7 @@ describe("工作台卡片对话入口", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [{ ...workItem, focusGroup: "review" }], total: 1 });
       if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: businessTask, contributions: [...contributions].reverse() });
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot);
       return Promise.resolve(null);
     });
     render(<MyWorkPage eventSequence={0} onMessage={vi.fn()} onOpenConversation={onOpenConversation} onOpenRun={vi.fn()} onOpenSource={vi.fn()} workspaces={[]}/>);
@@ -165,7 +165,7 @@ describe("工作台卡片对话入口", () => {
         contributions[0],
         { ...contributions[0], createdAt: 1_700_000_000_500, conversationStatus: condition === "已完成" ? "completed" : "active", stage: condition === "阶段已改变" ? "todo" : "review" },
       ] });
-      if (command === "ai_runtime_snapshot") return Promise.resolve({
+      if (command === "ai_runtime_query") return Promise.resolve({
         ...snapshot,
         conversations: snapshot.conversations.map((entry) => ({ ...entry, archived: entry.conversationId === "conversation-2" && condition === "已归档" })),
         runs: snapshot.runs.map((entry) => ({ ...entry, superseded: entry.runId === "run-2" && condition === "已被替换" })),
@@ -188,7 +188,7 @@ describe("工作台卡片对话入口", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [item], total: 1 });
       if (command === "app_server_request" && args?.method === "attentionCase/list") return Promise.resolve({ cases: [{ attentionCaseId: "decision-1", agentRunId: "run-1" }] });
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot);
       return Promise.reject(new Error(`unexpected ${command}`));
     });
     render(<MyWorkPage eventSequence={0} onMessage={vi.fn()} onOpenConversation={onOpenConversation} onOpenRun={vi.fn()} onOpenSource={vi.fn()} workspaces={[]}/>);
@@ -203,7 +203,7 @@ describe("工作台卡片对话入口", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [{ ...workItem, focusGroup: "review" }], total: 1 });
       if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.reject(new Error("任务读取超时"));
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot);
       return Promise.resolve(null);
     });
     render(<MyWorkPage eventSequence={0} onMessage={onMessage} onOpenConversation={onOpenConversation} onOpenRun={vi.fn()} onOpenSource={vi.fn()} workspaces={[]}/>);
@@ -265,7 +265,7 @@ describe("工作台任务详情", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [{ ...workItem, focusGroup: "review", actionType: "task_review" }], total: 1 });
       if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: { ...businessTask, status: "review" }, contributions });
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot);
       return Promise.resolve(null);
     });
     render(<MyWorkPage eventSequence={0} onMessage={vi.fn()} onOpenConversation={vi.fn()} onOpenRun={vi.fn()} onOpenSource={vi.fn()} workspaces={[]}/>);
@@ -287,7 +287,7 @@ describe("工作台任务详情", () => {
         task: businessTask,
         contributions: contributions.map((item) => item.runId === "run-1" ? { ...item, conversationStatus: "completed", stage: null } : item),
       });
-      if (command === "ai_runtime_snapshot") return Promise.resolve(snapshot);
+      if (command === "ai_runtime_query") return Promise.resolve(snapshot);
       return Promise.resolve(null);
     });
     render(<MyWorkPage eventSequence={0} onMessage={vi.fn()} onOpenConversation={vi.fn()} onOpenRun={vi.fn()} onOpenSource={vi.fn()} workspaces={[]}/>);
@@ -304,7 +304,7 @@ describe("工作台任务详情", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [{ ...workItem, focusGroup: "todo", blockingRunId: "failed-run", blockingReason: "缺少任务依赖" }], total: 1 });
       if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: businessTask, contributions });
-      if (command === "ai_runtime_snapshot") return Promise.resolve({ ...snapshot, conversations: [...snapshot.conversations, { ...snapshot.conversations[0], conversationId: "unrelated", title: "无关项目对话", context: { ...snapshot.conversations[0].context, taskId: null }, workClassification: null }] });
+      if (command === "ai_runtime_query") return Promise.resolve({ ...snapshot, conversations: [...snapshot.conversations, { ...snapshot.conversations[0], conversationId: "unrelated", title: "无关项目对话", context: { ...snapshot.conversations[0].context, taskId: null }, workClassification: null }] });
       return Promise.resolve(null);
     });
     const onOpenRun = vi.fn();
@@ -375,7 +375,7 @@ describe("工作台任务详情", () => {
           resolvedAt: null,
         }],
       });
-      if (command === "ai_runtime_snapshot") return Promise.resolve({
+      if (command === "ai_runtime_query") return Promise.resolve({
         ...snapshot,
         runs: [...snapshot.runs, { ...snapshot.runs[0], runId: "run-later", startedAt: 1_700_000_000_400, artifacts: [{ artifactId: "later-image", artifactType: "image", label: "后续图片", path: "/tmp/later.png" }] }],
       });
@@ -403,13 +403,13 @@ describe("工作台任务详情", () => {
       inputMessageId: "message-other-task",
       startedAt: 1_700_000_000_400,
       completedAt: 1_700_000_000_500,
-      output: "这是另一个任务的结果",
+      outputPreview: "这是另一个任务的结果",
       artifacts: [{ artifactId: "artifact-other", artifactType: "document", label: "其他任务文件", path: "/tmp/other-task.md" }],
     };
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [workItem], total: 1 });
       if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: businessTask, contributions });
-      if (command === "ai_runtime_snapshot") return Promise.resolve({
+      if (command === "ai_runtime_query") return Promise.resolve({
         ...snapshot,
         conversations: snapshot.conversations.map((conversation) => conversation.conversationId === "conversation-1" ? { ...conversation, workClassification: { ...conversation.workClassification!, runId: foreignRun.runId, taskId: "task-2", taskTitle: "其他任务" } } : conversation),
         messages: [...snapshot.messages, { messageId: "message-other-task", conversationId: "conversation-1", role: "user", content: "处理另一个任务", runId: null, createdAt: 1_700_000_000_400 }],
@@ -430,7 +430,7 @@ describe("工作台任务详情", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [workItem], total: 1 });
       if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: businessTask, contributions });
-      if (command === "ai_runtime_snapshot") return Promise.resolve({
+      if (command === "ai_runtime_query") return Promise.resolve({
         ...snapshot,
         conversations: snapshot.conversations.map((conversation) => conversation.conversationId === "conversation-2" ? { ...conversation, archived: true } : conversation),
       });
@@ -451,7 +451,7 @@ function mockDetail(nextSnapshot: unknown, nextContributions = contributions, im
   invoke.mockImplementation((command: string, args?: { method?: string }) => {
     if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [workItem], total: 1 });
     if (command === "app_server_request" && args?.method === "businessTask/get") return Promise.resolve({ task: businessTask, contributions: nextContributions });
-    if (command === "ai_runtime_snapshot") return Promise.resolve(nextSnapshot);
+    if (command === "ai_runtime_query") return Promise.resolve(nextSnapshot);
     if (command === "ai_artifact_read_image") return imageRead();
     if (command === "ai_artifact_open") return Promise.resolve(null);
     return Promise.reject(new Error(`unexpected ${command}`));

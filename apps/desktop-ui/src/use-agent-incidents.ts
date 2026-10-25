@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { AgentIncidentReportParams, AgentIncidentReportResult } from "./generated/protocol";
-import { loadAiSnapshot, type AiAgentRun, type AiRuntimeSnapshot } from "./ai-runtime";
+import { loadAiRuntimeQuery, type AiRunSummary, type AiRuntimeQuerySnapshot } from "./ai-runtime";
 import { rpc, sha256 } from "./app-server-rpc";
 import { describeServerError, serverErrorReason } from "./server-error";
 
@@ -53,7 +53,7 @@ export function useAgentIncidentReporting(options: {
 
     const sweep = async () => {
       try {
-        const snapshot = await loadAiSnapshot();
+        const snapshot = await loadAiRuntimeQuery({ scope: "incidents" });
         if (cancelled) return;
         let reported = false;
         for (const run of snapshot.runs) {
@@ -81,7 +81,7 @@ export function useAgentIncidentReporting(options: {
   }, [workspaceRoot]);
 }
 
-async function reportIncident(run: AiAgentRun, snapshot: AiRuntimeSnapshot): Promise<boolean> {
+async function reportIncident(run: AiRunSummary, snapshot: AiRuntimeQuerySnapshot): Promise<boolean> {
   const conversation = snapshot.conversations.find((item) => item.conversationId === run.conversationId);
   const taskId = incidentTaskId(run, snapshot);
   // 关注事项只能挂到运行当时已确认的任务重试链。不能用对话现在的绑定
@@ -122,7 +122,7 @@ async function reportIncident(run: AiAgentRun, snapshot: AiRuntimeSnapshot): Pro
   }
 }
 
-function incidentTaskId(run: AiAgentRun, snapshot: AiRuntimeSnapshot): string | null {
+function incidentTaskId(run: AiRunSummary, snapshot: AiRuntimeQuerySnapshot): string | null {
   const conversation = snapshot.conversations.find((item) => item.conversationId === run.conversationId);
   const classification = conversation?.workClassification;
   const taskId = classification?.taskId;
@@ -130,7 +130,7 @@ function incidentTaskId(run: AiAgentRun, snapshot: AiRuntimeSnapshot): string | 
 
   const runsById = new Map(snapshot.runs.map((item) => [item.runId, item]));
   const seen = new Set<string>();
-  let current: AiAgentRun | undefined = run;
+  let current: AiRunSummary | undefined = run;
   while (current) {
     if (current.runId === classification.runId) return taskId;
     const parentId = current.retryOfRunId;

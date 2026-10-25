@@ -1,21 +1,23 @@
+import { delegateManagedScript } from './managed-verification.mjs';
+import { createVerificationFixture } from './verification-fixture.mjs';
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import {
   access,
-  mkdtemp,
   mkdir,
   readFile,
   readdir,
-  realpath,
   rm,
   stat,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { verificationEnvironment } from "./verification-environment.mjs";
 import { strFromU8, unzipSync } from "fflate";
+
+const delegatedStatus = await delegateManagedScript(import.meta.url, { pathArguments: [0, 1] });
+if (delegatedStatus !== null) process.exit(delegatedStatus);
 
 const [executable, windowsHostExecutable, environment = "dev"] = process.argv.slice(2);
 if (!executable) throw new Error("请传入待验收的 contexthub-app-server 可执行文件路径");
@@ -25,7 +27,10 @@ const platform = { darwin: "macos", win32: "windows" }[process.platform];
 const arch = { arm64: "arm64", x64: "x86_64" }[process.arch];
 if (!platform || !arch) throw new Error(`不支持的验收平台：${process.platform}/${process.arch}`);
 
-const temporaryRoot = await realpath(await mkdtemp(join(tmpdir(), "cilai-capability-delivery-")));
+const fixture = await createVerificationFixture("cilai-capability-delivery-");
+const temporaryRoot = fixture.root;
+let fixtureFailure;
+try {
 const childEnvironment = verificationEnvironment(temporaryRoot, { CILAI_DATA_ENVIRONMENT: environment });
 const firstBusinessRoot = join(temporaryRoot, "first", "cn.cilai.personal.workbench", "business");
 let firstProfile = join(temporaryRoot, "first", environment);
@@ -68,7 +73,7 @@ async function prepareProfile(root) {
 
 async function start(root) {
   await prepareProfile(root);
-  const child = spawn(resolve(executable), [
+  const child = fixture.track(spawn(resolve(executable), [
     "serve",
     "--transport",
     "stdio",
@@ -79,16 +84,27 @@ async function start(root) {
     root,
     "--runtime-dir",
     join(root, "run"),
-  ], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, env: childEnvironment });
+  ], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, env: childEnvironment }));
   let requestId = 0;
   let stderr = "";
   const pending = new Map();
+  let fatal;
+  const fail = (error) => {
+    fatal ??= error;
+    for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); }
+    pending.clear();
+  };
+  child.on("error", fail);
+  child.stdin.on("error", fail);
 
   child.stderr.on("data", (chunk) => {
     stderr = `${stderr}${chunk}`.slice(-8000);
   });
   createInterface({ input: child.stdout }).on("line", (line) => {
-    const message = JSON.parse(line);
+    let message;
+    try { message = JSON.parse(line); }
+    catch (error) { fixture.markFailure(error); fail(error); return; }
+    if (!message || typeof message !== "object") { const error = new Error("服务输出不是有效消息"); fixture.markFailure(error); fail(error); return; }
     const pendingRequest = pending.get(message.id);
     if (!pendingRequest) return;
     clearTimeout(pendingRequest.timer);
@@ -108,6 +124,7 @@ async function start(root) {
   });
 
   const rpc = (method, params) => new Promise((resolveRequest, reject) => {
+    if (fatal) { reject(fatal); return; }
     const id = ++requestId;
     const timer = setTimeout(() => {
       pending.delete(id);
@@ -116,11 +133,7 @@ async function start(root) {
     pending.set(id, { resolve: resolveRequest, reject, timer });
     child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
   });
-  const stop = () => new Promise((resolveStop) => {
-    if (child.exitCode !== null) return resolveStop();
-    child.once("exit", resolveStop);
-    child.stdin.end();
-  });
+  const stop = () => fixture.stop(child);
 
   await rpc("initialize", {
     client: { name: "contexthub-desktop", version: "1", platform, arch },
@@ -139,10 +152,10 @@ async function expectRpcReason(action, reason) {
 
 async function windowsHostRequest(command, args) {
   assert.equal(platform, "windows");
-  const child = spawn(resolve(windowsHostExecutable), ["--data-dir", firstBusinessRoot], {
+  const child = fixture.track(spawn(resolve(windowsHostExecutable), ["--data-dir", firstBusinessRoot], {
     stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
     env: childEnvironment,
-  });
+  }));
   let stderr = "";
   child.stderr.on("data", (chunk) => { stderr = `${stderr}${chunk}`.slice(-4000); });
   try {
@@ -155,18 +168,17 @@ async function windowsHostRequest(command, args) {
       child.once("error", (error) => finish(error));
       child.once("exit", (code) => finish(new Error(`宿主提前退出 ${code}: ${stderr}`)));
       createInterface({ input: child.stdout }).on("line", (line) => {
-        const message = JSON.parse(line);
+        let message;
+        try { message = JSON.parse(line); }
+        catch (error) { fixture.markFailure(error); finish(error); return; }
+        if (!message || typeof message !== "object") { finish(new Error("宿主输出不是有效消息")); return; }
         if (message.id === 1) finish(null, message);
       });
       child.stdin.write(`${JSON.stringify({ id: 1, command, args })}\n`);
     });
     return response;
   } finally {
-    if (child.exitCode === null) {
-      const stopped = new Promise((done) => child.once("exit", done));
-      child.kill();
-      await stopped;
-    }
+    await fixture.stop(child);
   }
 }
 
@@ -419,5 +431,7 @@ try {
 } finally {
   await firstServer?.stop();
   await secondServer?.stop();
-  await rm(temporaryRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
+
+} catch (error) { fixtureFailure = error; }
+finally { await fixture.finish(fixtureFailure); }

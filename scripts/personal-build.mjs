@@ -1,35 +1,22 @@
-import { existsSync, lstatSync, realpathSync } from 'node:fs';
-import { basename, dirname, join, posix, resolve, sep, win32 } from 'node:path';
+import { existsSync, realpathSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import location from '../apps/desktop/shell/personal-build-location.js';
 
 export const personalApplication = Object.freeze({
   appId: 'cn.cilai.personal.workbench', productName: '词来个人工作台',
   executableName: 'cilai-personal-workbench', credentialNamespace: 'cn.cilai.personal.workbench',
 });
 const here = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const projectRoot = basename(here) === '.personal-build' ? dirname(here) : resolve(here, '../..');
-export const personalSourceRoot = join(projectRoot, '06代码索引', 'cilai-workbench');
-
-export function personalBuildRoot({ platform = process.platform, project = projectRoot } = {}) {
-  const paths = platform === 'win32' ? win32 : platform === 'darwin' ? posix : null;
-  if (!paths) throw new Error(`个人桌面构建尚未支持 ${platform}`);
-  return paths.resolve(project, '.personal-build');
-}
-
-export function assertNoSymlinkPath(path) {
-  const absolute = resolve(path);
-  const parts = absolute.split(sep);
-  let cursor = absolute.startsWith(sep) ? sep : parts.shift();
-  for (const part of parts.filter(Boolean)) {
-    cursor = join(cursor, part);
-    try {
-      if (lstatSync(cursor).isSymbolicLink()) throw new Error(`个人工程路径不能经过符号链接：${cursor}`);
-    } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  }
-  return absolute;
-}
+const context = location.sourceContext(here);
+export const projectRoot = context.projectRoot;
+export const personalSourceRoot = context.sourceRoot;
+export const personalBuildRoot = location.personalBuildRoot;
+export const assertNoSymlinkPath = location.rejectLinkedAncestors;
+export const registerPersonalBuild = () => location.registerPersonalBuild(here);
 
 export function assertPersonalBuildRoot(root = personalBuildRoot()) {
+  location.sourceContext(here);
   const expected = resolve(personalBuildRoot());
   if (resolve(root) !== expected) throw new Error(`只能写入已登记的个人构建根：${expected}`);
   assertNoSymlinkPath(expected);

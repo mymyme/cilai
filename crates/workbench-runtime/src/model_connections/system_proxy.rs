@@ -663,8 +663,8 @@ mod tests {
     }
 
     fn isolated_environment(mode: &str) {
-        let owner = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../../.personal-build/target-runtime-audit/fixtures")
+        let owner = crate::ai_runtime::model_test_fixture::personal_build_root()
+            .join("target-runtime-audit/fixtures")
             .join(format!("proxy-env-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir_all(&owner).unwrap();
         let mut command = Command::new(std::env::current_exe().unwrap());

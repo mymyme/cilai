@@ -14,12 +14,12 @@ pub mod global_search;
 mod mcp_connections;
 mod model_connections;
 mod model_usage;
-mod personal_automation;
 pub mod my_work;
+mod personal_automation;
 pub mod personal_data;
 mod personal_memory;
-mod personal_storage;
 mod personal_namespace_storage;
+mod personal_storage;
 pub mod preview;
 mod preview_binary;
 mod profile_writers;
@@ -67,9 +67,9 @@ use contexthub_protocol::{
     DeliverableCreateResult, DeliverableListParams, DeliverableListResult,
     DeliverableVersionCreateParams, DeliverableVersionCreateResult, DeliverableVersionReviewParams,
     DeliverableVersionReviewResult, DurableEventItem, EventReplayParams, EventReplayResult, Frame,
-    GlobalSearchParams, GlobalSearchResult, INVALID_PARAMS, InitializeParams, InitializeResult,
-    MAX_MESSAGE_BYTES, MAX_PAGE_SIZE, METHOD_NOT_FOUND, MyWorkGetParams, MyWorkGetResult,
-    Notification, OpenPreviewParams, OpenPreviewResult, PROTOCOL_MAX_VERSION, PROTOCOL_MIN_VERSION,
+    GlobalSearchParams, INVALID_PARAMS, InitializeParams, InitializeResult, MAX_MESSAGE_BYTES,
+    MAX_PAGE_SIZE, METHOD_NOT_FOUND, MyWorkGetParams, MyWorkGetResult, Notification,
+    OpenPreviewParams, OpenPreviewResult, PROTOCOL_MAX_VERSION, PROTOCOL_MIN_VERSION,
     PersonalApplicationOpenParams, PhasePlanActivateParams, PhasePlanActivateResult,
     PhasePlanCreateParams, PhasePlanCreateResult, ProjectAttachWorkspaceParams,
     ProjectAttachWorkspaceResult, ProjectBlockerCreateParams, ProjectBlockerCreateResult,
@@ -1141,19 +1141,6 @@ impl AppServerServices {
         .map_err(|error| project_outcome_service_error(&error))
     }
 
-    fn global_search(
-        &mut self,
-        params: &GlobalSearchParams,
-    ) -> Result<GlobalSearchResult, ServiceError> {
-        global_search::query(
-            self.persistence
-                .as_mut()
-                .ok_or_else(|| ServiceError::new("persistence_unavailable"))?,
-            params,
-        )
-        .map_err(|error| project_outcome_service_error(&error))
-    }
-
     fn attention_case_list(
         &mut self,
         params: &AttentionCaseListParams,
@@ -1756,7 +1743,12 @@ impl ConnectionRouter {
                     .is_some_and(|action| {
                         matches!(
                             action,
-                            "update" | "close" | "restartBlockers" | "read" | "recoverable" | "usage"
+                            "update"
+                                | "close"
+                                | "restartBlockers"
+                                | "read"
+                                | "recoverable"
+                                | "usage"
                         )
                     }))
             || (method == "aiHistory/execute"
@@ -2407,12 +2399,7 @@ impl ConnectionRouter {
                 "My work projection read failed",
                 |services, value, _| services.my_work_get(value),
             ),
-            "globalSearch/query" => self.route_typed_service_call::<GlobalSearchParams, _>(
-                id,
-                params,
-                "Global search failed",
-                |services, value, _| services.global_search(value),
-            ),
+            "globalSearch/query" => self.route_global_search(id, params),
             "unifiedSearch/query" => self.route_unified_search(id, params),
             "attentionCase/list" => self.route_typed_service_call::<AttentionCaseListParams, _>(
                 id,
@@ -2698,6 +2685,44 @@ impl ConnectionRouter {
         self.route_service_call(id, message, |services, now| {
             operation(services, &params, now)
         })
+    }
+
+    fn route_global_search(
+        &self,
+        id: contexthub_protocol::RequestId,
+        params: Option<Value>,
+    ) -> String {
+        let Some(params) = parse_params::<GlobalSearchParams>(params) else {
+            return invalid_params(id, "invalid_method_params");
+        };
+        let Some(services) = &self.services else {
+            return business_error(
+                id,
+                "app_service_unavailable",
+                "Application service is unavailable",
+                json!({}),
+            );
+        };
+        let reader = services
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .persistence
+            .as_ref()
+            .ok_or_else(|| ServiceError::new("persistence_unavailable"))
+            .and_then(|persistence| {
+                persistence
+                    .global_search_reader()
+                    .map_err(|error| project_outcome_service_error(&error))
+            });
+        let result = reader.and_then(|mut reader| {
+            global_search::query_reader_page(&mut reader, &params, None)
+                .map(|page| page.0)
+                .map_err(|error| project_outcome_service_error(&error))
+        });
+        match result {
+            Ok(result) => success(id, &result).expect("global search result serializes"),
+            Err(error) => business_error(id, error.reason, "Global search failed", json!({})),
+        }
     }
 
     fn route_unified_search(

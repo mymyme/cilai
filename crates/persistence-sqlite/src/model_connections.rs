@@ -23,8 +23,8 @@ use contexthub_protocol::{
     ModelSelectionPolicy, ModelThreadRuntimeScope, ModelValidationExecutionParams,
     ModelValidationLayer, ModelValidationOutcome, ModelValidationPrepareParams,
     ModelValidationRecord, ModelValidationReportParams, RootAuthChange,
-    model_active_auth_generation, model_purpose_runtime_kind, model_runtime_home_scope,
-    model_validation_auth_generation,
+    is_legacy_model_credential_reference, model_active_auth_generation, model_purpose_runtime_kind,
+    model_runtime_home_scope, model_validation_auth_generation,
 };
 use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Serialize, de::DeserializeOwned};
@@ -252,8 +252,11 @@ fn validate_config(config: &ModelConnectionConfig) -> Result<(), PersistenceErro
         _ => (),
     }
     if let Some(reference) = &config.network.proxy_secret_ref
-        && (!matches!(reference.service.as_str(), contexthub_protocol::MODEL_NETWORK_CREDENTIAL_SERVICE | contexthub_protocol::LEGACY_MODEL_NETWORK_CREDENTIAL_SERVICE)
-            || !valid_text(&reference.account, 200))
+        && (!matches!(
+            reference.service.as_str(),
+            contexthub_protocol::MODEL_NETWORK_CREDENTIAL_SERVICE
+                | contexthub_protocol::LEGACY_MODEL_NETWORK_CREDENTIAL_SERVICE
+        ) || !valid_text(&reference.account, 200))
     {
         return Err(reject("model_proxy_secret_scope_invalid"));
     }
@@ -354,6 +357,19 @@ fn validate_pending_change(
     Ok(())
 }
 
+fn retained_secret_reference(
+    connection: Option<&ModelConnection>,
+) -> Result<Option<ModelSecretRef>, PersistenceError> {
+    let reference = connection.and_then(|connection| connection.secret_ref.clone());
+    if reference
+        .as_ref()
+        .is_some_and(is_legacy_model_credential_reference)
+    {
+        return Err(reject("model_credential_reentry_required"));
+    }
+    Ok(reference)
+}
+
 fn save_prepare(
     tx: &Transaction<'_>,
     params: ModelConnectionSavePrepareParams,
@@ -414,13 +430,7 @@ fn save_prepare(
         next(max_auth)?
     };
     let secret_ref = match params.credential_action {
-        ModelCredentialAction::Keep => {
-            let reference = old.as_ref().and_then(|c| c.secret_ref.clone());
-            if reference.as_ref().is_some_and(contexthub_protocol::is_legacy_model_credential_reference) {
-                return Err(reject("model_credential_reentry_required"));
-            }
-            reference
-        },
+        ModelCredentialAction::Keep => retained_secret_reference(old.as_ref())?,
         ModelCredentialAction::Replace => Some(ModelSecretRef {
             service: MODEL_CREDENTIAL_SERVICE.into(),
             account: format!("{profile_id}:{id}:{auth_generation}"),

@@ -1,15 +1,18 @@
 import type { WorkspaceProjectIdentity } from "./project-workspaces";
 import { invoke } from "./host";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { ConflictItem, WorkspaceFileItem, WorkspaceSummary } from "./generated/protocol";
 import type { MessageSink } from "./app-message";
-import { FilePreviewPane, type PreviewView } from "./preview";
+import type { PreviewView } from "./preview";
 import { FileDiffPane } from "./text-diff";
 import { FileConfirmationDialog } from "./file-confirmation";
-import { buildStatusChips, documentStatusLabel, fileDisplayStatus, StatusChip, confirmationNeedsAction, conflictLabel, localStatusLabel, presenceLabel } from "./file-status";
-import { AiIcon, BackIcon, ChevronIcon, CheckIcon, CloseIcon, CodeIcon, ConfirmIcon, DiffIcon, ExternalOpenIcon, EyeIcon, FileIcon, Folder, InfoIcon, MoreIcon, RevealIcon, SearchIcon, TreeFolderIcon, WorkspaceIcon } from "./icons";
+import { buildStatusChips, StatusChip, localStatusLabel, presenceLabel } from "./file-status";
+import { AiIcon, BackIcon, CheckIcon, CloseIcon, CodeIcon, ConfirmIcon, DiffIcon, ExternalOpenIcon, EyeIcon, FileIcon, Folder, InfoIcon, MoreIcon, RevealIcon, SearchIcon, WorkspaceIcon } from "./icons";
 import { hostPlatformUi } from "./host-platform-ui";
 import { LoadFailure } from "./load-failure";
+
+const FilePreviewPane = lazy(() => import("./preview").then(module => ({ default: module.FilePreviewPane })));
+
 
 /** 这一页自己的读取状态：外壳靠它决定先画骨架还是画失败页。 */
 export type LoadState = "loading" | "ready" | "error";
@@ -108,7 +111,6 @@ export function WorkspacePage(props: { hostPlatform: string | null; loadError: u
   if (props.loadState === "error") return <LoadFailure error={props.loadError} what="工作区" onRetry={props.onRetryLoad}/>;
   if (!props.selectedWorkspace) return <div className="empty-state"><Folder/><h2>连接本地文件夹</h2><p>选择后即可扫描、浏览和预览本地文件。</p><button disabled={props.connectingWorkspace} onClick={() => void props.createWorkspace()} type="button">{props.connectingWorkspace ? "正在选择…" : "连接本地目录"}</button></div>;
   if (props.selectedWorkspace.workspaceKind !== "local") return <div className="empty-state" role="alert"><h2>旧云端来源不可用</h2><p>{props.selectedWorkspace.displayName}</p><p>个人版不支持此云端来源，请明确选择本地文件。</p></div>;
-  const activeConflict = props.conflicts.find((item) => item.localFileId === props.selectedFile?.localFileId) ?? null;
   // Chips report what needs a human. States that mean "nothing to do here" are omitted rather
   // than spelled out, so a healthy file shows no chips at all instead of three saying so. The
   // confirmation chip also stands down while the 待确认 button is showing, because that button
@@ -157,7 +159,7 @@ export function WorkspacePage(props: { hostPlatform: string | null; loadError: u
         </div>
       </div>
       <div className="document-canvas">{props.selectedFile ? view === "preview"
-        ? <FilePreviewPane workspaceId={props.selectedWorkspace.workspaceId} workspaceKind={props.selectedWorkspace.workspaceKind} localRoot={props.selectedWorkspace.localRoot} hostPlatform={props.hostPlatform} file={props.selectedFile} view={previewView} onViewAvailabilityChange={setPreviewViewAvailable} hasFormalConflict={activeConflict !== null} onConfirm={() => setConfirmationDialogOpen(true)} onShowDiff={() => setView("diff")}/>
+        ? <Suspense fallback={<div className="preview-message" role="status">正在加载预览</div>}><FilePreviewPane workspaceId={props.selectedWorkspace.workspaceId} workspaceKind={props.selectedWorkspace.workspaceKind} localRoot={props.selectedWorkspace.localRoot} hostPlatform={props.hostPlatform} file={props.selectedFile} view={previewView} onViewAvailabilityChange={setPreviewViewAvailable}/></Suspense>
         : <FileDiffPane workspaceId={props.selectedWorkspace.workspaceId} localFileId={props.selectedFile.localFileId} leftSource="baseline" rightSource="local"/>
         : null}</div>
     </section>
@@ -184,58 +186,6 @@ export function WorkspacePage(props: { hostPlatform: string | null; loadError: u
 
 export function fileNameFromRelativePath(relativePath: string): string {
   return relativePath.split("/").filter(Boolean).at(-1) ?? relativePath;
-}
-
-export function VirtualFileTree({ files, workspaceKind, selectedFileId, selectedDirectoryPath, onDirectory, onFile, onContext }: { files: WorkspaceFileItem[]; workspaceKind: string; selectedFileId: string | null; selectedDirectoryPath?: string | null; onDirectory?: (path: string) => void; onFile: (id: string) => void; onContext: (event: React.MouseEvent, file: WorkspaceFileItem) => void }) {
-  const rowHeight = 32;
-  const overscan = 10;
-  const container = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const [collapsedDirectories, setCollapsedDirectories] = useState<Set<string>>(() => new Set());
-  useEffect(() => {
-    const element = container.current;
-    if (!element) return;
-    const resize = new ResizeObserver(() => setViewportHeight(element.clientHeight));
-    resize.observe(element);
-    setViewportHeight(element.clientHeight);
-    return () => resize.disconnect();
-  }, []);
-  useEffect(() => {
-    if (!selectedDirectoryPath) return;
-    setCollapsedDirectories((current) => new Set([...current].filter((path) => !selectedDirectoryPath.startsWith(`${path}/`))));
-  }, [selectedDirectoryPath]);
-  const visibleFiles = useMemo(() => files.filter((file) => {
-    const parts = file.relativePath.split("/");
-    let parent = "";
-    for (let index = 0; index < parts.length - 1; index += 1) {
-      parent = parent ? `${parent}/${parts[index]}` : parts[index];
-      if (collapsedDirectories.has(parent)) return false;
-    }
-    return true;
-  }), [collapsedDirectories, files]);
-  const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
-  const visibleCount = Math.ceil(viewportHeight / rowHeight) + overscan * 2;
-  const end = Math.min(visibleFiles.length, start + Math.max(visibleCount, 30));
-  const toggleDirectory = (path: string) => setCollapsedDirectories((current) => {
-    const next = new Set(current);
-    if (next.has(path)) next.delete(path); else next.add(path);
-    return next;
-  });
-  return <div aria-label={`文件列表，共 ${files.length} 项`} className="file-tree" onClick={(event) => { if (!(event.target as HTMLElement).closest("button")) onDirectory?.(""); }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)} ref={container}>
-    <div className="file-tree-spacer" style={{ height: visibleFiles.length * rowHeight }}>
-      <div className="file-tree-items" style={{ transform: `translateY(${start * rowHeight}px)` }}>
-        {visibleFiles.slice(start, end).map((file) => {
-          const directory = file.fileType === "directory";
-          const status = directory ? null : fileDisplayStatus(file.displayState, workspaceKind);
-          const name = file.relativePath.split("/").at(-1) ?? file.relativePath;
-          const depth = Math.max(0, file.relativePath.split("/").length - 1);
-          const disabled = !directory && (file.fileType !== "file" || file.presenceState !== "present");
-          return <button aria-expanded={directory ? !collapsedDirectories.has(file.relativePath) : undefined} className={`${(directory ? file.relativePath === selectedDirectoryPath : file.localFileId === selectedFileId) ? "selected" : ""} ${directory ? "directory" : ""}`} disabled={disabled} key={file.localFileId} onClick={() => { if (directory) { onDirectory?.(file.relativePath); toggleDirectory(file.relativePath); } else onFile(file.localFileId); }} onContextMenu={(event) => onContext(event, file)} style={{ paddingLeft: 6 + depth * 14 }} title={file.relativePath} type="button">{directory ? <><ChevronIcon collapsed={collapsedDirectories.has(file.relativePath)}/><TreeFolderIcon/></> : <><span className="tree-indent"/><FileIcon/></>}<span>{name}</span>{status ? <i aria-hidden="true" data-file-status={status.state} data-tone={status.tone} title={status.label}/> : <i className="file-state-spacer"/>}</button>;
-        })}
-      </div>
-    </div>
-  </div>;
 }
 
 function Row({ label, value }: { label: string; value: string }) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }

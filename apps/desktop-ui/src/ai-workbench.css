@@ -681,9 +681,6 @@
 
 .starter-file-more { margin: 8px 14px; padding: 7px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-secondary); cursor: pointer; }
 
-.ai-document-attachment { display: flex; align-items: center; gap: 8px; max-width: 260px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 8px; overflow-wrap: anywhere; }
-.ai-document-attachment svg { width: 20px; height: 20px; flex-shrink: 0; }
-.ai-document-attachment small { display: block; color: var(--text-secondary); font-size: 11px; }
 
 .ai-history-more { align-self:center; padding:8px 12px; border:1px solid var(--border-default); border-radius:8px; background:var(--bg-surface); color:var(--text-secondary); cursor:pointer; }
 
@@ -724,6 +721,4 @@
 .ai-conversation-main > .model-catalog-error-conversation button:hover { background: var(--bg-hover); }
 
 .ai-file-attachment { width: auto; height: auto; max-width: 260px; }
-.ai-file-attachment .ai-document-attachment { min-height: 42px; height: 100%; }
-.ai-file-attachment .ai-document-attachment > span { min-width: 0; }
 .ai-queued-followups .ai-message-attachments { width: 100%; justify-content: flex-start; margin: 0; }

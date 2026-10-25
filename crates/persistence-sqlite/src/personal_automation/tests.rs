@@ -15,8 +15,10 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let root =
-            std::env::temp_dir().join(format!("automation-{}", uuid::Uuid::new_v4().simple()));
+        let root = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("automation-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir(&root).unwrap();
         let mut db =
             SqlitePersistence::open(&root.join("contexthub.db"), "automation-test").unwrap();

@@ -1,15 +1,19 @@
+import { delegateManagedScript } from './managed-verification.mjs';
+import { createVerificationFixture } from './verification-fixture.mjs';
 import { verificationEnvironment } from "./verification-environment.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createInterface } from "node:readline";
 import { once } from "node:events";
+
+const delegatedStatus = await delegateManagedScript(import.meta.url, { pathArguments: [0] });
+if (delegatedStatus !== null) process.exit(delegatedStatus);
 
 const executable = process.argv[2];
 const source = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,7 +25,10 @@ const policyFlags = [...policySource.matchAll(/"((?:features\.[a-z_]+|skills\.bu
 assert.ok(policyFlags.includes("features.shell_tool=false"));
 assert.ok(policyFlags.includes("features.view_image=false"));
 if (!executable) throw new Error("请传入随包 Codex App Server 路径；本探针只使用本机模拟模型");
-const root = await realpath(await mkdtemp(join(tmpdir(), "cilai-report-materials-probe-")));
+const fixture = await createVerificationFixture("cilai-report-materials-probe-");
+const root = fixture.root;
+let fixtureFailure;
+try {
 const home = join(root, "harness");
 const workspace = join(root, "workspace");
 const outside = join(root,"outside-sensitive-material.txt");
@@ -68,6 +75,7 @@ const backend = createServer(async (req, res) => {
     res.end();
   } catch (error) { res.writeHead(500).end(String(error)); }
 });
+fixture.trackServer(backend);
 backend.listen(0, "127.0.0.1");
 await once(backend, "listening");
 const origin = `http://127.0.0.1:${backend.address().port}`;
@@ -103,19 +111,23 @@ const localOverrides = [
   'model_providers.probe.stream_max_retries=0',
 ];
 function start() {
-  const child = spawn(resolve(executable), ["--listen", "stdio://", "--session-source", "app-server", "-c", `model_catalog_json=${JSON.stringify(catalogPath)}`, ...[...localOverrides,...policyFlags].flatMap((value) => ["-c", value]), "-c", `mcp_servers.cilai_application.url="${origin}/mcp"`], {
+  const child = fixture.track(spawn(resolve(executable), ["--listen", "stdio://", "--session-source", "app-server", "-c", `model_catalog_json=${JSON.stringify(catalogPath)}`, ...[...localOverrides,...policyFlags].flatMap((value) => ["-c", value]), "-c", `mcp_servers.cilai_application.url="${origin}/mcp"`], {
     cwd: workspace,
     env: verificationEnvironment(root, { CODEX_HOME: home, CODEX_SQLITE_HOME: home, OPENAI_API_KEY: "local-probe-only" }),
     stdio: ["pipe", "pipe", "pipe"],
-  });
+  }));
   const pending = new Map();
+  let fatal;
   const events = [];
   let id = 0;
   let stderr = "";
   child.stderr.on("data", (data) => { stderr = (stderr + data).slice(-6000); });
   const lines = createInterface({ input: child.stdout });
   lines.on("line", (line) => {
-    const message = JSON.parse(line);
+    let message;
+    try { message = JSON.parse(line); }
+    catch (error) { fixture.markFailure(error); fail(error); return; }
+    if (!message || typeof message !== "object") { const error = new Error("服务输出不是有效消息"); fixture.markFailure(error); fail(error); return; }
     const request = pending.get(message.id);
     if (!request) { events.push(message); return; }
     pending.delete(message.id);
@@ -123,10 +135,12 @@ function start() {
     if (message.error) request.reject(new Error(JSON.stringify(message.error)));
     else request.resolve(message.result);
   });
-  const fail = (error) => { for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); } pending.clear(); };
+  const fail = (error) => { fatal ??= error; for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); } pending.clear(); };
   child.on("error", fail);
+  child.stdin.on("error", fail);
   child.on("exit", (code) => fail(new Error(`Harness退出 ${code}: ${stderr}`)));
   const rpc = (method, params) => new Promise((resolveRequest, reject) => {
+    if (fatal) { reject(fatal); return; }
     const requestId = ++id;
     const timer = setTimeout(() => { pending.delete(requestId); reject(new Error(`RPC超时 ${method}: ${stderr}`)); }, 20000);
     pending.set(requestId, { resolve: resolveRequest, reject, timer });
@@ -148,8 +162,8 @@ function start() {
       throw new Error(`等待回合超时: ${stderr}`);
     },
     async stop() {
+      await fixture.stop(child);
       lines.close();
-      if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; }
     },
   };
 }
@@ -215,6 +229,7 @@ try {
   console.log("report_materials_native_policy=passed; modelBillingRequests=0");
 } finally {
   if (server) await server.stop();
-  await new Promise((done) => backend.close(done));
-  await rm(root, { recursive: true, force: true });
 }
+
+} catch (error) { fixtureFailure = error; }
+finally { await fixture.finish(fixtureFailure); }

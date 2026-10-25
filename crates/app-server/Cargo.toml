@@ -8,14 +8,14 @@ publish.workspace = true
 
 [dependencies]
 base64 = "=0.22.1"
-contexthub-application = { path = "../application", version = "=0.1.0" }
-contexthub-domain = { path = "../domain", version = "=0.1.0" }
-contexthub-local-transport = { path = "../local-transport", version = "=0.1.0" }
-contexthub-observability = { path = "../observability", version = "=0.1.0" }
-contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.0" }
-contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.0" }
-contexthub-protocol = { path = "../protocol", version = "=0.1.0" }
-contexthub-workspace-fs = { path = "../workspace-fs", version = "=0.1.0" }
+contexthub-application = { path = "../application", version = "=0.1.1" }
+contexthub-domain = { path = "../domain", version = "=0.1.1" }
+contexthub-local-transport = { path = "../local-transport", version = "=0.1.1" }
+contexthub-observability = { path = "../observability", version = "=0.1.1" }
+contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.1" }
+contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.1" }
+contexthub-protocol = { path = "../protocol", version = "=0.1.1" }
+contexthub-workspace-fs = { path = "../workspace-fs", version = "=0.1.1" }
 chrono = { version = "=0.4.44", default-features = false, features = ["std"] }
 regex = "=1.13.1"
 serde_json = "=1.0.151"

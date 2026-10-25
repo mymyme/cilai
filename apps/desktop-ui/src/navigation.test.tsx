@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { loadLocalProfile } from "./local-profile";
+import type { AiRuntimeQuery, AiRuntimeQuerySnapshot, AiRuntimeSnapshot } from "./ai-runtime";
 
 // Regression tests for the project navigation / restore rules that three review rounds found
 // broken. They drive the real App against a mocked Tauri IPC boundary, because every one of
@@ -110,6 +111,39 @@ const emptyAiSnapshot = {
   permissionRequests: [], inboxReadItemIds: [], automationRules: [], skills: [],
 };
 
+function runtimeQueryFixture(source: unknown, args: unknown): AiRuntimeQuerySnapshot {
+  const snapshot = source as AiRuntimeSnapshot;
+  const request = (args as { request: AiRuntimeQuery }).request;
+  const details = request.scope === "conversation" || request.scope === "run";
+  const runTarget = snapshot.runs.find((run) => run.runId === request.runId);
+  const target = request.conversationId ?? runTarget?.conversationId;
+  const conversations = snapshot.conversations.filter((conversation) => {
+    if (request.scope === "archive") return conversation.archived;
+    if (request.scope === "project" || request.scope === "work") return conversation.context.projectId === request.projectId;
+    return !details || conversation.conversationId === target;
+  });
+  const conversationIds = new Set(conversations.map((conversation) => conversation.conversationId));
+  const runs = snapshot.runs.filter((run) => conversationIds.has(run.conversationId)
+    && request.scope !== "archive"
+    && (request.scope !== "automations" || run.automationRuleId)
+    && (request.scope !== "work" || !request.runIds || request.runIds.includes(run.runId))
+    && (request.scope !== "run" || run.runId === request.runId));
+  const runIds = new Set(runs.map((run) => run.runId));
+  const inputIds = new Set(runs.map((run) => run.inputMessageId));
+  return {
+    scope: request.scope, stateRevision: snapshot.stateRevision,
+    agents: request.scope === "automations" || request.scope === "incidents" ? snapshot.agents : [],
+    conversations,
+    messages: snapshot.messages.filter((message) => request.scope === "conversation" ? conversationIds.has(message.conversationId)
+      : request.scope === "run" ? Boolean(message.runId && runIds.has(message.runId))
+      : request.scope === "work" && message.role === "user" && inputIds.has(message.messageId)),
+    runs: details ? [] : runs.map((run) => ({ ...run, outputPreview: request.scope === "work" ? run.output?.slice(0, 240) ?? null : null })),
+    runDetails: details ? runs : [],
+    permissionRequests: details ? snapshot.permissionRequests.filter((permission) => runIds.has(permission.runId)) : [],
+    automationRules: request.scope === "automations" ? snapshot.automationRules : [],
+  };
+}
+
 function appServerStatus() {
   const failed = serverPhase === "failed";
   return {
@@ -155,6 +189,7 @@ beforeEach(() => {
     if (command === "app_server_status") return Promise.resolve(appServerStatus());
     if (command === "app_server_restart") return Promise.resolve(appServerStatus());
     if (command === "host_platform") return Promise.resolve(hostPlatform);
+    if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
     if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
     if (["model_connection_list", "model_connection_change_list", "model_credential_cleanup_list", "model_purpose_list"].includes(command)) return Promise.resolve([]);
     if (command === "local_user_profile") return Promise.resolve({ displayName: "测试用户", username: "tester", accountMode: "本地账户" });
@@ -299,6 +334,7 @@ test.each([["todo", "继续处理"], ["decision", "确认决策"], ["review", "�
   };
   const originalInvoke = invoke.getMockImplementation()!;
   invoke.mockImplementation((command: string, args?: { method?: string }) => {
+    if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(navigationSnapshot, args));
     if (command === "ai_runtime_snapshot") return Promise.resolve(navigationSnapshot);
     if (command === "app_server_request" && args?.method === "myWork/get") return Promise.resolve({ items: [{
       workItemId: "task:task-1", sourceType: "business_task", sourceId: "task-1", projectId: "proj-1", projectName: "示例项目", primaryWorkspaceId: "ws-1", phaseId: null, phaseName: null, taskId: "task-1", deliverableId: null, deliverableTitle: null, attentionCaseId: null, title: "当前任务", actionType: "task_execute", focusGroup, responsibilityType: "collaboration", responsibilityLabel: "AI 对话协作", priority: "medium", dueAt: null, sourceRevision: 1, updatedAt: 2,
@@ -458,6 +494,7 @@ describe("读不出来与这里是空的", () => {
   test("工作区读取失败时说明是读取失败，而不是劝用户新建一个", async () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
+      if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
       if (command === "app_server_request") {
         const method = args?.method ?? "";
@@ -497,6 +534,7 @@ describe("读不出来与这里是空的", () => {
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
       if (command === "host_platform") return Promise.resolve(hostPlatform);
+      if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
       if (command === "local_user_profile") return Promise.resolve({ displayName: "测试用户", username: "tester", accountMode: "本地账户" });
       if (command === "enterprise_capability_catalog") return Promise.resolve({ items: [] });
@@ -539,6 +577,7 @@ describe("提示分档", () => {
     window.localStorage.setItem(projectDetailStorageKey, JSON.stringify({ projectId: "proj-1", phaseId: "phase-1" }));
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
+      if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
       if (command === "app_server_request") {
         const method = args?.method ?? "";
@@ -693,6 +732,7 @@ describe("应用重启恢复项目与阶段上下文", () => {
     window.localStorage.setItem(projectDetailStorageKey, JSON.stringify({ projectId: "gone", phaseId: null }));
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
+      if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
       if (command === "app_server_request") {
         const method = args?.method ?? "";
@@ -884,7 +924,7 @@ describe("项目上下文的保留与退出", () => {
   test("点击标题行「返回」后清除恢复记录", async () => {
     window.localStorage.setItem(projectDetailStorageKey, JSON.stringify({ projectId: "proj-1", phaseId: "phase-1" }));
 
-    const { container } = await renderApp();
+    await renderApp();
     await waitForProjectDetail();
     await waitFor(() => expect(screen.queryByRole("button",{name:"返回项目列表"})).not.toBeNull());
 
@@ -932,6 +972,7 @@ describe("项目上下文的保留与退出", () => {
     let releaseProjectGet: (() => void) | null = null;
     invoke.mockImplementation((command: string, args?: { method?: string }) => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
+      if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
       if (command === "app_server_request") {
         const method = args?.method ?? "";
@@ -994,6 +1035,7 @@ describe("文件页选择恢复", () => {
     invoke.mockImplementation((command: string, args?: { method?: string; params?: { workspaceId?: string } }) => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
       if (command === "host_platform") return Promise.resolve(hostPlatform);
+      if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
       if (command === "local_user_profile") return Promise.resolve({ displayName: "测试用户", username: "tester", accountMode: "本地账户" });
       if (command === "enterprise_capability_catalog") return Promise.resolve({ items: [] });
@@ -1148,6 +1190,7 @@ test("归档成功提示查看定位详情，跨页撤销后会话恢复", async
   let state = { ...emptyAiSnapshot, stateRevision: 1, conversations: [conversation], messages: [{ messageId: "archive-message", conversationId: conversation.conversationId, role: "user", content: "归档前的完整正文", runId: null, createdAt: 1, attachments: [] }] };
   const original = invoke.getMockImplementation()!;
   invoke.mockImplementation((command: string, args?: { request?: { archived: boolean }; method?: string }) => {
+    if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(state, args));
     if (command === "ai_runtime_snapshot") return Promise.resolve(state);
     if (command === "ai_conversation_set_archived") {
       state = { ...state, stateRevision: state.stateRevision + 1, conversations: [{ ...state.conversations[0], archived: args!.request!.archived }] };

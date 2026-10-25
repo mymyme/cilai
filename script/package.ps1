@@ -71,7 +71,7 @@ $CheckOutput = Join-Path $CheckDirectory "headless-check.stdout.log"
 $CheckError = Join-Path $CheckDirectory "headless-check.stderr.log"
 # GUI 子系统程序直接调用可能立即返回且不更新 LASTEXITCODE；等待自检主进程，
 # 避免 Start-Process -Wait 因仍在运行的子进程而无法结束构建入口。
-$CheckUserData = Join-Path $BuildRoot ('tmp\desktop-headless-' + [Guid]::NewGuid().ToString('N'))
+$CheckUserData = Join-Path $env:TEMP ('desktop-headless-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $CheckUserData | Out-Null
 $CheckLocalData = Join-Path $CheckUserData 'local'
 $CheckRoamingData = Join-Path $CheckUserData 'roaming'
@@ -108,6 +108,15 @@ while (Get-PackagedProcesses) {
     Start-Sleep -Milliseconds 100
 }
 if ($Launch) {
+    $LaunchTempJson = & node (Join-Path $ProjectRoot 'scripts\storage-lifecycle.mjs') --launch-temp-environment-json
+    if ($LASTEXITCODE -ne 0) { throw '无法恢复应用启动的临时环境' }
+    $LaunchTemp = $LaunchTempJson | ConvertFrom-Json
+    foreach ($Name in @('TMPDIR', 'TMP', 'TEMP')) {
+        [Environment]::SetEnvironmentVariable($Name, $LaunchTemp.$Name, 'Process')
+    }
+    [Environment]::SetEnvironmentVariable('CILAI_BUILD_RUN_TMP', $null, 'Process')
+    [Environment]::SetEnvironmentVariable('CILAI_BUILD_ORIGINAL_TEMP_ENV', $null, 'Process')
+    [Environment]::SetEnvironmentVariable('CILAI_BUILD_LOCK_TOKEN', $null, 'Process')
     Start-Process -FilePath $Executable
     for ($Attempt = 0; $Attempt -lt 20; $Attempt++) {
         $Running = Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $Executable }

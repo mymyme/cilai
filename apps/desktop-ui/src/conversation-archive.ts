@@ -21,7 +21,7 @@ export async function setConversationsArchived(conversationIds: string[], archiv
   return result;
 }
 
-export function mergeArchivedConversations(snapshot: AiRuntimeSnapshot, result: ConversationArchiveResult): AiRuntimeSnapshot {
+export function mergeArchivedConversations<T extends Pick<AiRuntimeSnapshot, "stateRevision" | "conversations">>(snapshot: T, result: ConversationArchiveResult): T {
   if (result.stateRevision < snapshot.stateRevision) return snapshot;
   const updates = new Map(result.conversations.map((item) => [item.conversationId, item]));
   const conversations = snapshot.conversations.map((item) => {

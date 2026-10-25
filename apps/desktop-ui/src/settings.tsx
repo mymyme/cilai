@@ -67,7 +67,7 @@ export function SettingsPage(props: {
       <RetainedPage settings active={props.section === "updates"}><DesktopUpdateSettingsPage/></RetainedPage>
       <RetainedPage settings active={props.section === "diagnostics"}><TestDiagnosticsSettings/></RetainedPage>
       <RetainedPage settings active={props.section === "usage"}><PersonalUsageSettings/></RetainedPage>
-      <RetainedPage settings active={props.section === "tools"}><McpConnectionSettings/></RetainedPage>
+      <RetainedPage settings active={props.section === "tools"}><McpConnectionSettings hostPlatform={props.hostPlatform}/></RetainedPage>
       <RetainedPage settings active={props.section === "data"}><PersonalDataSettings profileId={props.profileId}/></RetainedPage>
       <RetainedPage settings active={props.section === "notifications"}><PersonalNotificationSettingsPanel profileId={props.profileId}/></RetainedPage>
       <RetainedPage settings active={props.section === "archived"}><ArchivedConversationsPage projects={props.projects} onMessage={props.onMessage} openIntent={props.archiveOpenIntent}/></RetainedPage>

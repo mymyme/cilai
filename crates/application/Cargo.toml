@@ -7,8 +7,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-contexthub-domain = { path = "../domain", version = "=0.1.0" }
-contexthub-manifest = { path = "../manifest", version = "=0.1.0" }
+contexthub-domain = { path = "../domain", version = "=0.1.1" }
+contexthub-manifest = { path = "../manifest", version = "=0.1.1" }
 
 [lints]
 workspace = true

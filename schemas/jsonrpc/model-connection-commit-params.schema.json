@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "credentialRef": {
-      "description": "Host 在系统库写入并读回核验后提交此引用；不表示认证/推理已通过。",
+      "description": "Host 在工作台凭据库写入并读回核验后提交此引用；不表示认证/推理已通过。",
       "anyOf": [
         {
           "$ref": "#/$defs/ModelSecretRef"

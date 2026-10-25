@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
 const openPdfDocument = vi.hoisted(() => vi.fn());
@@ -8,8 +8,7 @@ import { FilePreviewPane } from "./preview";
 import { RetainedPage } from "./retained-page";
 import type { WorkspaceFileItem } from "./generated/protocol";
 const file: WorkspaceFileItem = { localFileId: "file-1", relativePath: "图片.png", fileType: "file", presenceState: "present", displayState: null, baselineRelation: null, localChangeState: null, confirmationState: null, conflictState: null, stateRevision: 2, checksumAlgorithm: "sha256", checksumValue: "digest", baselineVersionId: null };
-function pane(kind = "cloud_team", current = file) { return <FilePreviewPane workspaceId="workspace-1" workspaceKind={kind} localRoot={kind === "local" ? "/workspace" : "cilai-cloud://team"} hostPlatform="windows" file={current} view="rendered" onViewAvailabilityChange={() => {}} onShowDiff={() => {}} hasFormalConflict={false} onConfirm={() => {}}/>; }
-const preview = { mode: "image", revision: 2, digest: "digest", contentType: "image/png", contentBase64: btoa("image bytes"), textContent: null, structure: null, url: null, expiresAt: "" };
+function pane(kind = "cloud_team", current = file) { return <FilePreviewPane workspaceId="workspace-1" workspaceKind={kind} localRoot={kind === "local" ? "/workspace" : "cilai-cloud://team"} hostPlatform="windows" file={current} view="rendered" onViewAvailabilityChange={() => {}}/>; }
 beforeEach(() => {
   invoke.mockReset();
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:preview-image") });

@@ -121,10 +121,6 @@ function SearchPage(props: GlobalSearchProps) {
       if (generation.current !== current) return;
       const failure = page.partialFailures.find((item) => item.providerId === group.providerId);
       if (failure) throw new Error(`${failure.message} (${failure.code})`);
-      if (group.kind !== "local" && group.kind !== "conversations" && page.authorizationRevision !== result?.authorizationRevision) {
-        setResult(null);
-        throw new Error("授权已变化，请重新搜索。");
-      }
       const nextGroup = page.groups.find((item) => item.groupId === group.groupId && item.providerId === group.providerId);
       if (!nextGroup || nextGroup.nextCursor === group.nextCursor) throw new Error("分页返回无效，请重新搜索。");
       setResult((previous) => previous ? { ...previous, requestId: page.requestId, groups: previous.groups.map((item) => {
@@ -154,10 +150,11 @@ function SearchPage(props: GlobalSearchProps) {
         className="global-search-input"
         inputRef={input}
         onChange={(value) => { setQuery(value); setLimit(8); }}
-        placeholder="搜索对话、工作、知识和应用"
+        placeholder="搜索对话、项目、任务或文件正文"
         trailing={loading ? <span>检索中…</span> : platformUi ? <kbd>{platformUi.globalSearchShortcut}</kbd> : null}
         value={query}
       />
+      <p className="global-search-text-scope">正文：UTF-8 文本（含 BOM），单文件 ≤ 2 MiB</p>
       <div aria-label="搜索来源" className="global-search-sources" role="group">
         {sourceOptions.map((option) => <button aria-pressed={source === option.id} key={option.id} onClick={() => { setSource(option.id); setLimit(8); }} type="button">{option.label}</button>)}
       </div>
@@ -176,7 +173,7 @@ function SearchPage(props: GlobalSearchProps) {
             {result?.requestId ? <small>请求 {result.requestId}</small> : null}
           </div> : null}
           {!loading && result && !total && !groups.some((group) => group.nextCursor) && !failures.length ? (
-            <div className="global-search-empty"><SearchDocumentIcon/><strong>没有匹配结果</strong><span>尝试对象名称、文档内容、业务编号或文件路径。</span></div>
+            <div className="global-search-empty"><SearchDocumentIcon/><strong>没有匹配结果</strong><span>尝试名称、文件路径或文本正文。</span></div>
           ) : groups.length ? (
             <div className="global-search-results">
               {groups.map((group) => <section key={`${group.providerId}:${group.groupId}`}>

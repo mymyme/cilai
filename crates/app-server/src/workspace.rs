@@ -9,7 +9,9 @@ use contexthub_domain::{
     LocalScanState, MaterializationState, MetadataValidity, PlatformConnection,
     PlatformDocumentState, SubmissionState, TaskId, WorkspaceId, WorkspaceKind,
 };
-use contexthub_persistence_sqlite::{FileContentIndex, PersistenceError, SqlitePersistence};
+use contexthub_persistence_sqlite::{
+    FileContentIndex, FileSearchScan, PersistenceError, SqlitePersistence,
+};
 use contexthub_workspace_fs::{
     ChecksumAlgorithm, ChecksumCacheDecision, ChecksumCacheFingerprint, ChecksumCacheRecord,
     ChecksumUseCase, ChecksumValue, LocalWorkspaceRootError, WorkspaceBrowseError,
@@ -23,6 +25,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
+
+mod search_text;
 
 #[derive(Debug)]
 pub enum CreateLocalWorkspaceError {
@@ -63,6 +67,7 @@ pub enum CaptureLocalSnapshotError {
     Checksum(WorkspaceChecksumError),
     EntryUnavailable(WorkspaceBrowseError),
     SourceChanged,
+    TextIndex(contexthub_workspace_fs::TextResourceError),
 }
 
 impl std::fmt::Display for CaptureLocalSnapshotError {
@@ -88,6 +93,7 @@ impl std::fmt::Display for CaptureLocalSnapshotError {
             Self::SourceChanged => {
                 formatter.write_str("local snapshot file changed during indexing")
             }
+            Self::TextIndex(error) => write!(formatter, "index local file text: {error}"),
         }
     }
 }
@@ -99,6 +105,7 @@ impl std::error::Error for CaptureLocalSnapshotError {
             Self::Scan(error) => Some(error),
             Self::Checksum(error) => Some(error),
             Self::EntryUnavailable(error) => Some(error),
+            Self::TextIndex(error) => Some(error),
             Self::WorkspaceMissing
             | Self::Cancelled
             | Self::Incomplete { .. }
@@ -206,6 +213,7 @@ pub fn capture_full_local_snapshot(
         .transact(|repositories| repositories.next_local_snapshot_generation(&command.workspace_id))
         .map_err(CaptureLocalSnapshotError::Persistence)?;
     let content_index = persistence.file_content_index()?;
+    let search_scan = content_index.begin_search_scan()?;
     let mut entries = Vec::new();
     let outcome = scan_workspace(Path::new(&workspace.local_root), cancellation, |event| {
         if let WorkspaceScanEvent::Entry(entry) = event {
@@ -226,7 +234,14 @@ pub fn capture_full_local_snapshot(
         .into_iter()
         .enumerate()
         .map(|(index, entry)| {
-            local_observation(&workspace.local_root, command, index, entry, &content_index)
+            local_observation(
+                &workspace.local_root,
+                command,
+                index,
+                entry,
+                &content_index,
+                &search_scan,
+            )
         })
         .collect::<Result<Vec<_>, CaptureLocalSnapshotError>>()?;
     content_index.flush()?;
@@ -248,6 +263,8 @@ pub fn capture_full_local_snapshot(
             })
         })
         .map_err(CaptureLocalSnapshotError::Persistence)?;
+    drop(search_scan);
+    content_index.collect_unused_search_content()?;
     initialize_created_file_states(persistence, command, &result)?;
     let projection = attempt_projection(persistence, &command.workspace_id, command.completed_at);
     Ok(OperationWithProjection {
@@ -312,6 +329,7 @@ pub fn index_failure_reason(error: &CaptureLocalSnapshotError) -> &'static str {
         CaptureLocalSnapshotError::Checksum(_) | CaptureLocalSnapshotError::SourceChanged => {
             "workspace_checksum_failed"
         }
+        CaptureLocalSnapshotError::TextIndex(_) => "workspace_text_index_failed",
     }
 }
 
@@ -410,6 +428,7 @@ pub enum IncrementalScanProgress {
 
 /// 增量捕获的第二段产物：只有变化的观测，以及不见了的路径。不需要持锁。
 pub struct IncrementalScanFindings {
+    search_scan: Option<Arc<FileSearchScan>>,
     observations: Vec<LocalFileObservation>,
     removed_normalized_paths: Vec<String>,
 }
@@ -430,6 +449,7 @@ impl IncrementalScanFindings {
         let mut batches = Vec::new();
         while observations.peek().is_some() {
             batches.push(Self {
+                search_scan: self.search_scan.clone(),
                 observations: observations.by_ref().take(batch_size).collect(),
                 removed_normalized_paths: Vec::new(),
             });
@@ -437,6 +457,7 @@ impl IncrementalScanFindings {
         match batches.last_mut() {
             Some(last) => last.removed_normalized_paths = self.removed_normalized_paths,
             None => batches.push(Self {
+                search_scan: self.search_scan,
                 observations: Vec::new(),
                 removed_normalized_paths: self.removed_normalized_paths,
             }),
@@ -620,6 +641,7 @@ fn observations_for_entries(
     entries_examined: u64,
     mut on_progress: impl FnMut(IncrementalScanProgress),
 ) -> Result<IncrementalScanFindings, CaptureLocalSnapshotError> {
+    let search_scan = basis.content_index.begin_search_scan()?;
     let mut seen = HashSet::new();
     let mut changed = Vec::new();
     for entry in entries {
@@ -631,12 +653,10 @@ fn observations_for_entries(
                 continue;
             }
             let (identity, fingerprint) = content_fingerprint(&entry)?;
-            if basis
-                .content_index
-                .lookup(identity, &fingerprint)?
-                .is_some_and(|checksum| {
-                    cached.and_then(|record| record.checksum_value.as_ref()) == Some(&checksum)
-                })
+            if let Some(checksum) = basis.content_index.lookup(identity, &fingerprint)?
+                && cached.and_then(|record| record.checksum_value.as_ref()) == Some(&checksum)
+                && (!search_text::visible_path(&entry)
+                    || basis.content_index.has_search_content(&checksum)?)
             {
                 continue;
             }
@@ -658,6 +678,7 @@ fn observations_for_entries(
                 index,
                 entry,
                 &basis.content_index,
+                &search_scan,
             );
             on_progress(IncrementalScanProgress::Hashed(index as u64 + 1));
             observation
@@ -679,6 +700,7 @@ fn observations_for_entries(
         .map(|(path, _)| path.clone())
         .collect::<Vec<_>>();
     Ok(IncrementalScanFindings {
+        search_scan: Some(search_scan),
         observations,
         removed_normalized_paths,
     })
@@ -746,11 +768,20 @@ pub(crate) fn observe_single_entry(
     workspace_root: &str,
     command: &CaptureLocalSnapshotCommand,
     entry: WorkspaceScanEntry,
-    content_index: &FileContentIndex,
+    content_index: &Arc<FileContentIndex>,
 ) -> Result<IncrementalScanFindings, CaptureLocalSnapshotError> {
-    let observation = local_observation(workspace_root, command, 0, entry, content_index)?;
+    let search_scan = content_index.begin_search_scan()?;
+    let observation = local_observation(
+        workspace_root,
+        command,
+        0,
+        entry,
+        content_index,
+        &search_scan,
+    )?;
     content_index.flush()?;
     Ok(IncrementalScanFindings {
+        search_scan: Some(search_scan),
         observations: vec![observation],
         removed_normalized_paths: Vec::new(),
     })
@@ -797,6 +828,10 @@ fn commit_observations(
             })
         })
         .map_err(CaptureLocalSnapshotError::Persistence)?;
+    drop(findings.search_scan);
+    persistence
+        .file_content_index()?
+        .collect_unused_search_content()?;
     initialize_created_file_states(persistence, command, &result)?;
     let projection = attempt_projection(persistence, &command.workspace_id, command.completed_at);
     Ok(OperationWithProjection {
@@ -939,6 +974,7 @@ fn local_observation(
     index: usize,
     entry: WorkspaceScanEntry,
     content_index: &FileContentIndex,
+    search_scan: &FileSearchScan,
 ) -> Result<LocalFileObservation, CaptureLocalSnapshotError> {
     let modified_at_fs = entry
         .modified_at
@@ -981,6 +1017,10 @@ fn local_observation(
                     }
                 }
             })?;
+            if search_text::visible_path(&entry) {
+                search_scan
+                    .index_content(&value, || search_text::read(workspace_root, &entry, &value))?;
+            }
             verify_content_entry(workspace_root, &entry)?;
             Some(ChecksumValue {
                 algorithm: ChecksumAlgorithm::Sha256,
@@ -1346,6 +1386,7 @@ mod tests {
     #[test]
     fn 分批时删除只随最后一批提交() {
         let findings = IncrementalScanFindings {
+            search_scan: None,
             observations: (0..5)
                 .map(|index| observation(&format!("f{index}")))
                 .collect(),
@@ -1370,6 +1411,7 @@ mod tests {
     #[test]
     fn 没有新增只有删除时仍产出一批() {
         let findings = IncrementalScanFindings {
+            search_scan: None,
             observations: Vec::new(),
             removed_normalized_paths: vec!["gone".to_owned()],
         };
@@ -1738,6 +1780,175 @@ mod tests {
         );
     }
 
+    fn search_text_hits(
+        persistence: &mut SqlitePersistence,
+        query: &str,
+    ) -> Vec<contexthub_protocol::GlobalSearchItem> {
+        crate::global_search::query(
+            persistence,
+            &contexthub_protocol::GlobalSearchParams {
+                query: query.to_owned(),
+                limit: 100,
+            },
+        )
+        .unwrap()
+        .items
+    }
+
+    #[test]
+    fn file_text_search_tracks_content_move_delete_and_literal_queries() {
+        let fixture = TestFixture::new("full-text");
+        let mut persistence = SqlitePersistence::open(&fixture.database, "0.1.0").unwrap();
+        fs::write(
+            fixture.workspace.join("a.md"),
+            "第一段：独有正文关键词。成本100%_done，MixedCase。\n",
+        )
+        .unwrap();
+        fs::write(fixture.workspace.join(".hidden.md"), "秘密搜索词").unwrap();
+        fs::write(fixture.workspace.join("b.bin"), b"\x00binary-marker").unwrap();
+        connect_and_snapshot(&mut persistence, &fixture, "w1", &fixture.workspace);
+        for query in ["正文", "独有正文关键词", "100%_done", "mixedcase"] {
+            let hits = search_text_hits(&mut persistence, query);
+            assert_eq!(hits.len(), 1, "{query}");
+            assert_eq!(hits[0].relative_path.as_deref(), Some("a.md"));
+            assert!(hits[0].subtitle.contains("独有正文关键词"));
+        }
+        assert_eq!(search_text_hits(&mut persistence, "%_").len(), 1);
+        assert!(search_text_hits(&mut persistence, "秘密搜索词").is_empty());
+        assert!(search_text_hits(&mut persistence, "binary-marker").is_empty());
+        let before = search_text_hits(&mut persistence, "独有正文关键词")[0]
+            .object_id
+            .clone();
+        fs::rename(
+            fixture.workspace.join("a.md"),
+            fixture.workspace.join("renamed.md"),
+        )
+        .unwrap();
+        capture_full_local_snapshot(
+            &mut persistence,
+            &snapshot_command("w1", 2),
+            &WorkspaceCancellationToken::new(),
+        )
+        .unwrap();
+        let moved = search_text_hits(&mut persistence, "独有正文关键词");
+        assert_eq!(moved[0].object_id, before);
+        assert_eq!(moved[0].relative_path.as_deref(), Some("renamed.md"));
+        fs::write(fixture.workspace.join("renamed.md"), "全新正文内容").unwrap();
+        let basis = prepare_incremental_scan(&mut persistence, &WorkspaceId::new("w1")).unwrap();
+        let command = snapshot_command("w1", 3);
+        let findings = observe_changed_paths(
+            &basis,
+            &command,
+            &["renamed.md".to_owned()],
+            &WorkspaceCancellationToken::new(),
+            |_| {},
+        )
+        .unwrap();
+        commit_incremental_snapshot(&mut persistence, &command, findings).unwrap();
+        assert!(search_text_hits(&mut persistence, "独有正文关键词").is_empty());
+        assert_eq!(search_text_hits(&mut persistence, "全新正文").len(), 1);
+        let old_checksum = format!(
+            "{:x}",
+            Sha256::digest("第一段：独有正文关键词。成本100%_done，MixedCase。\n".as_bytes())
+        );
+        assert!(
+            !persistence
+                .file_content_index()
+                .unwrap()
+                .has_search_content(&old_checksum)
+                .unwrap()
+        );
+        drop(basis);
+        drop(persistence);
+        let mut persistence = SqlitePersistence::open(&fixture.database, "0.1.0").unwrap();
+        assert_eq!(search_text_hits(&mut persistence, "全新正文").len(), 1);
+        fs::remove_file(fixture.workspace.join("renamed.md")).unwrap();
+        assert!(search_text_hits(&mut persistence, "全新正文").is_empty());
+        capture_full_local_snapshot(
+            &mut persistence,
+            &snapshot_command("w1", 4),
+            &WorkspaceCancellationToken::new(),
+        )
+        .unwrap();
+        assert!(search_text_hits(&mut persistence, "全新正文").is_empty());
+        fs::write(
+            fixture.workspace.join("restored.md"),
+            "第一段：独有正文关键词。成本100%_done，MixedCase。\n",
+        )
+        .unwrap();
+        capture_full_local_snapshot(
+            &mut persistence,
+            &snapshot_command("w1", 5),
+            &WorkspaceCancellationToken::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            search_text_hits(&mut persistence, "独有正文关键词").len(),
+            1
+        );
+    }
+
+    #[test]
+    fn file_text_search_backfills_existing_metadata_without_rehashing_and_classifies_limits() {
+        let fixture = TestFixture::new("full-text-backfill");
+        fs::write(
+            fixture.workspace.join("document.txt"),
+            "\u{feff}旧版迁移正文",
+        )
+        .unwrap();
+        fs::write(
+            fixture.workspace.join("encoding.txt"),
+            [0xff, 0xfe, 0x01, 0x02],
+        )
+        .unwrap();
+        fs::write(
+            fixture.workspace.join("large.txt"),
+            vec![b'x'; usize::try_from(search_text::MAX_SEARCH_TEXT_BYTES).unwrap() + 1],
+        )
+        .unwrap();
+        let mut persistence = SqlitePersistence::open(&fixture.database, "0.1.0").unwrap();
+        connect_and_snapshot(&mut persistence, &fixture, "w1", &fixture.workspace);
+        drop(persistence);
+        let connection = rusqlite::Connection::open(&fixture.database).unwrap();
+        let statuses: Vec<String> = connection
+            .prepare("SELECT status FROM file_search_documents ORDER BY status")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(statuses, ["indexed", "too_large", "unsupported_encoding"]);
+        connection
+            .execute("DELETE FROM file_search_text", [])
+            .unwrap();
+        connection
+            .execute("DELETE FROM file_search_documents", [])
+            .unwrap();
+        drop(connection);
+        let mut persistence = SqlitePersistence::open(&fixture.database, "0.1.0").unwrap();
+        assert!(search_text_hits(&mut persistence, "迁移正文").is_empty());
+        let basis = prepare_incremental_scan(&mut persistence, &WorkspaceId::new("w1")).unwrap();
+        let command = snapshot_command("w1", 2);
+        let findings = observe_incremental_changes(
+            &basis,
+            &command,
+            &WorkspaceCancellationToken::new(),
+            |_| {},
+        )
+        .unwrap();
+        commit_incremental_snapshot(&mut persistence, &command, findings).unwrap();
+        assert_eq!(search_text_hits(&mut persistence, "迁移正文").len(), 1);
+        let basis = prepare_incremental_scan(&mut persistence, &WorkspaceId::new("w1")).unwrap();
+        let findings = observe_incremental_changes(
+            &basis,
+            &snapshot_command("w1", 3),
+            &WorkspaceCancellationToken::new(),
+            |_| {},
+        )
+        .unwrap();
+        assert!(findings.observations.is_empty());
+    }
+
     fn shared_content_count(database: &Path) -> i64 {
         rusqlite::Connection::open(database)
             .unwrap()
@@ -1802,7 +2013,7 @@ mod tests {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let parent = PathBuf::from("/tmp").join(format!(
+            let parent = std::env::temp_dir().join(format!(
                 "ch-local-workspace-{label}-{}-{nanos}",
                 std::process::id()
             ));

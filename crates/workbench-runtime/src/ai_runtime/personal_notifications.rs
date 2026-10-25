@@ -456,7 +456,7 @@ impl AiRuntimeManager {
         let now = unix_epoch_millis()?;
         Ok(NotificationSnapshot {
             profile_id: id.clone(),
-            source_epoch: state.conversation_session_id.clone(),
+            source_epoch: state.session.id().to_owned(),
             observed_at: now,
             preferences: state.persisted.personal_notifications.preferences.clone(),
             events: events(&state, &id, now),
@@ -503,7 +503,7 @@ impl AiRuntimeManager {
         self.notification_write(|state| {
             check_profile(state, &request.profile_id)?;
             prepare_write(state)?;
-            if state.conversation_session_id != request.source_epoch {
+            if state.session.id() != request.source_epoch {
                 return Err("personal_notification_epoch_changed".into());
             }
             let preferences = &state.persisted.personal_notifications.preferences;

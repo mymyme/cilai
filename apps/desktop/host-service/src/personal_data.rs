@@ -534,14 +534,9 @@ mod tests {
     struct Fixture(std::path::PathBuf);
     impl Fixture {
         fn new() -> Self {
-            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .ancestors()
-                .nth(5)
-                .unwrap()
-                .join(".personal-build/verification/personal-data-host")
-                .join(uuid::Uuid::new_v4().simple().to_string());
-            std::fs::create_dir_all(&root).unwrap();
-            Self(root.canonicalize().unwrap())
+            Self(crate::test_support::fixture_root(
+                "verification/personal-data-host",
+            ))
         }
         fn artifact(
             &self,

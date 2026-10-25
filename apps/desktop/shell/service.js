@@ -6,8 +6,8 @@ const { isUpdateRead } = require('./update-install-guard');
 
 const { personalServiceEnvironment, personalBuildRoot } = require('./personal-isolation');
 
-function resolveServiceEnvironment(source = {}) {
-  return personalServiceEnvironment(source);
+function resolveServiceEnvironment(source = {}, explicit = {}) {
+  return personalServiceEnvironment(source, explicit);
 }
 
 /**
@@ -35,7 +35,7 @@ class HostService {
     let runtimeEnvironment;
     this.startError = null;
     try {
-      runtimeEnvironment = this.prepareEnvironment(this.binaryPath, resolveServiceEnvironment({ ...process.env, ...(env ?? {}) }));
+      runtimeEnvironment = this.prepareEnvironment(this.binaryPath, resolveServiceEnvironment({ ...process.env, ...(env ?? {}) }, env ?? {}));
     } catch (error) {
       this.startError = `业务服务启动失败：${error.message}`;
       return this;

@@ -14,15 +14,19 @@ describe('Office文档受控解析', () => {
     expect(model.slides[0].objects[0]).toMatchObject({ kind: 'text', shape: 'ellipse', fill: '#12AB34', geometry: { x: 12700, y: 25400, width: 1270000 }, paragraphs: [{ runs: [{ text: '项目计划', bold: true, size: 24 }] }] });
     expect(model.slides[0].objects[1]).toMatchObject({ kind: 'table', rows: [['表格内容']] });
   });
-  test('图片读取受控包内资源，图表和SmartArt只形成预览占位', () => {
+  test('图片读取受控包内资源，图表和SmartArt缺少关系时明确报错', () => {
     const model = readDocumentPackage(presentation(`<p:pic><p:spPr>${transform}</p:spPr><p:blipFill><a:blip r:embed="rImage"/><a:srcRect l="10000"/></p:blipFill></p:pic><p:graphicFrame><p:xfrm><a:off x="4" y="5"/><a:ext cx="40" cy="50"/></p:xfrm><a:graphic><a:chart/></a:graphic></p:graphicFrame><p:graphicFrame><p:xfrm><a:off x="6" y="7"/><a:ext cx="60" cy="70"/></p:xfrm><a:graphic><a:relIds/></a:graphic></p:graphicFrame>`, { 'ppt/slides/_rels/slide2.xml.rels': '<Relationships><Relationship Id="rImage" Target="../media/photo.png"/></Relationships>', 'ppt/media/photo.png': new Uint8Array([137,80,78,71]) }), 'pptx');
     if (model.format !== 'pptx') throw new Error('wrong format');
     expect(model.slides[0].objects[0]).toMatchObject({ kind: 'image', image: 'data:image/png;base64,iVBORw==', crop: { left: .1 } });
-    expect(model.slides[0].objects.slice(1)).toMatchObject([{ kind: 'placeholder', placeholder: '图表', geometry: { x: 4, y: 5, width: 40, height: 50 } }, { kind: 'placeholder', placeholder: 'SmartArt' }]);
+    expect(model.slides[0].objects.slice(1)).toMatchObject([{ kind: 'error', error: '图表关系无效。', geometry: { x: 4, y: 5, width: 40, height: 50 } }, { kind: 'error', error: 'SmartArt 数据关系无效。' }]);
   });
-  test('Excel保留公式和缓存状态，不将缓存当作已重算结果', () => {
+  test('Excel重算公式并保留原缓存供核对', () => {
     const model = readDocumentPackage(archive({ 'xl/workbook.xml': '<workbook xmlns:r="urn:r"><sheets><sheet name="营收" sheetId="1" r:id="r1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>', 'xl/_rels/workbook.xml.rels': '<Relationships><Relationship Id="r1" Target="worksheets/sheet1.xml"/></Relationships>', 'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row><c r="A1" t="inlineStr"><is><t>营收</t></is></c><c r="B2"><f>SUM(B3:B4)</f><v>15</v></c></row></sheetData><mergeCells><mergeCell ref="A1:C1"/></mergeCells></worksheet>' }), 'xlsx');
-    expect(model).toMatchObject({ format: 'xlsx', calculationState: 'stale', sheets: [{ name: '营收', cells: [{ value: '营收' }, { value: '15', formula: 'SUM(B3:B4)' }], merges: [{ startRow: 1, startColumn: 1, endColumn: 3 }] }] });
+    expect(model).toMatchObject({ format: 'xlsx', calculationState: 'recalculated', formulaCount: 1, calculationErrors: 0, sheets: [{ name: '营收', cells: [{ value: '营收' }, { value: '0', cachedValue: '15', calculatedValue: 0, formula: 'SUM(B3:B4)' }], merges: [{ startRow: 1, startColumn: 1, endColumn: 3 }] }] });
+  });
+  test('Excel接受标准布尔日期设置并按1904纪元重算TEXT', () => {
+    const model = readDocumentPackage(archive({ 'xl/workbook.xml': '<workbook xmlns:r="urn:r"><workbookPr date1904="true"/><sheets><sheet name="日期" sheetId="1" r:id="r1"/></sheets></workbook>', 'xl/_rels/workbook.xml.rels': '<Relationships><Relationship Id="r1" Target="worksheets/sheet1.xml"/></Relationships>', 'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row><c r="A1"><f>TEXT(0,"yyyy-mm-dd")</f><v>wrong-cache</v></c></row></sheetData></worksheet>' }), 'xlsx');
+    expect(model).toMatchObject({ format: 'xlsx', calculationState: 'recalculated', sheets: [{ cells: [{ value: '1904-01-01', cachedValue: 'wrong-cache' }] }] });
   });
   test('XMind按真实包内容区分JSON和XML并保留层级及备注', () => {
     const json = readDocumentPackage(archive({ 'content.json': JSON.stringify([{ id: 'sheet', title: '方案', rootTopic: { id: 'root', title: '目标', notes: { plain: { content: '备注' } }, children: { attached: [{ id: 'child', title: '行动' }] } } }]) }), 'xmind');

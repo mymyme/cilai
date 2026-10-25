@@ -1,16 +1,23 @@
+import { delegateManagedScript } from './managed-verification.mjs';
+import { createVerificationFixture } from './verification-fixture.mjs';
 import { verificationEnvironment } from "./verification-environment.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { once } from "node:events";
 
+const delegatedStatus = await delegateManagedScript(import.meta.url, { pathArguments: [0] });
+if (delegatedStatus !== null) process.exit(delegatedStatus);
+
 const executable = process.argv[2];
 if (!executable) throw new Error("请传入随包 Codex App Server 路径；本探针只使用本机模拟模型");
-const root = await realpath(await mkdtemp(join(tmpdir(), "cilai-thread-probe-")));
+const fixture = await createVerificationFixture("cilai-thread-probe-");
+const root = fixture.root;
+let fixtureFailure;
+try {
 const home = join(root, "harness");
 const workspace = join(root, "workspace");
 await Promise.all([mkdir(home), mkdir(workspace)]);
@@ -47,6 +54,7 @@ const backend = createServer(async (req, res) => {
     res.end();
   } catch (error) { res.writeHead(500).end(String(error)); }
 });
+fixture.trackServer(backend);
 backend.listen(0, "127.0.0.1");
 await once(backend, "listening");
 const origin = `http://127.0.0.1:${backend.address().port}`;
@@ -71,19 +79,23 @@ url = "${origin}/mcp"
 `);
 
 function start() {
-  const child = spawn(resolve(executable), ["--listen", "stdio://"], {
+  const child = fixture.track(spawn(resolve(executable), ["--listen", "stdio://"], {
     cwd: workspace,
     env: verificationEnvironment(root, { CODEX_HOME: home, CODEX_SQLITE_HOME: home, OPENAI_API_KEY: "local-probe-only" }),
     stdio: ["pipe", "pipe", "pipe"],
-  });
+  }));
   const pending = new Map();
+  let fatal;
   const events = [];
   let id = 0;
   let stderr = "";
   child.stderr.on("data", (data) => { stderr = (stderr + data).slice(-6000); });
   const lines = createInterface({ input: child.stdout });
   lines.on("line", (line) => {
-    const message = JSON.parse(line);
+    let message;
+    try { message = JSON.parse(line); }
+    catch (error) { fixture.markFailure(error); fail(error); return; }
+    if (!message || typeof message !== "object") { const error = new Error("服务输出不是有效消息"); fixture.markFailure(error); fail(error); return; }
     const request = pending.get(message.id);
     if (!request) { events.push(message); return; }
     pending.delete(message.id);
@@ -91,10 +103,12 @@ function start() {
     if (message.error) request.reject(new Error(JSON.stringify(message.error)));
     else request.resolve(message.result);
   });
-  const fail = (error) => { for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); } pending.clear(); };
+  const fail = (error) => { fatal ??= error; for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); } pending.clear(); };
   child.on("error", fail);
+  child.stdin.on("error", fail);
   child.on("exit", (code) => fail(new Error(`Harness退出 ${code}: ${stderr}`)));
   const rpc = (method, params) => new Promise((resolveRequest, reject) => {
+    if (fatal) { reject(fatal); return; }
     const requestId = ++id;
     const timer = setTimeout(() => { pending.delete(requestId); reject(new Error(`RPC超时 ${method}: ${stderr}`)); }, 20000);
     pending.set(requestId, { resolve: resolveRequest, reject, timer });
@@ -116,8 +130,8 @@ function start() {
       throw new Error(`等待回合超时: ${stderr}`);
     },
     async stop() {
+      await fixture.stop(child);
       lines.close();
-      if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; }
     },
   };
 }
@@ -198,7 +212,7 @@ try {
   console.log(JSON.stringify({ persistentResume: true, rounds: 20, compactions: 2, modelSwitchRoundTrip: true, isolatedDeletion: true, dynamicToolsRetained: true, toolSearchHistoryRetained: true, mcpRefreshed: true, forkBeforeTurn: true, clientMessageQueryable, injectedHistoryQueryable, localModelRequests: requests.length, paidModelRequests: 0 }));
 } finally {
   if (server) await server.stop();
-  backend.closeAllConnections();
-  await new Promise((done) => backend.close(done));
-  await rm(root, { recursive: true, force: true });
 }
+
+} catch (error) { fixtureFailure = error; }
+finally { await fixture.finish(fixtureFailure); }

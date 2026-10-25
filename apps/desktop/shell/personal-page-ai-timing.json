@@ -1,0 +1,4 @@
+{
+  "actionTimeoutMs": 60000,
+  "hostCallbackGraceMs": 10000
+}

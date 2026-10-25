@@ -246,10 +246,8 @@ fn official_four_validation_probes_capture_only_nonsecret_upstream_request_shape
     let target = std::env::var_os("CILAI_PERSONAL_REQUEST_SHAPE_EVIDENCE")
         .map(PathBuf::from)
         .unwrap();
-    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(4)
-        .unwrap();
+    let build = crate::ai_runtime::model_test_fixture::personal_build_root();
+    let project = build.parent().unwrap();
     assert_eq!(
         target.parent(),
         Some(project.join("07测试/实施证据").as_path())

@@ -1,10 +1,5 @@
 const ACTIVE_RUNS = new Set(['queued', 'running', 'paused', 'terminating', 'waiting_permission']);
-const READ_COMMANDS = new Set(['ai_runtime_snapshot', 'ai_runtime_activity_snapshot', 'ai_conversation_session_get', 'desktop_update_preflight']);
-const READ_METHODS = new Set(['event/replay', 'workspace/list', 'workspace/listDirectory', 'project/list']);
-
-function isUpdateRead(command, method) {
-  return READ_COMMANDS.has(command) || (command === 'app_server_request' && READ_METHODS.has(method));
-}
+const { isUpdateRead } = require('./host-commands.generated');
 
 async function holdServiceForUpdate(service, { timeoutMs = 10000 } = {}) {
   // The error/login page can still update when no business process is running.

@@ -49,6 +49,9 @@ pub mod workspace_permissions;
 pub mod writer_launch_gate;
 
 #[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
 mod tests {
     use super::{OperatingSystem, current_operating_system};
 

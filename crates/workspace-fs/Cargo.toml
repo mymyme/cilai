@@ -7,10 +7,10 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-contexthub-application = { path = "../application", version = "=0.1.0" }
-contexthub-domain = { path = "../domain", version = "=0.1.0" }
-contexthub-manifest = { path = "../manifest", version = "=0.1.0" }
-contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.0" }
+contexthub-application = { path = "../application", version = "=0.1.1" }
+contexthub-domain = { path = "../domain", version = "=0.1.1" }
+contexthub-manifest = { path = "../manifest", version = "=0.1.1" }
+contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.1" }
 notify = "=8.2.0"
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"

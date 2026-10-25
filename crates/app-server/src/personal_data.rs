@@ -1903,8 +1903,16 @@ mod tests {
         )
         .unwrap();
         secure_dir(&f.profile.join("credentials")).unwrap();
-        write_new(&f.profile.join("credentials/master.key"), b"synthetic-vault-key-never-export").unwrap();
-        write_new(&f.profile.join("credentials/entry.vault"), b"synthetic-vault-ciphertext-never-export").unwrap();
+        write_new(
+            &f.profile.join("credentials/master.key"),
+            b"synthetic-vault-key-never-export",
+        )
+        .unwrap();
+        write_new(
+            &f.profile.join("credentials/entry.vault"),
+            b"synthetic-vault-ciphertext-never-export",
+        )
+        .unwrap();
         let op = f.prepare();
         let proof = f.proof(&op);
         let done = f.capture(&op, Some(proof));
@@ -1924,8 +1932,16 @@ mod tests {
         let (m, files) = validate_archive(&bytes).unwrap();
         assert!(m.complete);
         assert!(files.contains_key("profile/skills/user-packages/test/v1/SKILL.md"));
-        assert!(!files.keys().any(|path| path.starts_with("profile/credentials/")));
-        assert!(!bytes.windows(b"synthetic-vault-key-never-export".len()).any(|part| part == b"synthetic-vault-key-never-export"));
+        assert!(
+            !files
+                .keys()
+                .any(|path| path.starts_with("profile/credentials/"))
+        );
+        assert!(
+            !bytes
+                .windows(b"synthetic-vault-key-never-export".len())
+                .any(|part| part == b"synthetic-vault-key-never-export")
+        );
         let dbfile = f.root.join("verify.sqlite");
         write_new(&dbfile, &files["profile/contexthub.db"].1).unwrap();
         let check = rusqlite::Connection::open(dbfile).unwrap();
@@ -2151,9 +2167,21 @@ mod tests {
             &PersonalDataCategory::NativeHistory,
             &[home]
         ));
-        for category in [PersonalDataCategory::Configuration, PersonalDataCategory::NativeHistory, PersonalDataCategory::Attachments] {
-            assert!(!allowed_archive_path("profile/credentials/master.key", &category, &[]));
-            assert!(!allowed_archive_path("profile/credentials/entry.vault", &category, &[]));
+        for category in [
+            PersonalDataCategory::Configuration,
+            PersonalDataCategory::NativeHistory,
+            PersonalDataCategory::Attachments,
+        ] {
+            assert!(!allowed_archive_path(
+                "profile/credentials/master.key",
+                &category,
+                &[]
+            ));
+            assert!(!allowed_archive_path(
+                "profile/credentials/entry.vault",
+                &category,
+                &[]
+            ));
         }
         assert!(!safe_relative("profile/../auth.json"));
         assert!(!safe_relative("C:/auth.json"));

@@ -19,61 +19,8 @@ import type {
   ReadTextResourceResult,
 } from "./generated/protocol";
 
-export const SOURCE_LABELS: Record<PreviewSource, string> = {
-  local: "当前文档",
-  cloud: "旧云端来源",
-  baseline: "上次确认",
-  platform_mock: "平台版本",
-};
-
-export const ERROR_LABELS: Record<string, string> = {
-  personal_cloud_source_unavailable: "个人版不支持此云端来源，请明确选择本地文件。",
-  preview_file_too_large: "文件超过 32 MiB，无法在客户端预览。",
-  preview_binary_content: "文件包含二进制内容，不能作为文本预览。",
-  preview_encoding_unsupported: "当前编码不受支持，M0 仅支持 UTF-8。",
-  preview_source_changed: "文件在读取过程中发生变化，请重新加载。",
-  preview_permission_denied: "当前没有读取该文件的权限。",
-  preview_file_missing: "文件已不存在。",
-  preview_file_not_materialized: "系统尚未完成文件下载，请重试。",
-  preview_source_not_materialized: "系统尚未完成文件下载，请重试。",
-  preview_read_failed: "文件内容读取失败，请重试。",
-  preview_binary_format_invalid: "文件内容与扩展名不匹配。",
-  preview_descriptor_invalid: "预览数据不完整。",
-  preview_resource_invalid: "预览图片资源不完整或不受支持。",
-  preview_format_unsupported: "当前文件类型暂不支持应用内预览。",
-  cloud_preview_format_unsupported: "当前文件类型暂不支持应用内预览。",
-  cloud_preview_unavailable: "文档预览服务尚未配置。",
-  file_hydration_cancelled: "已取消等待下载。",
-  file_hydration_failed: "系统下载文件失败。",
-  file_hydration_timeout: "系统下载文件超时。",
-  file_hydration_provider_unsupported: "当前系统提供程序不支持自动下载。",
-  file_hydration_source_changed: "下载期间文件位置或内容已变化，请重新打开。",
-  file_hydration_download_failed: "系统下载文件失败。",
-  file_hydration_file_unavailable: "文件当前不可访问。",
-  file_hydration_operation_expired: "下载等待已过期，请重试。",
-  file_hydration_busy: "系统下载繁忙，请稍后重试。",
-  collaboration_permission_denied: "当前没有读取该云端文件的权限。",
-  cloud_workspace_permission_revoked: "当前没有读取该云端空间的权限。",
-  preview_package_invalid: "文档损坏、加密或格式不受支持。",
-  preview_ticket_expired: "预览已过期，请重新加载。",
-  preview_ticket_not_found: "预览资源已失效，请重新加载。",
-  workspace_pdf_format_invalid: "当前文件不是 PDF。",
-  workspace_pdf_not_file: "当前路径不是可读取的 PDF 文件。",
-  workspace_pdf_not_materialized: "PDF 仅保存在云端，请先用系统打开完成下载。",
-  workspace_pdf_too_large: "PDF 超过 32 MiB，无法在内容区打开。",
-  workspace_pdf_signature_invalid: "文件扩展名是 PDF，但内容不是有效的 PDF 文件。",
-  workspace_pdf_read_failed: "PDF 内容读取失败。",
-  workspace_pdf_source_changed: "PDF 在读取过程中发生变化，请重新打开。",
-  workspace_pdf_document_invalid: "PDF 文档无法解析。",
-  workspace_pdf_page_unavailable: "PDF 页面无法读取。",
-  workspace_pdf_render_buffer_invalid: "PDF 页面渲染失败。",
-  workspace_pdf_page_count_invalid: "PDF 页数读取失败。",
-  workspace_pdf_has_no_pages: "PDF 中没有可显示的页面。",
-  workspace_pdf_page_out_of_range: "请求的 PDF 页面不存在。",
-  workspace_pdf_renderer_unavailable: "应用内置的 PDF 渲染器不可用。",
-  workspace_pdf_renderer_failed: "PDF 页面渲染失败。",
-  workspace_pdf_render_unsupported: "当前平台不支持 PDF 预览。",
-};
+export { ERROR_LABELS, SOURCE_LABELS } from "./preview-labels";
+import { ERROR_LABELS, SOURCE_LABELS } from "./preview-labels";
 
 interface WorkspaceApplication {
   displayName: string;
@@ -102,15 +49,10 @@ export interface FilePreviewPaneProps {
   file: WorkspaceFileItem;
   view: PreviewView;
   onViewAvailabilityChange: (available: boolean) => void;
-  /** 打开与基线的差异视图。两边都改过时这是唯一安全的下一步。 */
-  onShowDiff: () => void;
-  /** 该文件已有正式冲突记录。冲突横幅会说同一件事并带解决入口，状态条让位不重复。 */
-  hasFormalConflict: boolean;
-  /** 进入确认流程，把本地改动确认下来。 */
-  onConfirm: () => void;
+
 }
 
-export function FilePreviewPane({ workspaceId, workspaceKind, localRoot, hostPlatform, file, view, onViewAvailabilityChange, onShowDiff, onConfirm, hasFormalConflict }: FilePreviewPaneProps) {
+export function FilePreviewPane({ workspaceId, workspaceKind, localRoot, hostPlatform, file, view, onViewAvailabilityChange }: FilePreviewPaneProps) {
   const [retryRevision, setRetryRevision] = useState(0);
   const [applicationOpenError, setApplicationOpenError] = useState<string | null>(null);
   const localState = useFilePreview({ workspaceId, localFileId: file.localFileId, source: "local" }, localRoot, file.relativePath, hostPlatform, retryRevision, workspaceKind === "local", JSON.stringify([file.checksumAlgorithm,file.checksumValue]));

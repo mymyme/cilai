@@ -8,6 +8,7 @@ const { createDiagnosticExport } = require("./diagnostic-export");
 const { preparePersonalPackageImport } = require("./personal-package-import");
 const personalData = require("./personal-data");
 const { createPersonalNamespaceStorage } = require("./personal-namespace-storage");
+const { isDelegatedCommand } = require("./host-commands.generated");
 
 /**
  * 命令路由。
@@ -75,171 +76,8 @@ browser.onOpenTab = (tabId, conversationId) =>
 /** 写操作：具有外部副作用，逐次确认，未获批准不执行。 */
 const BROWSER_WRITE_TOOLS = new Set(["browser_click", "browser_type", "browser_set_value"]);
 
-/** 凭据字段一律不由 AI 填写，遇到即转人工接管。 */
-const CREDENTIAL_HINTS = ["password", "passwd", "密码", "验证码", "captcha", "otp", "cvv", "身份证"];
-
 /** 业务服务：新壳不再把业务逻辑编进自身，一律转交进程外的服务。 */
 const service = new HostService(resolveBinary());
-
-/** 已转交业务服务处理的命令。加入此表即视为完成迁移。 */
-const delegated = new Set([
-  "host_platform",
-  "powershell_policy_check",
-  "powershell_policy_apply",
-  "startup_permissions_check",
-  "startup_permissions_repair",
-  // 经应用服务转发，参数与返回结构与现有壳一致
-  "app_server_status",
-  "app_server_restart",
-  "app_server_request",
-  "preview_open",
-  "text_resource_read",
-  "text_diff_compute",
-  "text_diff_read",
-  "file_confirm",
-  "confirmation_history",
-  // AI 运行时
-  "ai_run_event_detail",
-  "ai_conversation_create",
-  "ai_conversation_update",
-  "ai_conversation_set_archived",
-  "ai_conversation_delete",
-  "ai_model_catalog_read",
-  "model_connection_list",
-  "personal_package_import_get",
-  "personal_package_import_list",
-  "personal_package_import_cancel",
-  "personal_data_backup_prepare",
-  "personal_data_get",
-  "personal_data_list",
-  "personal_data_cancel",
-  "personal_data_reconcile",
-  "personal_data_resolve_interrupted",
-  "personal_maintenance_status",
-  "personal_maintenance_recover",
-  "personal_maintenance_cancel",
-  "personal_storage_inventory",
-  "personal_storage_prepare",
-  "personal_storage_get",
-  "personal_storage_list",
-  "personal_storage_reconcile",
-  "personal_storage_cancel",
-  "personal_storage_resolve_interrupted",
-  "personal_namespace_storage_get",
-  "personal_namespace_storage_list",
-  "personal_namespace_storage_reconcile",
-  "personal_namespace_storage_cancel",
-  "personal_namespace_storage_resolve_interrupted",
-  "personal_memory_reset_prepare",
-  "personal_memory_reset_get",
-  "personal_memory_reset_list",
-  "personal_memory_reset_cancel",
-  "personal_memory_reset_reconcile",
-  "personal_memory_reset_resolve_interrupted",
-  "model_credential_cleanup_list",
-  "model_credential_cleanup_execute",
-  "model_connection_change_list",
-  "model_connection_recover_leases",
-  "model_connection_auth_read",
-  "model_execution_preflight",
-  "model_connection_catalog_refresh",
-  "model_connection_validate",
-  "model_connection_auth_start",
-  "model_connection_auth_cancel",
-  "model_connection_auth_logout",
-  "model_connection_auth_changes",
-  "model_connection_auth_resume",
-  "model_connection_auth_finish_logout",
-  "model_connection_auth_cancel_readonly",
-  "model_connection_get",
-  "model_connection_save",
-  "model_connection_resume",
-  "model_connection_abort",
-  "model_connection_credential_cleanup",
-  "model_connection_change_status",
-  "model_connection_preflight",
-  "model_connection_set_enabled",
-  "model_connection_delete",
-  "model_descriptor_list",
-  "model_descriptor_save",
-  "model_purpose_list",
-  "model_purpose_save",
-  "model_validation_list",
-  "personal_capability_editor",
-  "personal_capability_build",
-  "personal_application_data_prepare",
-  "personal_application_data_get",
-  "personal_application_data_list",
-  "personal_application_data_cancel",
-  "personal_application_data_resolve_interrupted",
-  "personal_capability_preview",
-  "personal_application_open",
-  "personal_capability_status",
-  "personal_capability_manage",
-  "personal_capability_tools",
-  "personal_capability_call",
-  "ai_artifact_open",
-  "ai_artifact_feedback",
-  "ai_artifact_submit_candidate",
-  "ai_artifact_read_image",
-  "ai_message_regenerate",
-  "ai_message_steer",
-  "ai_attachment_create",
-  "ai_attachment_append",
-  "ai_attachment_discard",
-  "ai_run_control",
-  "ai_permission_request_create",
-  "ai_permission_request_resolve",
-  "ai_inbox_set_read",
-  "ai_automation_rule_save",
-  "ai_automation_rule_run",
-  "ai_automation_rule_delete",
-  "ai_automation_trigger_history",
-  "ai_automation_claim_reconcile",
-  "ai_runtime_snapshot",
-  "ai_usage_view",
-  "mcp_connection_list",
-  "mcp_connection_validate",
-  "mcp_connection_changes",
-  "mcp_connection_get",
-  "mcp_connection_save",
-  "mcp_connection_continue_save",
-  "mcp_connection_cancel_save",
-  "mcp_connection_cleanup",
-  "mcp_connection_grant",
-  "mcp_connection_disable",
-  "mcp_connection_delete",
-  "ai_conversation_search",
-  "ai_runtime_activity_snapshot",
-  "ai_windows_sandbox_status",
-  "ai_windows_sandbox_setup",
-  "workspace_permissions_check",
-  "workspace_permissions_repair",
-  "ai_conversation_start",
-  "ai_message_send",
-  "ai_message_submit",
-  "ai_conversation_submit",
-  "ai_message_submission_dismiss",
-  "ai_conversation_session_get",
-  "ai_application_handoff_commit",
-  "ai_application_handoff_cancel",
-  "ai_recent_conversations",
-  "ai_conversation_session_patch",
-  "ai_memory_settings",
-  "ai_memory_settings_save",
-  // 工作区
-  "workspace_reveal_directory",
-  "workspace_default_application",
-  "workspace_delete_item",
-  "workspace_open_item",
-  // PDF 预览与附件：字节经二进制通道回传
-  "workspace_pdf_page_count",
-  "workspace_pdf_read_bytes",
-  "workspace_render_pdf_page",
-  "ai_attachment_read",
-  // 本机账户
-  "local_user_profile",
-]);
 
 /** 业务进程只向主界面发送已登记事件。 */
 service.onHostRequest = async (command, args) => {
@@ -384,21 +222,10 @@ const implemented = {
   },
   browser_scroll: ({ args }) => browser.scroll(args.deltaY ?? -240),
   browser_wait_for: ({ args }) => browser.waitFor(args.expression, args.timeoutMs),
-  browser_click: ({ args }) =>
-    browser.click({ ref: args.ref, x: args.x, y: args.y }, args.conversationId ?? null),
-  browser_set_value: ({ args }) =>
-    browser.setValue(String(args.ref ?? ""), args.value, args.conversationId ?? null),
   browser_console: ({ args }) => browser.consoleMessages(
     { level: args.level, limit: args.limit }, args.tabId, args.conversationId ?? null),
   browser_network: ({ args }) => browser.networkRequests(
     { failedOnly: args.failedOnly, limit: args.limit }, args.tabId, args.conversationId ?? null),
-  browser_type: ({ args }) => {
-    const hint = String(args.fieldHint ?? "").toLowerCase();
-    if (CREDENTIAL_HINTS.some((word) => hint.includes(word))) {
-      throw new Error("凭据字段不由 AI 填写，请转人工接管");
-    }
-    return browser.type(args.text);
-  },
   // 人工接管：员工直接操作页面，AI 在此期间暂停
   /** 员工对一次写操作的决定。未知确认号不受理——它要么已超时，要么根本不存在。 */
   browser_approval_resolve: ({ args }) =>
@@ -563,7 +390,7 @@ async function dispatch({ command, args }, sender) {
     // 带了审批令牌时才拒绝，等于不带令牌反而放行，与红线正相反。
     throw new Error("浏览器写操作的审批链路尚未接入，暂不受理");
   }
-  if (delegated.has(command)) return decodeBinary(await service.call(command, args));
+  if (isDelegatedCommand(command)) return decodeBinary(await service.call(command, args));
   const handler = implemented[command];
   const window = BrowserWindow.fromWebContents(sender);
   if (!handler) {

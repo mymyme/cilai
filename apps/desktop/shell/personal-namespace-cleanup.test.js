@@ -7,8 +7,8 @@ const {spawnSync} = require("node:child_process");
 const {createPersonalNamespaceCleanup}=require("./personal-namespace-cleanup");
 
 function componentFixture(t, kind) {
-  const project=path.resolve(__dirname,"../../../../..");
-  const base=path.join(project,".personal-build/namespace-cleanup-components");fs.mkdirSync(base,{recursive:true});
+  const project=require("./personal-isolation").personalProjectRoot(), buildRoot=require("./personal-isolation").personalBuildRoot();
+  const base=path.join(buildRoot,"namespace-cleanup-components");fs.mkdirSync(base,{recursive:true});
   const root=fs.mkdtempSync(path.join(base,"probe-"));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const profileId="a".repeat(32),userData=path.join(root,"cn.cilai.personal.workbench"),segmentId="b".repeat(32);
   const segment=path.join(userData,"personal-storage-log-segments",segmentId);fs.mkdirSync(segment,{recursive:true});
@@ -80,12 +80,47 @@ test("实际清理结束后回执丢失，仅补记原回执且不再次clearCac
   assert.equal(acks.length,2);assert.deepEqual(acks[0].request,acks[1].request);
 });
 
-test("真实Electron执行冻结日志及HTTP缓存清理，保留登录与后续日志",{skip:process.env.CILAI_PERSONAL_NAMESPACE_CLEANUP_NATIVE!=="1",timeout:110000},()=>{
-  const project=path.resolve(__dirname,"../../../../..");
-  const fixtures=path.join(project,".personal-build/namespace-cleanup-fixtures");fs.mkdirSync(fixtures,{recursive:true});
+function retainFixtureUntilVerified(t, root) {
+  let verified = false;
+  t.after(() => {
+    if (verified) {
+      fs.rmSync(root, { recursive: true });
+    } else {
+      fs.writeFileSync(path.join(root, "failure.json"), JSON.stringify({ status: "failed", fixtureRoot: root, test: t.name, artifactsRetained: true }, null, 2) + "\n", { mode: 0o600 });
+      console.error(`验收未完成，诊断目录已保留：${root}`);
+    }
+  });
+  return () => { verified = true; };
+}
+
+test("原生探针仅在确认成功后回收本轮目录，失败保留副本和日志", t => {
+  const root = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "cilai-namespace-lifecycle-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const success of [true, false]) {
+    const fixture = path.join(root, String(success));
+    fs.mkdirSync(path.join(fixture, "sidecar"), { recursive: true });
+    fs.writeFileSync(path.join(fixture, "sidecar", "binary"), "owned-copy");
+    fs.writeFileSync(path.join(fixture, "process.log"), "probe-log");
+    let finish;
+    const verified = retainFixtureUntilVerified({ name: "fixture-lifecycle", after: callback => { finish = callback; } }, fixture);
+    if (success) verified();
+    finish();
+    if (success) assert.equal(fs.existsSync(fixture), false);
+    else {
+      assert.equal(fs.readFileSync(path.join(fixture, "sidecar", "binary"), "utf8"), "owned-copy");
+      assert.equal(fs.readFileSync(path.join(fixture, "process.log"), "utf8"), "probe-log");
+      assert.equal(JSON.parse(fs.readFileSync(path.join(fixture, "failure.json"), "utf8")).artifactsRetained, true);
+    }
+  }
+});
+
+test("真实Electron执行冻结日志及HTTP缓存清理，保留登录与后续日志",{skip:process.env.CILAI_PERSONAL_NAMESPACE_CLEANUP_NATIVE!=="1",timeout:110000},t=>{
+  const project=require("./personal-isolation").personalProjectRoot(), buildRoot=require("./personal-isolation").personalBuildRoot();
+  const fixtures=path.join(buildRoot,"namespace-cleanup-fixtures");fs.mkdirSync(fixtures,{recursive:true});
   const root=fs.mkdtempSync(path.join(fs.realpathSync(fixtures),"probe-"));
+  const verified = retainFixtureUntilVerified(t, root);
   const sidecar=path.join(root,"sidecar");fs.mkdirSync(sidecar);
-  const source=path.join(project,".personal-build/target-live/debug");
+  const source=path.join(buildRoot,"target-live/debug");
   const binaries={};
   for(const [name,target]of[["cilai-host-service","cilai-host-service"],["contexthub-app-server","cilai-app-server"]]){
     const input=path.join(source,name);assert.ok(fs.statSync(input).isFile());assert.equal(fs.lstatSync(input).isSymbolicLink(),false);
@@ -101,7 +136,7 @@ test("真实Electron执行冻结日志及HTTP缓存清理，保留登录与后�
   for(const name of["private-home","tmp"])fs.mkdirSync(path.join(root,name));
   const environment=Object.fromEntries(Object.entries(process.env).filter(([key])=>["PATH","LANG","SystemRoot","WINDIR"].includes(key)));
   Object.assign(environment,{HOME:path.join(root,"private-home"),USERPROFILE:path.join(root,"private-home"),TMPDIR:path.join(root,"tmp")});
-  const electron=require("electron");assert.ok(fs.realpathSync(electron).startsWith(project+path.sep));
+  const electron=require("electron");assert.ok(fs.realpathSync(electron).startsWith(buildRoot+path.sep));
   const moduleSha256=Object.fromEntries(["personal-namespace-cleanup.js","personal-namespace-storage.js","browser.js","service-log.js","test-diagnostics.js","personal-application-close.js"].map(name=>[name,crypto.createHash("sha256").update(fs.readFileSync(path.join(__dirname,name))).digest("hex")]));
   const probeScriptSha256=crypto.createHash("sha256").update(fs.readFileSync(path.join(evidence,"T5-执行脚本/electron-namespace-probe.cjs"))).digest("hex");
   const result=spawnSync(electron,[path.join(evidence,"T5-执行脚本/electron-namespace-probe.cjs"),config],{env:environment,encoding:"utf8",timeout:100000,maxBuffer:8*1024*1024});
@@ -123,4 +158,7 @@ test("真实Electron执行冻结日志及HTTP缓存清理，保留登录与后�
   assert.equal(record.result,"passed",JSON.stringify(record));
   assert.equal(record.schemaMigrationVersion,76);
   assert.equal(Object.keys(record.checks).length,7);
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  verified();
 });

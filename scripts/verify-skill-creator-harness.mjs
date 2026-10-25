@@ -1,16 +1,23 @@
+import { delegateManagedScript } from './managed-verification.mjs';
+import { createVerificationFixture } from './verification-fixture.mjs';
 import { verificationEnvironment } from "./verification-environment.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, copyFile, readFile, writeFile, rm, realpath } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, copyFile, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 
+const delegatedStatus = await delegateManagedScript(import.meta.url, { pathArguments: [0] });
+if (delegatedStatus !== null) process.exit(delegatedStatus);
+
 const executable = process.argv[2];
 if (!executable) throw new Error("请传入待验收的 codex-app-server 可执行文件路径");
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const root = await realpath(await mkdtemp(join(tmpdir(), "cilai-creator-harness-")));
+const fixture = await createVerificationFixture("cilai-creator-harness-");
+const root = fixture.root;
+let fixtureFailure;
+try {
 const home = join(root, "harness");
 const workspace = join(root, "workspace");
 const extraRoot = join(root, "managed-skills");
@@ -21,23 +28,33 @@ await copyFile(join(sourceRoot, "crates/app-server/skills/skill-creator/SKILL.md
 await writeFile(join(home, "config.toml"), '[[skills.config]]\nname = "unrelated-disabled-skill"\nenabled = false\n');
 
 function start() {
-  const child = spawn(resolve(executable), ["--listen", "stdio://", "-c", "features.plugins=false",
+  const child = fixture.track(spawn(resolve(executable), ["--listen", "stdio://", "-c", "features.plugins=false",
     "-c", "features.memories=false", "-c", "memories.generate_memories=false",
     "-c", "memories.use_memories=false", "-c", "check_for_update_on_startup=false",
     "-c", "cli_auth_credentials_store=\"file\""], {
     cwd: workspace, env: verificationEnvironment(root, { CODEX_HOME: home, CODEX_SQLITE_HOME: home }), stdio: ["pipe", "pipe", "pipe"],
-  });
+  }));
   const pending = new Map();
+  let fatal;
+  const fail = (error) => {
+    fatal ??= error;
+    for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); }
+    pending.clear();
+  };
   let id = 0;
   let stderr = "";
   child.stderr.on("data", (chunk) => { stderr = (stderr + chunk).slice(-4000); });
-  child.on("error", (error) => { for (const request of pending.values()) request.reject(error); });
+  child.on("error", fail);
+  child.stdin.on("error", fail);
   child.on("exit", (code) => {
-    for (const request of pending.values()) request.reject(new Error(`Harness退出 ${code}: ${stderr}`));
+    fail(new Error(`Harness退出 ${code}: ${stderr}`));
   });
   const lines = createInterface({ input: child.stdout });
   lines.on("line", (line) => {
-    const message = JSON.parse(line);
+    let message;
+    try { message = JSON.parse(line); }
+    catch (error) { fixture.markFailure(error); fail(error); return; }
+    if (!message || typeof message !== "object") { const error = new Error("服务输出不是有效消息"); fixture.markFailure(error); fail(error); return; }
     const request = pending.get(message.id);
     if (!request) return;
     pending.delete(message.id);
@@ -46,6 +63,7 @@ function start() {
     else request.resolve(message.result);
   });
   const rpc = (method, params) => new Promise((resolveRequest, reject) => {
+    if (fatal) { reject(fatal); return; }
     const requestId = ++id;
     const timer = setTimeout(() => {
       pending.delete(requestId);
@@ -56,18 +74,13 @@ function start() {
   });
   return { rpc, notify: (method, params) => child.stdin.write(JSON.stringify({ method, params }) + "\n"),
     stop: async () => {
-      for (const request of pending.values()) clearTimeout(request.timer);
+      for (const request of pending.values()) { clearTimeout(request.timer); request.reject(new Error("Harness已关闭")); }
       pending.clear();
+      await fixture.stop(child);
       lines.close();
-      if (child.exitCode === null) {
-        const exited = new Promise((resolveExit) => child.once("exit", resolveExit));
-        child.kill();
-        await exited;
-      }
     } };
 }
 
-try {
   for (const restart of [false, true]) {
     const server = start();
     try {
@@ -93,4 +106,6 @@ try {
     } finally { await server.stop(); }
     if (!restart) await rm(join(home, "skills/.system/.codex-system-skills.marker"));
   }
-} finally { await rm(root, { recursive: true, force: true }); }
+
+} catch (error) { fixtureFailure = error; }
+finally { await fixture.finish(fixtureFailure); }

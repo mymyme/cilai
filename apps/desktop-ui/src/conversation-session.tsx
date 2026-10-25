@@ -2,9 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, us
 import { aiErrorMessage, aiRuntimeChangedEvent } from "./ai-runtime";
 import type { MessageSink } from "./app-message";
 import { loadConversationSession, patchConversationSession, type ConversationSessionSnapshot } from "./conversation-session-api";
+import { conversationSessionKeys } from "./generated/protocol";
 import type { DraftAttachment, QueuedFollowUp } from "./ai-workbench";
 
-const persistedKeys = new Set(["applicationHandoffs", "drafts", "queuedFollowUps", "selectedConversationId", "starterAgentId", "starterBusinessId", "starterFile", "starterModelOverride", "starterReasoningEffort", "starterPermissionMode", "applicationContextSelections", "skillSelections", "draftAttachmentGroups", "draftMaterialGroups", "pendingCreate", "initializedSelection", "pendingOutgoing", "recoveredOutgoing"]);
+const persistedKeys: ReadonlySet<string> = new Set(conversationSessionKeys);
 function serializable(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value ?? null, (key, item) => key === "previewUrl" || key === "localPath" ? "" : item));
 }
@@ -24,6 +25,9 @@ class ConversationSession {
   constructor(snapshot: ConversationSessionSnapshot, private report: (error: string | null) => void) {
     this.baseline = snapshot;
     Object.entries(snapshot.values).forEach(([key, value]) => this.values.set(key, value));
+    if (snapshot.values.starterModelOverride && !Object.hasOwn(snapshot.values, "starterConnectionId")) {
+      this.values.set("modelConnectionSelectionRequired", true);
+    }
   }
   read<T>(key: string, initial: T | (() => T)): T {
     if (!this.values.has(key)) this.values.set(key, typeof initial === "function" ? (initial as () => T)() : initial);
@@ -32,7 +36,7 @@ class ConversationSession {
   write<T>(key: string, initial: T | (() => T), value: SetStateAction<T>) {
     const current = this.read(key, initial);
     const next = typeof value === "function" ? (value as (current: T) => T)(current) : value;
-    if (Object.is(current, next)) return;
+    if (Object.is(current, next) && !(key === "starterConnectionId" && !Object.hasOwn(this.baseline.values, key))) return;
     this.values.set(key, next);
     this.dirtyKeys.add(key);
     this.emit(key);
@@ -49,7 +53,7 @@ class ConversationSession {
     return () => { listeners.delete(listener); };
   }
   private changes() {
-    return [...persistedKeys].filter((key) => this.dirtyKeys.has(key) && !same(this.values.get(key), this.baseline.values[key]))
+    return [...persistedKeys].filter((key) => this.dirtyKeys.has(key) && (!same(this.values.get(key), this.baseline.values[key]) || (key === "starterConnectionId" && !Object.hasOwn(this.baseline.values, key))))
       .map((key) => ({ key, previous: this.baseline.values[key] ?? null, value: serializable(this.values.get(key)) }));
   }
   private accept(snapshot: ConversationSessionSnapshot, sent: Map<string, unknown> = new Map()) {

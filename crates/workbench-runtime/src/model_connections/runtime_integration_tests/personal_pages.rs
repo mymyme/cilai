@@ -282,7 +282,11 @@ fn catalog(value: &Value) -> Option<Value> {
 }
 
 fn assert_page_tools(body: &Value, expected: &[&str]) {
-    let tools = body["tools"].as_array().expect("explicit tool directory");
+    let tools = match body.get("tools") {
+        None if expected.is_empty() => &[][..],
+        Some(Value::Array(tools)) => tools.as_slice(),
+        _ => panic!("tool directory must be an array; only an empty scope may omit it"),
+    };
     assert_eq!(
         tools.len(),
         expected.len(),
@@ -292,11 +296,75 @@ fn assert_page_tools(body: &Value, expected: &[&str]) {
         assert_eq!(tool["type"], "function");
         assert!(expected.contains(&tool["name"].as_str().unwrap()), "{tool}");
     }
+    for name in expected {
+        assert_eq!(
+            tools.iter().filter(|tool| tool["name"] == *name).count(),
+            1,
+            "expected tool must appear exactly once: {name}"
+        );
+    }
     let names = tools
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
         .collect::<Vec<_>>();
     eprintln!("personal_page_wire_tool_directory={names:?}");
+}
+
+#[test]
+fn page_tool_directory_accepts_empty_or_omitted_only_for_an_empty_scope() {
+    assert_page_tools(&json!({}), &[]);
+    assert_page_tools(&json!({"tools":[]}), &[]);
+    assert_page_tools(
+        &json!({"tools":[{"type":"function","name":"cilai_personal_tools"}]}),
+        &["cilai_personal_tools"],
+    );
+}
+
+#[test]
+fn page_tool_directory_rejects_malformed_or_nonempty_empty_scope() {
+    for body in [
+        json!({"tools":null}),
+        json!({"tools":{}}),
+        json!({"tools":"none"}),
+        json!({"tools":false}),
+        json!({"tools":[{"type":"function","name":"cilai_personal_tools"}]}),
+        json!({"tools":[{"type":"function","name":"exec_command"}]}),
+    ] {
+        assert!(
+            std::panic::catch_unwind(|| assert_page_tools(&body, &[])).is_err(),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn page_tool_directory_requires_the_exact_nonempty_scope() {
+    let expected = &["cilai_personal_tools"];
+    for body in [
+        json!({}),
+        json!({"tools":null}),
+        json!({"tools":{}}),
+        json!({"tools":[]}),
+        json!({"tools":[{"type":"function","name":"exec_command"}]}),
+        json!({"tools":[{"type":"custom","name":"cilai_personal_tools"}]}),
+        json!({"tools":[{"type":"function","name":"cilai_personal_tools"},{"type":"function","name":"exec_command"}]}),
+    ] {
+        assert!(
+            std::panic::catch_unwind(|| assert_page_tools(&body, expected)).is_err(),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn page_tool_directory_rejects_duplicate_names_even_when_the_count_matches() {
+    let expected = &["cilai_personal_tools", "cilai_application_action"];
+    assert_page_tools(
+        &json!({"tools":[{"type":"function","name":"cilai_application_action"},{"type":"function","name":"cilai_personal_tools"}]}),
+        expected,
+    );
+    let duplicate = json!({"tools":[{"type":"function","name":"cilai_personal_tools"},{"type":"function","name":"cilai_personal_tools"}]});
+    assert!(std::panic::catch_unwind(|| assert_page_tools(&duplicate, expected)).is_err());
 }
 
 fn node_response(body: &Value) -> Option<Value> {
