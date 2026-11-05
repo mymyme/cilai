@@ -2,9 +2,9 @@
 
 # Cilai Personal Workbench
 
-**A local-first desktop AI workbench built on Codex CLI.**
+**A third-party desktop client for Codex, bringing persistent conversations, projects, files and tools into one workspace.**
 
-Bring projects, files, persistent conversations, tools, and personal apps into one workspace, so AI can help carry work through to completion.
+Built on the official Codex CLI, this local-first desktop workspace helps AI carry work through to completion.
 
 [简体中文](README.md) · [Download v0.1.2](https://github.com/mymyme/cilai/releases/tag/v0.1.2) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Enterprise website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 

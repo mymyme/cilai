@@ -2,9 +2,9 @@
 
 # 词来个人工作台
 
-**基于 Codex CLI 的本地优先桌面 AI 工作台。**
+**Codex 的第三方桌面端，把持续对话、项目、文件和工具放进一个工作台。**
 
-把项目、文件、持续对话、工具与个人应用放在同一个工作空间，让 AI 从回答问题走向完成工作。
+基于官方 Codex CLI，提供本地优先的桌面工作空间，让 AI 从回答问题走向完成工作。
 
 [English](README.en.md) · [下载 v0.1.2](https://github.com/mymyme/cilai/releases/tag/v0.1.2) · [构建指南](docs/BUILDING.md) · [兼容状态](docs/COMPATIBILITY.md) · [企业版官网](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 
