@@ -1003,6 +1003,7 @@ pub struct ProjectGetParams {
 pub struct ProjectGetResult {
     pub project: ProjectSummary,
     pub workspace_ids: Vec<String>,
+    pub workspaces: Vec<WorkspaceSummary>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
@@ -1056,6 +1057,7 @@ pub struct ProjectPortfolioItem {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectPortfolioListResult {
     pub items: Vec<ProjectPortfolioItem>,
+    pub workspaces: Vec<WorkspaceSummary>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
@@ -2033,11 +2035,27 @@ pub struct ReadBinaryPreviewParams {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadBinaryPreviewResult {
-    pub content_base64: String,
+    pub ticket_id: String,
     pub content_revision: String,
     pub content_type: String,
     #[ts(type = "number")]
     pub size_bytes: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReadBinaryPreviewChunkParams {
+    pub ticket_id: String,
+    #[ts(type = "number")]
+    pub offset: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadBinaryPreviewChunkResult {
+    #[ts(type = "number")]
+    pub offset: u64,
+    pub content_base64: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
@@ -2059,6 +2077,18 @@ pub struct ReadTextResourceResult {
     pub end_of_resource: bool,
     pub content_revision: String,
     pub text: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReleaseTextResourceParams {
+    pub ticket_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleaseTextResourceResult {
+    pub released: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]

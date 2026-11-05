@@ -1,6 +1,6 @@
 import { conversationArchiveChanged, mergeArchivedConversations, setConversationsArchived, type ConversationArchiveChange } from "./conversation-archive";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { aiErrorMessage, deleteAiConversations, emptyAiQuerySnapshot, loadAiRuntimeQuery, type AiConversation, type AiRuntimeQuerySnapshot } from "./ai-runtime";
+import { aiErrorMessage, deleteAiConversations, emptyAiQuerySnapshot, loadAiHistoryPage, loadAiRuntimeQuery, type AiConversation, type AiHistoryPage, type AiRuntimeQuerySnapshot } from "./ai-runtime";
 import { assistantMessageBody, conversationTopic } from "./conversation-display";
 import { MessageAttachments } from "./conversation-attachments";
 import type { AiProjectOption } from "./ai-workbench";
@@ -25,7 +25,8 @@ function ArchiveTrashIcon() {
 export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; onMessage: MessageSink; openIntent?: { conversationId: string; token: number } | null }) {
   const [snapshot, setSnapshot] = useState<AiRuntimeQuerySnapshot>(() => emptyAiQuerySnapshot("archive"));
   const [loading, setLoading] = useState(true);
-  const [detail, setDetail] = useState<AiRuntimeQuerySnapshot | null>(null);
+  const [detail, setDetail] = useState<AiHistoryPage | null>(null);
+  const detailRequest = useRef(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,18 +78,39 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
   useEffect(() => { heading.current?.focus(); }, [selectedId]);
 
   useEffect(() => {
-    let cancelled = false;
+    const request = ++detailRequest.current;
     setDetail(null);
     setDetailError(null);
     if (!selectedId) { setDetailLoading(false); return; }
     setDetailLoading(true);
-    void loadAiRuntimeQuery({ scope: "conversation", conversationId: selectedId }).then((result) => {
-      if (!cancelled) setDetail(result);
+    void loadAiHistoryPage(selectedId, true, null).then(result => {
+      if (request === detailRequest.current) setDetail(result);
     }).catch((reason: unknown) => {
-      if (!cancelled) setDetailError(aiErrorMessage(reason));
-    }).finally(() => { if (!cancelled) setDetailLoading(false); });
-    return () => { cancelled = true; };
+      if (request === detailRequest.current) setDetailError(aiErrorMessage(reason));
+    }).finally(() => {
+      if (request === detailRequest.current) setDetailLoading(false);
+    });
+    return () => { detailRequest.current += 1; };
   }, [selectedId, retry]);
+
+  const loadEarlier = async () => {
+    const cursor = detail?.previousCursor;
+    if (detailLoading || !cursor || cursor.conversationId !== selectedId) return;
+    const request = ++detailRequest.current;
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const page = await loadAiHistoryPage(cursor.conversationId, true, cursor);
+      if (request !== detailRequest.current) return;
+      setDetail(current => current?.previousCursor === cursor ? {
+        ...page, messages: [...page.messages, ...current.messages],
+      } : current);
+    } catch (reason) {
+      if (request === detailRequest.current) setDetailError(aiErrorMessage(reason));
+    } finally {
+      if (request === detailRequest.current) setDetailLoading(false);
+    }
+  };
 
   const groups = useMemo(() => {
     const result = new Map<string, { key: string; name: string; items: { conversation: AiConversation; title: string }[] }>();
@@ -116,7 +138,7 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
   const filteredIds = filteredGroups.flatMap((group) => group.items.map((item) => item.conversation.conversationId));
   const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
   const selected = snapshot.conversations.find((conversation) => conversation.conversationId === selectedId && conversation.archived);
-  const selectedMessages = selected && detail?.conversations.some((conversation) => conversation.conversationId === selected.conversationId) ? [...detail.messages].sort((left, right) => left.createdAt - right.createdAt) : [];
+  const selectedMessages = selected && detail?.conversationId === selected.conversationId ? detail.messages : [];
   const selectedGroup = selected ? groups.find((group) => group.items.some((item) => item.conversation.conversationId === selected.conversationId)) : null;
 
   const clearSelection = () => {
@@ -225,7 +247,9 @@ export function ArchivedConversationsPage(props: { projects: AiProjectOption[]; 
           <p className="archive-readonly"><ArchiveIcon/>当前为只读查看，取消归档后可继续对话。</p>
         </header>
         <div className="archive-messages" aria-label="归档会话消息">
-          {detailLoading ? <div className="archive-empty" role="status"><p>正在读取消息…</p></div> : detailError ? <div className="archive-empty" role="alert"><p>{detailError}</p><button onClick={() => setRetry((value) => value + 1)} type="button">重新加载</button></div> : selectedMessages.length ? selectedMessages.map((message) => <article className="archive-message" data-role={message.role} key={message.messageId}>
+          {detail?.conversationId === selected.conversationId && detail.previousCursor ? <button disabled={detailLoading} type="button" onClick={() => void loadEarlier()}>{detailLoading ? "正在读取…" : "加载更早消息"}</button> : null}
+          {detailError && detail ? <p role="alert">{detailError}</p> : null}
+          {detailLoading && !detail ? <div className="archive-empty" role="status"><p>正在读取消息…</p></div> : detailError && !detail ? <div className="archive-empty" role="alert"><p>{detailError}</p><button onClick={() => setRetry((value) => value + 1)} type="button">重新加载</button></div> : selectedMessages.length ? selectedMessages.map((message) => <article className="archive-message" data-role={message.role} key={message.messageId}>
             <header><strong>{message.role === "user" ? "你" : "助手"}</strong><time dateTime={new Date(message.createdAt).toISOString()}>{auditMoment(message.createdAt)}</time></header>
             {message.attachments?.length ? <MessageAttachments attachments={message.attachments}/> : null}
             {message.role === "assistant" ? <MarkdownContent diagramIdPrefix="archive">{assistantMessageBody(message.content)}</MarkdownContent> : <p className="archive-user-text">{message.content}</p>}

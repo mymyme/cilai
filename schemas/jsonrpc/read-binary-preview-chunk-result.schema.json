@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReadBinaryPreviewChunkResult",
+  "type": "object",
+  "properties": {
+    "contentBase64": {
+      "type": "string"
+    },
+    "offset": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "offset",
+    "contentBase64"
+  ]
+}

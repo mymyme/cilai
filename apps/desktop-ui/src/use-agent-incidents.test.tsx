@@ -15,7 +15,7 @@ const run = (over: Record<string, unknown> = {}) => ({
   errorReason: "provider exited with code 1", ...over,
 });
 
-const snapshot = (runs: unknown[], projectId: string | null = "proj-1") => ({
+const snapshot = (runs: ReturnType<typeof run>[], projectId: string | null = "proj-1") => ({
   runtimes: [], agents: [{ agentId: "agent-1", name: "词来 主控" }],
   conversations: [{
     conversationId: "conv-1",
@@ -23,6 +23,8 @@ const snapshot = (runs: unknown[], projectId: string | null = "proj-1") => ({
     workClassification: { runId: "classified-run", taskId: "task-1" },
   }],
   messages: [],
+  incidentCandidateRunIds: runs.filter(item => ["failed", "interrupted"].includes(String(item.status))).map(item => item.runId),
+  nextIncidentRunId: null,
   runs: [run({ runId: "classified-run", status: "completed", retryOfRunId: null }), ...runs],
   permissionRequests: [], inboxReadItemIds: [],
 });

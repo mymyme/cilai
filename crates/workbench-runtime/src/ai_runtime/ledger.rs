@@ -561,6 +561,42 @@ impl Baseline {
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "显式运行普通保存的大历史投影测量"]
+    fn measure_cached_save_with_ten_thousand_messages() {
+        let messages: Vec<ConversationMessage> = (0..10_000).map(|index| {
+            serde_json::from_value(json!({
+                "messageId": format!("m{index}"), "conversationId": format!("c{}", index / 100),
+                "role": "assistant", "content": "历史材料".repeat(300), "runId": "r", "createdAt": index
+            })).unwrap()
+        }).collect();
+        let mut source = state();
+        source["messages"] = json!([]);
+        source["conversations"] = json!((0..100).map(|index| json!({
+            "conversationId": format!("c{index}"), "title": format!("历史会话{index}"), "archived": index % 2 == 0
+        })).collect::<Vec<_>>());
+        let mut baseline = Baseline::default();
+        let accepted = baseline.prepare_cached(&source, &messages).unwrap();
+        let receipt = json!({"commandId":accepted.request["commandId"],"records":accepted.request["records"].as_array().unwrap().iter()
+            .map(|record| json!({"collection":record["collection"],"id":record["id"],"digest":"fixture-confirmed"})).collect::<Vec<_>>()});
+        baseline.acknowledge(&accepted, &receipt).unwrap();
+        source["inboxReadItemIds"] = json!(["fixture-item"]);
+        let mut elapsed = Vec::new();
+        for _ in 0..10 {
+            let start = std::time::Instant::now();
+            let pending = baseline.prepare_cached(&source, &messages).unwrap();
+            elapsed.push(start.elapsed().as_micros());
+            assert_eq!(pending.request["records"].as_array().unwrap().len(), 1);
+            assert_eq!(pending.request["pendingInputs"], json!([]));
+        }
+        elapsed.sort_unstable();
+        eprintln!(
+            "personal ledger cached projection: 100 conversations, 10000 messages, median_us={}, max_us={}",
+            elapsed[elapsed.len() / 2],
+            elapsed.last().unwrap()
+        );
+    }
+
+    #[test]
     fn model_owned_entries_never_enter_projection_or_deletion_baselines() {
         let ledger = json!({"conversations":[],"messages":[],"runs":[],"entries":[
             {"id":"personalModel:connection:existing","position":0,"digest":"connection-digest","value":{"entryId":"personalModel:connection:existing","owner":"personal_model","kind":"connection","value":{"secretRef":{"service":"cn.cilai.personal.workbench.model","account":"profile:connection:1"}}}},

@@ -1041,6 +1041,18 @@
     },
     {
       "kind": "request",
+      "name": "textResource/release",
+      "paramsSchema": "text-resource-release-params.schema.json",
+      "resultSchema": "text-resource-release-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "textDiff/release",
+      "paramsSchema": "text-resource-release-params.schema.json",
+      "resultSchema": "text-resource-release-result.schema.json"
+    },
+    {
+      "kind": "request",
       "name": "textDiff/compute",
       "paramsSchema": "text-diff-compute-params.schema.json",
       "resultSchema": "text-diff-compute-result.schema.json"
@@ -1182,6 +1194,18 @@
       "name": "preview/readBinary",
       "paramsSchema": "read-binary-preview-params.schema.json",
       "resultSchema": "read-binary-preview-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "preview/readBinaryChunk",
+      "paramsSchema": "read-binary-preview-chunk-params.schema.json",
+      "resultSchema": "read-binary-preview-chunk-result.schema.json"
+    },
+    {
+      "kind": "request",
+      "name": "preview/releaseBinary",
+      "paramsSchema": "text-resource-release-params.schema.json",
+      "resultSchema": "text-resource-release-result.schema.json"
     },
     {
       "kind": "request",

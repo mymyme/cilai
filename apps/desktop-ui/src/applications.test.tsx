@@ -60,6 +60,29 @@ describe("个人应用", () => {
     expect(screen.queryByTitle("installed-fixture-frame")).toBeNull();
     expect(invoke.mock.calls.filter(call=>call[0]==="personal_application_open")).toHaveLength(1);
   });
+  it("同资料重进恢复已安装标签，确认打开后才加载页面", async () => {
+    const profileId = "restore-fixture";
+    const key = `cilai.personal-application-tabs.v1:${profileId}`;
+    projects = [{ ...packaged, status: "installed" }];
+    const view = render(<ApplicationsPage profileId={profileId} onMessage={vi.fn()}/>);
+    fireEvent.click(await screen.findByRole("button", { name: "文件检查，打开" }));
+    await screen.findByTestId("installed-文件检查");
+    await waitFor(() => expect(localStorage.getItem(key)).toContain(packaged.creationProjectId));
+    view.unmount();
+
+    const other = render(<ApplicationsPage profileId="restore-other-fixture" onMessage={vi.fn()}/>);
+    await screen.findByRole("button", { name: "文件检查，打开" });
+    expect(screen.queryByRole("button", { name: /^打开应用$/ })).toBeNull();
+    other.unmount();
+
+    render(<ApplicationsPage profileId={profileId} onMessage={vi.fn()}/>);
+    const resume = await screen.findByRole("button", { name: /^打开应用$/ });
+    expect(screen.queryByTestId("installed-文件检查")).toBeNull();
+    fireEvent.click(resume);
+    await screen.findByTestId("installed-文件检查");
+    localStorage.removeItem(key);
+    localStorage.removeItem("cilai.personal-application-tabs.v1:restore-other-fixture");
+  });
   it("维护关闭事件先卸载个人页面，再确认关闭",async()=>{
     let receive!:(value:{token:string})=>void;
     listen.mockImplementation(async(_event,handler)=>{receive=handler;return()=>{};});

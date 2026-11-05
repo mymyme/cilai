@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn());
 const renderMermaid = vi.hoisted(() => vi.fn().mockResolvedValue({ svg: '<svg data-testid="rendered-mermaid"></svg>' }));
 const openPdfDocument = vi.hoisted(() => vi.fn());
 vi.mock("./host", () => ({
   invoke,
+  writeClipboard: (text: string) => invoke("plugin:clipboard-manager|write_text", { text }),
 }));
 vi.mock("./app-server-rpc", async (importOriginal) => ({ ...await importOriginal<typeof import("./app-server-rpc")>(), rpc: async (method: string, params: object) => method === "file/hydrate" ? { state: "ready" } : invoke("app_server_request", { method, params }) }));
 vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), render: renderMermaid } }));
@@ -13,8 +14,11 @@ vi.mock("./pdfjs-renderer", () => ({ openPdfDocument }));
 
 import { FilePreviewPane, type PreviewView } from "./preview";
 import type { WorkspaceFileItem } from "./generated/protocol";
+import { FileMarkdownTestWorker } from "./file-markdown-test-worker";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+beforeEach(() => vi.stubGlobal("Worker", FileMarkdownTestWorker));
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 const file = { localFileId: "f1", relativePath: "a.md", fileType: "file", presenceState: "present",
   displayState: null, baselineRelation: "platform_absent", localChangeState: "clean",
@@ -35,6 +39,9 @@ const readyWith = (format: string, body: string) => {
   invoke.mockImplementation((command: string) => command === "preview_open"
     ? Promise.resolve({ source: "local", availability: "ready", format, relativePath: "a",
         contentRevision: "rev1", ticketId: "t1", byteLength: body.length, truncated: false })
+    : command === "document_layout_start" ? Promise.resolve({
+        html: body.replace(/<\/head>/i, '<style data-contexthub-static-preview></style></head>'),
+      })
     : Promise.resolve({ contentRevision: "rev1", offset: 0, text: body,
         nextOffset: body.length, endOfResource: true }));
 };
@@ -106,6 +113,28 @@ describe("正文的预览与源码两种看法", () => {
     render(pane(file, "rendered", onViewAvailabilityChange));
     expect(await screen.findByText(/# 标题/)).not.toBeNull();
     expect(onViewAvailabilityChange).not.toHaveBeenCalledWith(true);
+  });
+
+  it("纯文本只读取当前页，复制全文并在关闭时释放票据", async () => {
+    invoke.mockImplementation((command: string, args: { params?: { offset?: number }; text?: string }) => {
+      if (command === "preview_open") return Promise.resolve({
+        source: "local", availability: "ready", format: "plain_text", relativePath: "a.txt",
+        ticketId: "paged-ticket", contentRevision: "paged-revision", contentBytes: 12,
+      });
+      if (command === "text_resource_read") return Promise.resolve(args.params?.offset === 0
+        ? { contentRevision: "paged-revision", offset: 0, nextOffset: 6, endOfResource: false, text: "前页" }
+        : { contentRevision: "paged-revision", offset: 6, nextOffset: 12, endOfResource: true, text: "后页" });
+      return Promise.resolve({ released: true });
+    });
+    const view = render(pane({ ...file, relativePath: "a.txt" }));
+    expect(await screen.findByText("前页")).toBeTruthy();
+    expect(invoke.mock.calls.filter(call => call[0] === "text_resource_read")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+    expect(await screen.findByText("后页")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "复制全文" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("plugin:clipboard-manager|write_text", { text: "前页后页" }));
+    view.unmount();
+    expect(invoke).toHaveBeenCalledWith("app_server_request", { method: "textResource/release", params: { ticketId: "paged-ticket" } });
   });
 
   it("macOS PDF 保持由宿主安全渲染为页面并在内容区逐页查看", async () => {

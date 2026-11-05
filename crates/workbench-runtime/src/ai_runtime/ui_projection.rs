@@ -1,5 +1,5 @@
 use super::{
-    AgentRun, AgentRunArtifact, ApplicationAiContextSnapshot, ArtifactVersion, ConversationMessage,
+    AgentRun, AgentRunArtifact, AgentRunEvent, ApplicationAiContextSnapshot, ArtifactVersion, ConversationMessage,
     MessageAttachment, RegenerationDraft,
 };
 
@@ -68,6 +68,10 @@ pub(super) fn artifact_for_ui(artifact: &AgentRunArtifact) -> AgentRunArtifact {
 }
 
 pub(super) fn run_for_ui(run: &AgentRun) -> AgentRun {
+    run_with_events_for_ui(run, &run.events)
+}
+
+pub(super) fn run_with_events_for_ui(run: &AgentRun, events: &[AgentRunEvent]) -> AgentRun {
     AgentRun {
         planning: run.planning,
         run_id: run.run_id.clone(),
@@ -114,7 +118,7 @@ pub(super) fn run_for_ui(run: &AgentRun) -> AgentRun {
         automation_rule_version: run.automation_rule_version,
         sandbox_mode: run.sandbox_mode.clone(),
         approval_mode: run.approval_mode.clone(),
-        events: run.events.clone(),
+        events: events.to_vec(),
         artifacts: run.artifacts.iter().map(artifact_for_ui).collect(),
         usage: run.usage.clone(),
         log_tail: Vec::new(),

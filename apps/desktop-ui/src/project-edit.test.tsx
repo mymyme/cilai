@@ -8,15 +8,6 @@ vi.mock("./host", () => ({
 
 const { ProjectEditDialog } = await import("./project-edit");
 
-const target = {
-  projectId: "proj-1",
-  displayName: "旧名",
-  goal: "旧目标",
-  stateRevision: 3,
-  primaryWorkspaceId: "ws-1",
-  workspaceIds: ["ws-1", "ws-2"],
-};
-
 const workspace = (id: string, name: string) => ({
   workspaceId: id,
   workspaceKind: "local",
@@ -36,6 +27,16 @@ const workspace = (id: string, name: string) => ({
 });
 
 const workspaces = [workspace("ws-1", "主文件夹"), workspace("ws-2", "支撑文件夹"), workspace("ws-3", "别的项目的")];
+
+const target = {
+  projectId: "proj-1",
+  displayName: "旧名",
+  goal: "旧目标",
+  stateRevision: 3,
+  primaryWorkspaceId: "ws-1",
+  workspaceIds: ["ws-1", "ws-2"],
+  registeredWorkspaces: workspaces.slice(0, 2),
+};
 
 const setup = (over: Partial<Parameters<typeof ProjectEditDialog>[0]> = {}) => {
   const handlers = {

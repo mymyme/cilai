@@ -24,6 +24,8 @@ class HostService {
     this.pending = new Map();
     this.nextId = 0;
     this.child = null;
+    this.stopRequest = null;
+    this.restartRequest = null;
     /** 反向调用的处理器，由壳注入。 */
     this.onHostRequest = null;
     /** 标准错误输出的落盘记录，由壳在知道日志目录后注入。 */
@@ -32,6 +34,7 @@ class HostService {
   }
 
   start(env, arguments_ = []) {
+    if (this.child || this.stopRequest) throw new Error("业务服务尚未完成退出");
     let runtimeEnvironment;
     this.startError = null;
     try {
@@ -55,9 +58,9 @@ class HostService {
       this.testDiagnostics?.record("service_error");
       for (const [, entry] of this.pending) entry.reject(new Error(reason));
       this.pending.clear();
-      this.child = null;
     };
     readline.createInterface({ input: child.stdout }).on("line", (line) => {
+      if (this.child !== child) return;
       let message;
       try {
         message = JSON.parse(line);
@@ -67,17 +70,18 @@ class HostService {
       }
       // 业务侧反向请求宿主能力：两个方向共用同一对管道，靠字段区分
       if (typeof message.hostRequest === "number") {
-        void this.serveHostRequest(message);
+        void this.serveHostRequest(child, message);
         return;
       }
       const entry = this.pending.get(message.id);
       if (!entry) return;
       this.pending.delete(message.id);
-      this.testDiagnostics?.response(entry.command, message.result, message.error, Date.now() - entry.startedAt);
+      this.testDiagnostics?.response(entry.command, message.result, message.error, Date.now() - entry.startedAt, Buffer.byteLength(line));
       if (message.error) entry.reject(new Error(message.error));
       else entry.resolve(message.result);
     });
     child.stderr.on("data", (chunk) => {
+      if (this.child !== child) return;
       this.testDiagnostics?.stderr(chunk);
       console.warn("[service]", String(chunk).trim());
       if (!this.diagnosticsLog || (this.testDiagnostics && !this.testDiagnostics.status().enabled)) return;
@@ -89,11 +93,21 @@ class HostService {
         this.diagnosticsLog = null;
       }
     });
-    child.on("error", (error) => fail(`业务服务启动失败：${error.message}`));
-    child.on("exit", (code, signal) => {
+    child.stdin.on("error", (error) => fail(`业务服务连接写入失败：${error.message}`));
+    child.on("error", (error) => {
+      fail(`业务服务启动失败：${error.message}`);
+      if (!child.pid && this.child === child) this.child = null;
+    });
+    child.once("close", (code, signal) => {
+      if (this.child !== child) return;
       this.testDiagnostics?.record("service_exit", { exitCode: code });
-      const reason = `业务服务已退出（code ${code}${signal ? ", signal " + signal : ""}）`;
-      fail(reason);
+      if (!this.stopRequest || code !== 0 || signal !== null) {
+        fail(`业务服务已退出（code ${code}${signal ? ", signal " + signal : ""}）`);
+      } else {
+        for (const [, entry] of this.pending) entry.reject(new Error("业务服务退出前未返回请求结果"));
+        this.pending.clear();
+      }
+      this.child = null;
     });
     return this;
   }
@@ -104,10 +118,10 @@ class HostService {
    * 未注册处理器时明确拒绝而不是静默丢弃：丢弃会让业务侧一直等到超时，错误信息里
    * 只剩"未在限期内回执"，看不出是宿主没有这项能力。
    */
-  async serveHostRequest(message) {
+  async serveHostRequest(child, message) {
     const reply = (payload) => {
-      if (!this.child) return;
-      this.child.stdin.write(`${JSON.stringify({ hostResponse: message.hostRequest, ...payload })}\n`);
+      if (this.child !== child || child.stdin.destroyed || child.stdin.writableEnded) return;
+      child.stdin.write(`${JSON.stringify({ hostResponse: message.hostRequest, ...payload })}\n`);
     };
     try {
       if (!this.onHostRequest) throw new Error(`宿主未提供该能力：${message.command}`);
@@ -119,13 +133,23 @@ class HostService {
 
   call(command, args) {
     if (this.updateHold && !isUpdateRead(command, args?.method)) return Promise.reject(new Error('正在准备重启更新，请稍后再操作。'));
-    if (!this.child) return Promise.reject(new Error(this.startError ?? "业务服务未运行"));
+    if (this.stopRequest) return Promise.reject(new Error("业务服务正在退出"));
+    if (command === "app_server_restart") {
+      this.restartRequest ??= this.send(command, args).finally(() => { this.restartRequest = null; });
+      return this.restartRequest;
+    }
+    return this.send(command, args);
+  }
+
+  send(command, args) {
+    const child = this.child;
+    if (!child || this.startError) return Promise.reject(new Error(this.startError ?? "业务服务未运行"));
     this.nextId += 1;
     const id = this.nextId;
     const line = JSON.stringify({ id, command, args: args ?? {} });
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject, command, method: args?.method, startedAt: Date.now() });
-      this.child.stdin.write(line + "\n", (error) => {
+      child.stdin.write(line + "\n", (error) => {
         if (!error) return;
         this.pending.delete(id);
         reject(error);
@@ -134,12 +158,18 @@ class HostService {
   }
 
   stop() {
-    if (!this.child) return;
+    if (this.stopRequest) return this.stopRequest;
     const child = this.child;
-    this.child = null;
-    for (const [, entry] of this.pending) entry.reject(new Error("业务服务已停止"));
-    this.pending.clear();
-    child.stdin.end();
+    if (!child) return Promise.resolve();
+    const stopping = new Promise((resolve, reject) => {
+      child.once("close", (code, signal) => {
+        if (code === 0 && signal === null) resolve();
+        else reject(new Error(`业务服务退出未确认（code ${code}, signal ${signal}）`));
+      });
+      child.stdin.write('{"hostShutdown":true}\n');
+    });
+    this.stopRequest = stopping.finally(() => { this.stopRequest = null; });
+    return this.stopRequest;
   }
 }
 

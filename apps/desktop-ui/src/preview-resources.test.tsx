@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
@@ -9,6 +10,9 @@ import { RetainedPage } from "./retained-page";
 import type { WorkspaceFileItem } from "./generated/protocol";
 const file: WorkspaceFileItem = { localFileId: "file-1", relativePath: "图片.png", fileType: "file", presenceState: "present", displayState: null, baselineRelation: null, localChangeState: null, confirmationState: null, conflictState: null, stateRevision: 2, checksumAlgorithm: "sha256", checksumValue: "digest", baselineVersionId: null };
 function pane(kind = "cloud_team", current = file) { return <FilePreviewPane workspaceId="workspace-1" workspaceKind={kind} localRoot={kind === "local" ? "/workspace" : "cilai-cloud://team"} hostPlatform="windows" file={current} view="rendered" onViewAvailabilityChange={() => {}}/>; }
+function binaryDescriptor(text: string) {
+  return { ticketId: "test-binary-ticket", contentRevision: createHash("sha256").update(text).digest("hex"), contentType: "image/png", sizeBytes: text.length };
+}
 beforeEach(() => {
   invoke.mockReset();
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:preview-image") });
@@ -28,13 +32,15 @@ test("占位文件实际预览时下载，完成后重建观测再读取", async
     if (args?.method === "file/hydrate") return ++polls === 1 ? { state: "downloading", operationId: "download-1" } : { state: "ready" };
     if (args?.method === "workspace/indexPath") return { localFileId: "file-1" };
     if (command === "preview_open") return { source: "local", format: "image", availability: "ready", relativePath: "图片.png" };
-    if (args?.method === "preview/readBinary") return { contentBase64: btoa("image bytes"), contentRevision: "digest", contentType: "image/png", sizeBytes: 11 };
+    if (args?.method === "preview/readBinary") return binaryDescriptor("image bytes");
+    if (args?.method === "preview/readBinaryChunk") return { offset: 0, contentBase64: btoa("image bytes") };
+    if (args?.method === "preview/releaseBinary") return { released: true };
     throw new Error(`unexpected ${command}`);
   });
   render(pane("local"));
   await screen.findByText("正在下载");
   await screen.findByRole("img", { name: "图片.png" });
-  expect(order).toEqual(["file/hydrate", "file/hydrate", "workspace/indexPath", "preview_open", "preview/readBinary"]);
+  expect(order).toEqual(["file/hydrate", "file/hydrate", "workspace/indexPath", "preview_open", "preview/readBinary", "preview/readBinaryChunk", "preview/releaseBinary"]);
 });
 test("取消下载只取消工作台等待，随后不读取正文", async () => {
   invoke.mockResolvedValue({ state: "downloading", operationId: "download-1" });
@@ -72,7 +78,9 @@ test("隐藏页文件实际变更后延迟读取新版本，普通切页不重�
   invoke.mockImplementation(async (command,args)=> {
     if (args?.method === "file/hydrate") return {state:"ready"};
     if (command === "preview_open") return {source:"local",format:"image",availability:"ready",relativePath:"图片.png"};
-    if (args?.method === "preview/readBinary") return {contentBase64:btoa("bytes"),contentRevision:"digest",contentType:"image/png",sizeBytes:5};
+    if (args?.method === "preview/readBinary") return binaryDescriptor("bytes");
+    if (args?.method === "preview/readBinaryChunk") return { offset: 0, contentBase64: btoa("bytes") };
+    if (args?.method === "preview/releaseBinary") return { released: true };
     throw new Error(`unexpected ${command}`);
   });
   const page = (active:boolean,revision=2) => <RetainedPage active={active}>{pane("local",{...file,stateRevision:revision,checksumValue:`digest-${revision}`})}</RetainedPage>;

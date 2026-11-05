@@ -17,6 +17,7 @@ export default defineConfig({
   clearScreen: false,
   build: {
     rolldownOptions: {
+      input: { main: resolve(import.meta.dirname, "index.html"), documentLayout: resolve(import.meta.dirname, "document-layout.html") },
       output: {
         codeSplitting: {
           maxSize: 450_000,

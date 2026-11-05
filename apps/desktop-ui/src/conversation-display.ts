@@ -138,8 +138,8 @@ export function conversationTitleFromFirstMessage(content: string, attachmentNam
 
 export const genericConversationTitles = new Set(["新对话", "项目工作对话", "工作区对话"]);
 
-export function conversationTopic(conversation: AiConversation, messages: AiRuntimeSnapshot["messages"]): string {
-  const firstPrompt = messages.find((message) => message.role === "user")?.content;
+export function conversationTopic(conversation: AiConversation, messages: AiRuntimeSnapshot["messages"], firstPreview?: string | null): string {
+  const firstPrompt = firstPreview ?? messages.find((message) => message.role === "user")?.content;
   const titleTarget = conversation.title.startsWith("讨论 ") ? conversation.title.slice(3).trim() : "";
   const fileNamed = Boolean(titleTarget) && (Boolean(conversation.context.relativePath) || titleTarget.includes("/") || /\.[\p{L}\p{N}]{1,10}$/u.test(titleTarget));
   if ((genericConversationTitles.has(conversation.title) || fileNamed) && firstPrompt) return compactConversationText(firstPrompt, 28);
@@ -147,7 +147,7 @@ export function conversationTopic(conversation: AiConversation, messages: AiRunt
   return compactConversationText(conversationDisplayTitle(conversation.title), 32);
 }
 
-export function conversationSummary(conversation: AiConversation, messages: AiRuntimeSnapshot["messages"], installations: Array<{ messageId: string | null; displayContent: string | null }> = [], runs: AiRuntimeSnapshot["runs"] = []): string {
+export function conversationSummary(conversation: AiConversation, messages: ReadonlyArray<Pick<AiRuntimeSnapshot["messages"][number], "messageId" | "content" | "role"> & { runId?: string | null }>, installations: Array<{ messageId: string | null; displayContent: string | null }> = [], runs: AiRuntimeSnapshot["runs"] = []): string {
   const latest = messages.at(-1);
   if (latest) {
     const installation = latest.role === "assistant" ? installations?.find(item => item.messageId === latest.messageId) : undefined;

@@ -23,6 +23,7 @@ mod harness_pool;
 pub mod mcp_connections;
 pub mod memory;
 pub mod model_connections;
+mod model_input_capabilities;
 mod model_session_proxy;
 mod persistent_threads;
 mod personal_exec;

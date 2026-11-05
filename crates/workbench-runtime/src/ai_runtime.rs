@@ -29,6 +29,7 @@ pub use run_state::{
 mod shutdown;
 mod startup_recovery;
 mod ui_projection;
+mod workbench_read;
 pub use queries::{AgentRunSummary, AiRuntimeQuerySnapshot};
 mod usage_view;
 use ui_projection::{message_for_ui, run_for_ui};
@@ -75,6 +76,7 @@ use crate::codex_harness::{
 };
 use crate::codex_threads;
 use crate::conversation_kernel::{self, ConversationKind, ThreadInput};
+use crate::model_input_capabilities::{validate_text_model, validate_visual_attachments};
 use crate::model_session_proxy::start_model_session_proxy;
 use crate::persistent_threads::{self, PersistentThread};
 use crate::supervisor::AppServerSupervisor;
@@ -136,8 +138,46 @@ pub struct AiRuntimeActivitySnapshot {
     conversations: Vec<Conversation>,
     messages: Vec<ConversationMessage>,
     runs: Vec<AgentRun>,
-    permission_requests: Vec<PermissionRequest>,
+    event_pages: HashMap<String, AiRunEventPage>,
     missing_run_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AiRunEventCursor {
+    count: usize,
+    digest: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AiRunEventPage {
+    retained: usize,
+    cursor: AiRunEventCursor,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiRuntimeApprovalSnapshot {
+    state_revision: i64,
+    permission_requests: Vec<PermissionRequest>,
+}
+
+fn check_activity_run_ids(run_ids: &[String]) -> Result<(), String> {
+    if run_ids.is_empty()
+        || run_ids.len() > 32
+        || run_ids.iter().any(|id| id.is_empty() || id.len() > 160)
+        || run_ids.iter().collect::<HashSet<_>>().len() != run_ids.len()
+    {
+        return Err("ai_activity_run_ids_invalid".to_owned());
+    }
+    Ok(())
+}
+
+fn activity_event_digest(events: &[AgentRunEvent]) -> Result<String, String> {
+    Ok(sha256_bytes(
+        &serde_json::to_vec(events).map_err(|_| "ai_activity_events_invalid")?,
+    ))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1906,7 +1946,9 @@ impl AiRuntimeManager {
             now,
             "工作台未运行时错过本次任务，未补跑。",
         );
+        let mut timing = StartupPublishTiming::new();
         let mut state = lock(&self.inner);
+        timing.acquired = Some(Instant::now());
         if let Some(previous) = state.application_threads.take() {
             previous.shutdown();
         }
@@ -1950,6 +1992,7 @@ impl AiRuntimeManager {
         }
         persist_locked(&mut state)?;
         drop(state);
+        drop(timing);
         self.resume_application_cleanup()?;
         self.start_automation_scheduler()?;
         Ok(())
@@ -2700,9 +2743,17 @@ impl AiRuntimeManager {
     pub fn activity_snapshot(
         &self,
         run_ids: &[String],
+        event_cursors: &HashMap<String, AiRunEventCursor>,
     ) -> Result<AiRuntimeActivitySnapshot, String> {
-        if run_ids.is_empty() || run_ids.len() > 32 || run_ids.iter().any(|id| id.len() > 160) {
-            return Err("ai_activity_run_ids_invalid".to_owned());
+        check_activity_run_ids(run_ids)?;
+        if event_cursors.len() > run_ids.len()
+            || event_cursors.iter().any(|(id, cursor)| {
+                !run_ids.contains(id)
+                    || cursor.digest.len() != 64
+                    || !cursor.digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        {
+            return Err("ai_activity_event_cursor_invalid".to_owned());
         }
         let state = lock(&self.inner);
         let requested = run_ids.iter().map(String::as_str).collect::<HashSet<_>>();
@@ -2726,6 +2777,23 @@ impl AiRuntimeManager {
             .iter()
             .map(|run| run.conversation_id.as_str())
             .collect::<HashSet<_>>();
+        let mut event_pages = HashMap::with_capacity(runs.len());
+        let mut projected_runs = Vec::with_capacity(runs.len());
+        for run in &runs {
+            let digest = activity_event_digest(&run.events)?;
+            let retained = match event_cursors.get(&run.run_id) {
+                Some(cursor) if cursor.count == run.events.len() && cursor.digest == digest => cursor.count,
+                Some(cursor) if cursor.count > 0 && cursor.count < run.events.len()
+                    && activity_event_digest(&run.events[..cursor.count])? == cursor.digest => cursor.count,
+                _ => 0,
+            };
+            let projected = ui_projection::run_with_events_for_ui(run, &run.events[retained..]);
+            event_pages.insert(
+                run.run_id.clone(),
+                AiRunEventPage { retained, cursor: AiRunEventCursor { count: run.events.len(), digest } },
+            );
+            projected_runs.push(projected);
+        }
         Ok(AiRuntimeActivitySnapshot {
             state_revision: state.state_revision,
             conversations: state
@@ -2749,15 +2817,30 @@ impl AiRuntimeManager {
                 })
                 .map(message_for_ui)
                 .collect(),
-            runs: runs.into_iter().map(run_for_ui).collect(),
+            runs: projected_runs,
+            event_pages,
+            missing_run_ids,
+        })
+    }
+
+    /// # Errors
+    /// 请求的运行范围无效时拒绝读取审批。
+    pub fn activity_approvals(
+        &self,
+        run_ids: &[String],
+    ) -> Result<AiRuntimeApprovalSnapshot, String> {
+        check_activity_run_ids(run_ids)?;
+        let state = lock(&self.inner);
+        let requested = run_ids.iter().map(String::as_str).collect::<HashSet<_>>();
+        Ok(AiRuntimeApprovalSnapshot {
+            state_revision: state.state_revision,
             permission_requests: state
                 .persisted
                 .permission_requests
                 .iter()
-                .filter(|request| found.contains(request.run_id.as_str()))
+                .filter(|request| requested.contains(request.run_id.as_str()))
                 .cloned()
                 .collect(),
-            missing_run_ids,
         })
     }
 
@@ -10188,6 +10271,34 @@ fn persist_run_progress(state: &mut ManagerState, run_id: &str) -> Result<(), St
 }
 
 /// 保存路径分段耗时超过阈值时写入诊断输出，便于定位随历史增长的步骤。
+struct StartupPublishTiming {
+    started: Instant,
+    acquired: Option<Instant>,
+    enabled: bool,
+}
+impl StartupPublishTiming {
+    fn new() -> Self {
+        Self {
+            started: Instant::now(),
+            acquired: None,
+            enabled: std::env::var("CILAI_PERSONAL_STARTUP_TIMING").as_deref() == Ok("1"),
+        }
+    }
+}
+impl Drop for StartupPublishTiming {
+    fn drop(&mut self) {
+        if self.enabled
+            && let Some(acquired) = self.acquired
+        {
+            eprintln!(
+                "personal_startup_lock stage=runtime_publish wait_ms={} hold_ms={}",
+                acquired.duration_since(self.started).as_millis(),
+                acquired.elapsed().as_millis()
+            );
+        }
+    }
+}
+
 fn log_persist_timing(flow: &str, stages: &[(&str, Instant, Instant)]) {
     let total = match (stages.first(), stages.last()) {
         (Some((_, from, _)), Some((_, _, to))) => to.duration_since(*from).as_millis(),
@@ -10503,6 +10614,7 @@ fn model_info_from_snapshot(
     snapshot: &contexthub_protocol::ModelExecutionSnapshot,
 ) -> Result<ModelInfo, String> {
     use contexthub_protocol::{ModelCapabilityState, ModelEvidenceSource};
+    validate_text_model(&snapshot.model_id, &snapshot.input_modalities)?;
     let tools = snapshot.capabilities.get("tools").is_some_and(|evidence| {
         evidence.state == ModelCapabilityState::Supported
             && evidence.source == ModelEvidenceSource::Observed
@@ -10772,15 +10884,7 @@ impl AiRuntimeManager {
         if let Some(preview) = &result.history_transfer {
             preview.validate(request.history_consent.as_ref())?;
         }
-        let needs_image = message_needs_image(&lock(&self.inner), request)?;
-        if needs_image
-            && !model
-                .input_modalities
-                .iter()
-                .any(|modality| modality == "image")
-        {
-            return Err("model_history_incompatible".into());
-        }
+        validate_message_modalities(&lock(&self.inner), request, &model.input_modalities)?;
         self.personal_model_credential_preflight(&result.snapshot)?;
         self.refresh_personal_memory_authorization()?;
         let memory = lock(&self.inner).persisted.memory_preferences.enabled;
@@ -10812,7 +10916,11 @@ impl AiRuntimeManager {
     }
 }
 
-fn message_needs_image(state: &ManagerState, request: &MessageSendRequest) -> Result<bool, String> {
+fn validate_message_modalities(
+    state: &ManagerState,
+    request: &MessageSendRequest,
+    modalities: &[String],
+) -> Result<(), String> {
     let attachments = if request.retry_of_run_id.is_some() {
         Vec::new()
     } else {
@@ -10831,16 +10939,23 @@ fn message_needs_image(state: &ManagerState, request: &MessageSendRequest) -> Re
             })
             .collect::<Result<Vec<_>, &str>>()?
     };
-    Ok(attachments
-        .iter()
-        .any(|attachment| attachment.media_type != "document")
-        || state
+    validate_visual_attachments(
+        modalities,
+        attachments
+            .iter()
+            .map(|attachment| attachment.media_type.as_str()),
+    )?;
+    validate_visual_attachments(
+        modalities,
+        state
             .persisted
             .messages
             .iter()
             .filter(|message| message.conversation_id == request.conversation_id)
             .flat_map(|message| &message.attachments)
-            .any(|attachment| attachment.media_type != "document"))
+            .map(|attachment| attachment.media_type.as_str()),
+    )
+    .map_err(|reason| format!("model_history_incompatible:{reason}"))
 }
 
 fn model_info_from_descriptor(
@@ -11261,7 +11376,7 @@ mod tests {
         assert!(context.composition.is_none());
         drop(state);
         let snapshot = manager
-            .activity_snapshot(&["run-context".to_owned()])
+            .activity_snapshot(&["run-context".to_owned()], &std::collections::HashMap::new())
             .unwrap();
         assert_eq!(
             snapshot.runs[0].usage.context.as_ref().unwrap().tokens,
@@ -12646,7 +12761,7 @@ mod tests {
             }
         }
         let result = manager
-            .activity_snapshot(&["run-1".to_owned(), "missing".to_owned()])
+            .activity_snapshot(&["run-1".to_owned(), "missing".to_owned()], &std::collections::HashMap::new())
             .unwrap();
         assert_eq!(result.runs.len(), 1);
         assert_eq!(result.messages.len(), 1);
@@ -12666,6 +12781,48 @@ mod tests {
                 .iter()
                 .all(|message| message.attachments[0].local_path.is_empty())
         );
+    }
+
+    #[test]
+    fn activity_events_append_unchanged_prefix_and_replace_edited_prefix() {
+        let manager = super::AiRuntimeManager::new();
+        {
+            let mut state = super::lock(&manager.inner);
+            for id in ["run", "other"] {
+                state.persisted.runs.push(serde_json::from_value(serde_json::json!({
+                    "runId":id, "conversationId":"conversation", "agentId":"agent",
+                    "inputMessageId":"message", "provider":"codex", "status":"running",
+                    "startedAt":1, "events":[{"sequence":1,"eventType":"started","summary":"原始事件","createdAt":1}]
+                })).unwrap());
+                state.persisted.permission_requests.push(serde_json::from_value(serde_json::json!({
+                    "permissionRequestId":id, "runId":id, "agentId":"agent", "workspaceRoot":"/test",
+                    "directoryScope":"/test","tools":[],"networkAccess":false,"credentialLabels":[],
+                    "reason":"自检","riskLevel":"low","status":"pending","requestedAt":1,"validUntil":100
+                })).unwrap());
+            }
+        }
+        let ids = ["run".to_owned()];
+        let first = manager.activity_snapshot(&ids, &std::collections::HashMap::new()).unwrap();
+        let cursors = std::collections::HashMap::from([("run".to_owned(), first.event_pages["run"].cursor.clone())]);
+        {
+            let mut state = super::lock(&manager.inner);
+            let mut event = state.persisted.runs[0].events[0].clone();
+            event.sequence = 2;
+            event.summary = "后续事件".into();
+            state.persisted.runs[0].events.push(event);
+        }
+        let appended = manager.activity_snapshot(&ids, &cursors).unwrap();
+        assert_eq!(appended.event_pages["run"].retained, 1);
+        assert_eq!(appended.runs[0].events.len(), 1);
+        assert_eq!(appended.runs[0].events[0].sequence, 2);
+        super::lock(&manager.inner).persisted.runs[0].events[0].summary = "已修订".into();
+        let replaced = manager.activity_snapshot(&ids, &cursors).unwrap();
+        assert_eq!(replaced.event_pages["run"].retained, 0);
+        assert_eq!(replaced.runs[0].events.len(), 2);
+        assert_eq!(replaced.runs[0].events[0].summary, "已修订");
+        let approvals = manager.activity_approvals(&ids).unwrap();
+        assert_eq!(approvals.permission_requests.len(), 1);
+        assert_eq!(approvals.permission_requests[0].permission_request_id, "run");
     }
 
     #[test]
@@ -12699,7 +12856,7 @@ mod tests {
                 .unwrap(),
             );
         }
-        let result = manager.activity_snapshot(&["run-1".to_owned()]).unwrap();
+        let result = manager.activity_snapshot(&["run-1".to_owned()], &std::collections::HashMap::new()).unwrap();
         assert_eq!(result.state_revision, 7);
         let state = super::lock(&manager.inner);
         assert_eq!(state.persisted.runs[0].events[0].summary, "正在处理");

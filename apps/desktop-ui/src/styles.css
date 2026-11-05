@@ -560,6 +560,7 @@ h1 { margin: 0; font-size: var(--text-2xl); letter-spacing: -0.02em; }
 a.markdown-link { cursor: pointer; text-underline-offset: 2px; }
 a.markdown-link:hover, a.markdown-link:focus-visible { color: var(--accent-strong); }
 .markdown-image-placeholder { color: var(--text-tertiary); font-style: italic; }
+.preview-text-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .preview-plain-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .diff-pane { display: flex; width: 100%; max-width: 100%; min-width: 0; min-height: 420px; box-sizing: border-box; flex-direction: column; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-surface); }
 .diff-source-header { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; padding: 0; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface-alt); }
@@ -590,24 +591,15 @@ a.markdown-link:hover, a.markdown-link:focus-visible { color: var(--accent-stron
 .file-confirmation-dialog { width: min(520px, 100%); }
 .confirmation-dialog-error { padding: 9px 11px; border-radius: var(--radius-md); color: var(--danger-text); background: var(--danger-bg); }
 .confirmation-decision-actions { flex-wrap: wrap; }
-.app-content { display: flex; min-width: 0; min-height: 0; height: 100%; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-canvas); }
+.app-content { position: relative; display: flex; min-width: 0; min-height: 0; height: 100%; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-canvas); }
 .app-header { min-height: 76px; flex: 0 0 76px; gap: 20px; padding: 14px 24px; border-bottom: 1px solid var(--border-default); background: var(--bg-surface-alt); }
 .app-header > div { display: flex; min-width: 0; align-items: center; gap: 10px; }
 .app-header h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xl); }
 .failure button { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface); cursor: pointer; }
-/*info 档提示改成右下角浮层。它原先是内容区里的一条横幅，出现时把整页往下推、关闭时
-   又弹回去，一次成功操作带来两次布局跳动；浮层不参与布局，页面一动不动。层级压在
-   模态弹窗（60）之下，因为需要用户确认的东西不该被一条自动消失的提示挡住。*/
-.notice { position: fixed; z-index: 55; right: 20px; bottom: 20px; display: flex; max-width: min(420px, calc(100vw - 40px)); align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 11px 12px 11px 15px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); color: var(--text-primary); background: var(--bg-surface); box-shadow: 0 16px 40px rgb(0 0 0 / 26%); font-size: var(--text-sm); animation: notice-rise 200ms cubic-bezier(0.16, 1, 0.3, 1); }
-.notice > span { min-width: 0; line-height: 1.55; }
-@keyframes notice-rise {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
-}
-/*AI 对话页的右下角是发送按钮。实测浮层会把它整个盖住，而提示要停留数秒，
-   等于在这几秒里遮掉整页的主动作。这一页改挂右上角：模式选择器挪进输入框后，
-   会话头部右侧再没有控件，提示落在那里不压任何可点的东西。*/
-.shell.ai-chat-shell .notice { top: 18px; bottom: auto; animation-name: notice-drop; }
+.workbench-notice-stack { position: absolute; z-index: 55; top: 52px; right: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: min(420px, calc(100% - 32px)); pointer-events: none; }
+.workbench-notice-stack > * { pointer-events: auto; }
+.notice { display: flex; max-width: 100%; align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 11px 12px 11px 15px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); color: var(--text-primary); background: var(--bg-surface); box-shadow: 0 16px 40px rgb(0 0 0 / 26%); font-size: var(--text-sm); animation: notice-drop 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.notice > span { min-width: 0; line-height: 1.55; overflow-wrap: anywhere; }
 @keyframes notice-drop {
   from { opacity: 0; transform: translateY(-12px); }
   to { opacity: 1; transform: none; }
@@ -1515,3 +1507,7 @@ button.ai-attachment-thumbnail:active { transform: scale(0.98); }
 .artifact-review > button + button { margin-left: 8px; }
 .artifact-review textarea { padding: 10px 12px; border: 1px solid var(--border-input); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface-alt); width: 100%; }
 .artifact-review blockquote { margin: 16px 0; padding: 8px 12px; border-left: 2px solid var(--accent-border); color: var(--text-secondary); background: var(--bg-surface-alt); }
+
+.preview-markdown-document { min-width: 0; }
+.preview-text-page-buttons, .preview-text-copy { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.preview-markdown-oversize { padding: 16px; border: 1px solid var(--border-default); }

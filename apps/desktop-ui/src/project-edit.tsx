@@ -13,6 +13,7 @@ export interface ProjectEditTarget {
   goal: string;
   stateRevision: number;
   workspaceIds: string[];
+  registeredWorkspaces: WorkspaceSummary[];
 }
 
 /**
@@ -46,7 +47,12 @@ export function ProjectEditDialog(props: {
 
   const modalRef = useModal<HTMLDivElement>({ onClose, busy: locked });
 
-  const folders = props.workspaces.filter((workspace) => props.target.workspaceIds.includes(workspace.workspaceId));
+  const active = new Map(props.workspaces.map(workspace => [workspace.workspaceId, workspace]));
+  const registered = new Map(props.target.registeredWorkspaces.map(workspace => [workspace.workspaceId, workspace]));
+  const folders = props.target.workspaceIds.flatMap(id => {
+    const workspace = active.get(id) ?? registered.get(id);
+    return workspace ? [workspace] : [];
+  });
   const metadataDirty = displayName.trim() !== props.target.displayName || goal.trim() !== props.target.goal;
   const foldersDirty = props.target.workspaceIds.length !== initialWorkspaceIds.length
     || props.target.workspaceIds.some((workspaceId) => !initialWorkspaceIds.includes(workspaceId));
@@ -106,11 +112,11 @@ export function ProjectEditDialog(props: {
         <header><h4>工作空间</h4><div className="project-edit-folder-create-actions"><button disabled={locked} onClick={props.onAddFolder} type="button"><FolderPlusIcon/>添加本地文件夹</button></div></header>
         {folders.map((workspace) => <article key={workspace.workspaceId}>
           <div>
-            <strong>{workspace.displayName}{workspace.workspaceKind === "cloud_team" ? " · 旧云端来源" : ""}</strong>
+            <strong>{workspace.displayName}{workspace.workspaceKind === "cloud_team" ? " · 旧云端来源" : !active.has(workspace.workspaceId) ? " · 不可用" : ""}</strong>
             <small title={workspace.workspaceKind === "cloud_team" ? "个人版不支持此云端来源" : workspace.localRoot}>{workspace.workspaceKind === "cloud_team" ? "个人版不支持此云端来源" : workspace.localRoot}</small>
           </div>
           <div className="project-edit-folder-actions">
-            {platformUi && workspace.workspaceKind === "local" ? <button aria-label={`在${platformUi.fileManagerName}中显示`} disabled={locked} onClick={() => props.onReveal(workspace)} title={`在${platformUi.fileManagerName}中显示`} type="button"><RevealIcon/></button> : null}
+            {platformUi && workspace.workspaceKind === "local" && active.has(workspace.workspaceId) ? <button aria-label={`在${platformUi.fileManagerName}中显示`} disabled={locked} onClick={() => props.onReveal(workspace)} title={`在${platformUi.fileManagerName}中显示`} type="button"><RevealIcon/></button> : null}
             <button disabled={locked} onClick={() => props.onRemoveFolder(workspace)} type="button">移出项目</button>
           </div>
         </article>)}

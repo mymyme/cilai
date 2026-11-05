@@ -17,6 +17,7 @@ const DELEGATED_COMMANDS = new Set([
   "ai_automation_trigger_history",
   "ai_conversation_create",
   "ai_conversation_delete",
+  "ai_conversation_history_page",
   "ai_conversation_search",
   "ai_conversation_session_get",
   "ai_conversation_session_patch",
@@ -27,6 +28,7 @@ const DELEGATED_COMMANDS = new Set([
   "ai_inbox_set_read",
   "ai_memory_settings",
   "ai_memory_settings_save",
+  "ai_message_receipt",
   "ai_message_regenerate",
   "ai_message_send",
   "ai_message_steer",
@@ -39,6 +41,7 @@ const DELEGATED_COMMANDS = new Set([
   "ai_run_control",
   "ai_run_event_detail",
   "ai_runtime_activity_snapshot",
+  "ai_runtime_approval_snapshot",
   "ai_runtime_query",
   "ai_runtime_snapshot",
   "ai_usage_view",
@@ -154,8 +157,10 @@ const DELEGATED_COMMANDS = new Set([
   "workspace_reveal_directory"
 ]);
 const UPDATE_READ_COMMANDS = new Set([
+  "ai_conversation_history_page",
   "ai_conversation_session_get",
   "ai_runtime_activity_snapshot",
+  "ai_runtime_approval_snapshot",
   "ai_runtime_query",
   "ai_runtime_snapshot",
   "desktop_update_preflight"

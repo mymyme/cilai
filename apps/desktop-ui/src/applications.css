@@ -124,3 +124,7 @@
 
 .application-mark[data-tone="heatmap"] { --app-icon-base: #318f83; --app-icon-soft: #a2ded0; --app-icon-deep: #153f43; --app-icon-hot: #edb46d; --app-icon-paper: #fff4dd; }
 :root[data-theme="dark"] .application-mark[data-tone="heatmap"] { --app-icon-base: #389f92; --app-icon-soft: #b1ebdc; --app-icon-deep: #19484c; --app-icon-hot: #f1be7e; --app-icon-paper: #fff4dd; }
+
+.application-restore-notice { display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: var(--text-secondary); }
+.application-restore-notice > span { min-width: 0; overflow-wrap: anywhere; }
+.application-restore-notice button { flex: 0 0 auto; }

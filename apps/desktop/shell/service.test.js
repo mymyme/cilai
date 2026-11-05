@@ -8,38 +8,53 @@ const { once } = require("node:events");
 const { HostService, resolveBinary, resolveServiceEnvironment } = require("./service");
 const { loadDataEnvironment } = require("./data-environment");
 
-test("正常停止向真实宿主交付输入结束并等待自身收尾，不发送终止信号", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cilai-host-eof-"));
-  const ready = path.join(root, "ready");
-  const result = path.join(root, "result");
+test("正常退出停止接单，保留原宿主的反向回执并等待进程退出", { timeout: 5000 }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cilai-host-stop-"));
   const preload = path.join(root, "probe.cjs");
-  writeFileSync(preload, `const fs=require('node:fs');
-    process.on('SIGTERM',()=>{fs.writeFileSync(${JSON.stringify(result)},'signal');process.exit(2)});
-    process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(result)},'eof');process.exit(0)});
-    fs.writeFileSync(${JSON.stringify(ready)},'ready');`);
-  // 以 Node 充当宿主只验证停止流程；随包 Git 运行时由 git-runtime.test.js 单独覆盖。
+  writeFileSync(preload, `const input=require('node:readline').createInterface({input:process.stdin});
+    const reply=(value)=>process.stdout.write(JSON.stringify(value)+'\\n');
+    let id;
+    input.on('line',line=>{
+      const message=JSON.parse(line);
+      if(message.command==='probe') id=message.id;
+      if(message.hostShutdown) reply({hostRequest:1,command:'probe_callback'});
+      if(message.hostResponse===1){
+        process.stdout.write(JSON.stringify({id,result:message.result})+'\\n',()=>process.exit(0));
+      }
+    });`);
   const service = new HostService(process.execPath, (_binary, env) => env);
-  let child;
+  service.onHostRequest = async command => {
+    assert.equal(command, "probe_callback");
+    return "已完成";
+  };
   try {
-    service.start({ NODE_OPTIONS: `--require=${JSON.stringify(preload)}` });
-    child = service.child;
-    assert.ok(child, service.startError);
-    for (let i = 0; i < 200 && !existsSync(ready); i++) await new Promise(resolve => setTimeout(resolve, 10));
-    assert.ok(existsSync(ready), "宿主探针未就绪");
-    const exited = once(child, "exit");
-    const pending = assert.rejects(service.call("probe", {}), /业务服务已停止/);
-    service.stop();
-    service.stop();
-    await pending;
-    const [code, signal] = await Promise.race([exited, new Promise((_, reject) => setTimeout(() => reject(new Error("宿主未完成收尾")), 2000))]);
-    assert.equal(code, 0);
-    assert.equal(signal, null);
-    assert.equal(readFileSync(result, "utf8"), "eof");
+    service.start({}, [preload]);
+    const pending = service.call("probe", {});
+    const stopped = service.stop();
+    assert.equal(service.stop(), stopped);
+    await assert.rejects(service.call("probe", {}), /正在退出/);
+    assert.equal(await pending, "已完成");
+    await stopped;
     assert.equal(service.child, null);
   } finally {
-    if (child && child.exitCode === null) child.kill();
+    service.child?.kill();
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("并发重启只向宿主发送一次", async () => {
+  const service = new HostService(process.execPath);
+  let complete;
+  let calls = 0;
+  service.send = () => {
+    calls++;
+    return new Promise(resolve => { complete = resolve; });
+  };
+  const first = service.call("app_server_restart", {});
+  assert.equal(service.call("app_server_restart", {}), first);
+  complete("已恢复");
+  assert.equal(await first, "已恢复");
+  assert.equal(calls, 1);
 });
 
 test("宿主服务程序缺失时明确结束在途调用", async () => {
@@ -77,21 +92,21 @@ test("保存的数据环境实际传入宿主子进程且不会放开继承的�
   const root = mkdtempSync(path.join(os.tmpdir(), 'cilai-host-environment-'));
   const result = path.join(root, 'environment.json');
   const probe = path.join(root, 'probe.cjs');
-  writeFileSync(probe, `require('node:fs').writeFileSync(${JSON.stringify(result)},JSON.stringify({environment:process.env.CILAI_DATA_ENVIRONMENT,enterprise:process.env.CILAI_ENTERPRISE_ORIGIN}));process.stdin.resume();`);
+  writeFileSync(probe, `require('node:fs').writeFileSync(${JSON.stringify(result)},JSON.stringify({environment:process.env.CILAI_DATA_ENVIRONMENT,enterprise:process.env.CILAI_ENTERPRISE_ORIGIN}));require('node:readline').createInterface({input:process.stdin}).on('line',line=>{if(JSON.parse(line).hostShutdown)process.exit(0)});`);
   const inheritedEnvironment = process.env.CILAI_DATA_ENVIRONMENT;
   const service = new HostService(process.execPath, (_binary, env) => env);
   let child;
   try {
     const selected = loadDataEnvironment({ userData: root, args: ['--adopt-data-environment=dev'] });
     process.env.CILAI_DATA_ENVIRONMENT = 'prod';
-    service.start({ ...selected, CILAI_ENTERPRISE_ORIGIN: 'https://enterprise.invalid', NODE_OPTIONS: `--require=${JSON.stringify(probe)}` });
+    service.start({ ...selected, CILAI_ENTERPRISE_ORIGIN: 'https://enterprise.invalid' }, [probe]);
     child = service.child;
     assert.ok(child, service.startError);
     for (let i = 0; i < 200 && !existsSync(result); i++) await new Promise(resolve => setTimeout(resolve, 10));
     assert.ok(existsSync(result), '宿主环境探针未就绪');
     assert.deepEqual(JSON.parse(readFileSync(result, 'utf8')), { environment: 'dev' });
     const exited = once(child, 'exit');
-    service.stop();
+    await service.stop();
     await exited;
   } finally {
     if (inheritedEnvironment === undefined) delete process.env.CILAI_DATA_ENVIRONMENT;

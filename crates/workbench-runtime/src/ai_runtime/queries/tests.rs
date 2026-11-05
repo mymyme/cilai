@@ -21,7 +21,7 @@ fn manager() -> AiRuntimeManager {
         for (id, project, archived) in [("a", "p1", false), ("b", "p2", false), ("c", "p1", true)] {
             state.persisted.conversations.push(serde_json::from_value(json!({
                 "conversationId":id,"title":id,"conversationType":"project","mode":"discuss",
-                "context":{"workspaceRoot":"/query-fixture-not-written","projectId":project},
+                "context":{"workspaceRoot":"/query-fixture-not-written","projectId":project,"taskId":"task"},
                 "archived":archived,"createdAt":1,"updatedAt":2,
                 "workClassification":{"runId":format!("{id}1"),"taskId":"task","taskTitle":"任务",
                 "conversationStatus":"active","stage":"in_progress","reason":"关联任务","confidence":1.0}
@@ -86,6 +86,7 @@ fn purpose_queries_keep_project_boundaries_and_retry_metadata() {
         .query(&request(AiRuntimeQueryScope::Incidents, None))
         .unwrap();
     assert_eq!(incidents.runs.len(), 6);
+    assert_eq!(incidents.incident_candidate_run_ids, ["a2", "b2", "c2"]);
     assert_eq!(incidents.runs[1].retry_of_run_id.as_deref(), Some("a1"));
     assert_eq!(
         incidents.conversations[0]

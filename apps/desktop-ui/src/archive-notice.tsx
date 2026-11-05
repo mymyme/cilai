@@ -1,3 +1,4 @@
+import { PageNotice } from "@cilai/app-ui/page-notice";
 import { useEffect, useRef, useState } from "react";
 import { aiErrorMessage } from "./ai-runtime";
 import { setConversationsArchived } from "./conversation-archive";
@@ -45,13 +46,14 @@ export function ArchiveNotice({ operation, onView, onClose, onMessage }: {
       if (mounted.current) setUndoing(false);
     }
   };
-  return <div className="archive-notice" role="status"
+  return <PageNotice className="archive-notice" icon={<ArchiveIcon/>}
     onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-    onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
-    <ArchiveIcon/>
-    <span>{operation.conversationIds.length === 1 ? "已归档对话" : `已归档 ${operation.conversationIds.length} 条对话`}</span>
-    <button className="archive-notice-view" disabled={undoing} onClick={() => onView(remaining.current[0])} type="button">查看</button>
-    <button className="archive-notice-undo" disabled={undoing} onClick={() => void undo()} type="button">{undoing ? "撤销中…" : "撤销"}</button>
-    <button aria-label="关闭归档提示" className="archive-notice-close" onClick={onClose} type="button"><CloseIcon/></button>
-  </div>;
+    onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
+    actions={<>
+      <button className="archive-notice-view" disabled={undoing} onClick={() => onView(remaining.current[0])} type="button">查看</button>
+      <button className="archive-notice-undo" disabled={undoing} onClick={() => void undo()} type="button">{undoing ? "撤销中…" : "撤销"}</button>
+    </>}
+    dismiss={<button aria-label="关闭归档提示" className="archive-notice-close" onClick={onClose} type="button"><CloseIcon/></button>}>
+    {operation.conversationIds.length === 1 ? "已归档对话" : `已归档 ${operation.conversationIds.length} 条对话`}
+  </PageNotice>;
 }

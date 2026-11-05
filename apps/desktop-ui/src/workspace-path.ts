@@ -1,17 +1,21 @@
 /** Resolve a displayed file reference without granting access outside its workspace. */
 export function workspaceRelativePath(href: string, workspaceRoot: string): string | null {
-  let path = href.trim();
+  let path = normalizeWindowsFilePath(href.trim());
   if (!path || path.startsWith("#")) return null;
-  const root = workspaceRoot.replaceAll("\\", "/").replace(/\/+$/, "");
+  const normalizedRoot = normalizeWindowsFilePath(workspaceRoot);
+  if (normalizedRoot === null) return null;
+  const root = normalizedRoot.replace(/\/+$/, "");
   const windows = /^[a-z]:\//i.test(`${root}/`) || root.startsWith("//");
   path = path.split("#", 1)[0].split("?", 1)[0];
-  try { path = decodeURIComponent(path); } catch { return null; }
-  path = path.replaceAll("\\", "/");
+  try { path = normalizeWindowsFilePath(decodeURIComponent(path)); } catch { return null; }
+  if (!path) return null;
   // Do not use URL.pathname here: URL parsing silently resolves traversal segments.
   if (/^file:\/\//i.test(path)) {
     const match = /^file:\/\/([^/]*)(\/.*)$/i.exec(path);
     if (!match || /[@:]/.test(match[1])) return null;
     path = match[1] && match[1].toLowerCase() !== "localhost" ? `//${match[1]}${match[2]}` : match[2];
+    path = normalizeWindowsFilePath(path);
+    if (!path) return null;
   } else if (/^[a-z][a-z0-9+.-]*:/i.test(path) && !/^[a-z]:\//i.test(path)) {
     return null;
   }
@@ -30,6 +34,18 @@ export function workspaceRelativePath(href: string, workspaceRoot: string): stri
   // A drive-relative path or alternate data stream is never a workspace file link.
   if (windows && path.includes(":")) return null;
   return path;
+}
+
+/** Rust canonical paths use the Win32 extended prefix; compare the same file spelling only. */
+function normalizeWindowsFilePath(value: string): string | null {
+  const path = value.replaceAll("\\", "/");
+  if (path.startsWith("//?/")) {
+    if (/^\/\/\?\/[a-z]:\//i.test(path)) return path.slice(4);
+    if (/^\/\/\?\/UNC\/[^/]+\/[^/]+(?:\/|$)/i.test(path)) return `//${path.slice(8)}`;
+    return null;
+  }
+  // Device namespaces are not workspace file references.
+  return path.startsWith("//./") ? null : path;
 }
 
 export function workspacePathsEqual(first: string, second: string, root: string): boolean {

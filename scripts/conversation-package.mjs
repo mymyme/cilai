@@ -7,14 +7,19 @@ import { spawnSync } from "node:child_process";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 function hash(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
-function files(root, prefix = "src/conversation") {
+const sharedExports = {
+  "./conversation": "./src/conversation/index.tsx",
+  "./page-notice": "./src/page-notice/index.tsx",
+};
+const sharedDirectories = ["src/conversation", "src/page-notice"];
+function files(root, prefix) {
   return readdirSync(join(root, prefix), { withFileTypes: true }).flatMap(entry => entry.isDirectory()
     ? files(root, `${prefix}/${entry.name}`) : [`${prefix}/${entry.name}`]).sort();
 }
 function sourceHashes(root) {
   // Git can check out the same text as CRLF on Windows. Archive integrity stays
   // byte-exact; source identity uses the repository's canonical LF text.
-  return Object.fromEntries(["package.json", "LICENSE", "NOTICE", ...files(root)].map(file => [file, hash(readFileSync(join(root, file), "utf8").replace(/\r\n/g, "\n"))]));
+  return Object.fromEntries(["package.json", "LICENSE", "NOTICE", ...sharedDirectories.flatMap(directory => files(root, directory))].map(file => [file, hash(readFileSync(join(root, file), "utf8").replace(/\r\n/g, "\n"))]));
 }
 export function verifyConversationPackage(root = sourceRoot) {
   const manifest = JSON.parse(readFileSync(join(root, "packages/conversation-package.json"), "utf8"));
@@ -34,10 +39,11 @@ function sync() {
   let packed;
   try {
     const metadata = JSON.parse(readFileSync(join(shared, "package.json"), "utf8"));
-    const entry = metadata.exports?.["./conversation"];
-    if (entry !== "./src/conversation/index.tsx") throw new Error("共享对话组件入口无效");
-    writeFileSync(join(temporary, "package.json"), JSON.stringify({ ...metadata, exports: { "./conversation": entry }, files: ["src/conversation", "LICENSE", "NOTICE"] }, null, 2) + "\n");
-    cpSync(join(shared, "src/conversation"), join(temporary, "src/conversation"), { recursive: true });
+    for (const [name, entry] of Object.entries(sharedExports)) {
+      if (metadata.exports?.[name] !== entry) throw new Error(`桌面共享组件入口无效：${name}`);
+    }
+    writeFileSync(join(temporary, "package.json"), JSON.stringify({ ...metadata, exports: sharedExports, files: [...sharedDirectories, "LICENSE", "NOTICE"] }, null, 2) + "\n");
+    for (const directory of sharedDirectories) cpSync(join(shared, directory), join(temporary, directory), { recursive: true });
     for (const name of ["LICENSE", "NOTICE"]) cpSync(join(shared, name), join(temporary, name));
     const result = spawnSync(npm, ["pack", "--json", "--ignore-scripts", "--pack-destination", directory], { cwd: temporary, encoding: "utf8", shell: process.platform === "win32" });
     if (result.status !== 0) throw new Error(result.stderr || "共享对话组件打包失败");

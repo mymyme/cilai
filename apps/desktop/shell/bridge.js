@@ -221,7 +221,7 @@ const implemented = {
     return browser.captureLayoutReady(args);
   },
   browser_scroll: ({ args }) => browser.scroll(args.deltaY ?? -240),
-  browser_wait_for: ({ args }) => browser.waitFor(args.expression, args.timeoutMs),
+  browser_wait_for: ({ args }) => browser.waitFor(args),
   browser_console: ({ args }) => browser.consoleMessages(
     { level: args.level, limit: args.limit }, args.tabId, args.conversationId ?? null),
   browser_network: ({ args }) => browser.networkRequests(
@@ -368,7 +368,9 @@ function applyLocalProfile(result) {
   const profileId = result?.profileId;
   if (typeof profileId !== "string" || !/^[a-f0-9]{32}$/.test(profileId)) throw new Error("local_profile_missing");
   personalNotifications?.setProfile(profileId);
+  const previousProfileId = browser.profileId;
   browser.setProfile(profileId);
+  if (profileId !== previousProfileId) browserApprovals.rejectAll("本地资料已变化，请重新确认浏览器操作");
   verifiedPersonalProfileId = profileId;
   return result;
 }

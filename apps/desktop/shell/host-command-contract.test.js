@@ -47,11 +47,14 @@ test("界面使用的每个宿主命令都已进入 Electron 路由", () => {
   assert.ok(main.includes("personalDocuments.invoke(event, message)"));
   assert.ok(main.includes("macosDiskAccess.handles(message?.command)"));
   assert.ok(main.includes("macosDiskAccess.invoke(event, message)"));
+  const documentLayout = require("./document-layout").createDocumentLayout({ ipc: { handle() {} } });
+  assert.ok(main.includes("documentLayout.handles(message?.command)"));
+  assert.ok(main.includes("documentLayout.invoke(event, message)"));
   const missing = new Map();
   for (const file of sourceFiles(path.join(projectRoot, "apps", "desktop-ui", "src"))) {
     const source = readFileSync(file, "utf8");
     for (const match of source.matchAll(/\binvoke(?:<[^>]+>)?\(\s*["']([^"']+)["']/g)) {
-      if (!known.has(match[1]) && !documents.handles(match[1]) && !diskAccess.handles(match[1]) && !pageAi.handles(match[1]) && !notificationNavigation.handles(match[1])) missing.set(match[1], path.relative(projectRoot, file));
+      if (!known.has(match[1]) && !documents.handles(match[1]) && !diskAccess.handles(match[1]) && !pageAi.handles(match[1]) && !notificationNavigation.handles(match[1]) && !documentLayout.handles(match[1])) missing.set(match[1], path.relative(projectRoot, file));
     }
   }
   assert.deepEqual([...missing], []);

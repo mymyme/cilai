@@ -1,22 +1,24 @@
 import { invoke } from "./host";
 import { OfficeDocumentPreview, StructuredDocumentPreview } from "./document-preview/viewer";
 import type { DocumentPreviewModel, OfficePreviewFormat } from "./document-preview/model";
-import type { ReadBinaryPreviewResult } from "./generated/protocol";
+import { readBinaryPreview } from "./preview-binary";
 import { rpc } from "./app-server-rpc";
 import { hydrateFileForRead } from "./file-hydration";
 import { useEffect, useRef, useState } from "react";
 import { usePageActive } from "./page-visibility";
+import { DocumentLayoutPreview } from "./document-layout-preview";
+import { PagedTextPreview, readPreviewPage, readPreviewText } from "./preview-text-page";
 import type { WorkspaceFileItem } from "./generated/protocol";
 import { ExternalOpenIcon } from "./icons";
-import { MarkdownContent } from "./markdown-content";
+import { FileMarkdownPreview } from "./file-markdown-preview";
 import type { PdfJsDocument, PdfJsLoadingTask, PdfJsRenderTask } from "./pdfjs-renderer";
 import type {
   OpenPreviewParams,
   OpenPreviewResult,
   PreviewFormat,
   PreviewSource,
-  ReadTextResourceParams,
   ReadTextResourceResult,
+  ReleaseTextResourceResult,
 } from "./generated/protocol";
 
 export { ERROR_LABELS, SOURCE_LABELS } from "./preview-labels";
@@ -33,6 +35,7 @@ type PreviewState =
   | { phase: "ready-binary"; descriptor: OpenPreviewResult; bytes: ArrayBuffer; contentType: string }
   | { phase: "ready-structure"; descriptor: OpenPreviewResult; model: DocumentPreviewModel }
   | { phase: "ready"; descriptor: OpenPreviewResult; content: string }
+  | { phase: "ready-text-page"; descriptor: OpenPreviewResult; firstPage: ReadTextResourceResult }
   | { phase: "ready-pdf"; descriptor: OpenPreviewResult; pageCount: number }
   | { phase: "ready-pdf-js"; descriptor: OpenPreviewResult }
   | { phase: "waiting-pdf-platform"; source: PreviewSource }
@@ -47,15 +50,16 @@ export interface FilePreviewPaneProps {
   localRoot: string;
   hostPlatform: string | null;
   file: WorkspaceFileItem;
+  serviceScope?: string | null;
   view: PreviewView;
   onViewAvailabilityChange: (available: boolean) => void;
 
 }
 
-export function FilePreviewPane({ workspaceId, workspaceKind, localRoot, hostPlatform, file, view, onViewAvailabilityChange }: FilePreviewPaneProps) {
+export function FilePreviewPane({ workspaceId, workspaceKind, localRoot, hostPlatform, file, serviceScope, view, onViewAvailabilityChange }: FilePreviewPaneProps) {
   const [retryRevision, setRetryRevision] = useState(0);
   const [applicationOpenError, setApplicationOpenError] = useState<string | null>(null);
-  const localState = useFilePreview({ workspaceId, localFileId: file.localFileId, source: "local" }, localRoot, file.relativePath, hostPlatform, retryRevision, workspaceKind === "local", JSON.stringify([file.checksumAlgorithm,file.checksumValue]));
+  const localState = useFilePreview({ workspaceId, localFileId: file.localFileId, source: "local" }, localRoot, file.relativePath, hostPlatform, retryRevision, workspaceKind === "local", JSON.stringify([serviceScope,file.checksumAlgorithm,file.checksumValue]));
   const state: PreviewState = workspaceKind !== "local" ? { phase: "error", source: "cloud", reason: "personal_cloud_source_unavailable" } : localState;
   // 纯文本、代码这类本来就没有"渲染后"形态的文件不显示切换，两种看法的内容本就一样。
   const canSwitchView = state.phase === "ready" && hasRenderedView(state.descriptor.format);
@@ -148,6 +152,9 @@ function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenE
       />
     );
   }
+  if (state.phase === "ready-text-page") {
+    return <div className="preview-document"><PagedTextPreview key={state.descriptor.ticketId} descriptor={state.descriptor} firstPage={state.firstPage} onRetry={onRetry}/></div>;
+  }
   const { descriptor, content } = state;
   const fillsPreview = descriptor.format === "html" && view === "rendered";
   return (
@@ -158,10 +165,12 @@ function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenE
 }
 
 function PdfPreview({ descriptor, localRoot, pageCount }: { descriptor: OpenPreviewResult; localRoot: string; pageCount: number }) {
+  const active = usePageActive();
   const [pageNumber, setPageNumber] = useState(1);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   useEffect(() => {
+    if (!active) return;
     let disposed = false;
     let url: string | null = null;
     setObjectUrl(null);
@@ -182,7 +191,7 @@ function PdfPreview({ descriptor, localRoot, pageCount }: { descriptor: OpenPrev
       disposed = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [descriptor.relativePath, localRoot, pageNumber]);
+  }, [active, descriptor.relativePath, localRoot, pageNumber]);
   return <div className="preview-pdf-document">
     <div className="preview-pdf-toolbar" aria-label="PDF 页面导航">
       <button disabled={pageNumber <= 1} onClick={() => setPageNumber((page) => page - 1)} type="button">上一页</button>
@@ -196,6 +205,7 @@ function PdfPreview({ descriptor, localRoot, pageCount }: { descriptor: OpenPrev
 }
 
 function WindowsPdfPreview({ descriptor, localRoot, bytes }: { descriptor: OpenPreviewResult; localRoot: string; bytes?: ArrayBuffer }) {
+  const active = usePageActive();
   const [document, setDocument] = useState<PdfJsDocument | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [renderedPage, setRenderedPage] = useState<number | null>(null);
@@ -232,7 +242,7 @@ function WindowsPdfPreview({ descriptor, localRoot, bytes }: { descriptor: OpenP
   }, [bytes, descriptor.contentRevision, descriptor.relativePath, localRoot]);
 
   useEffect(() => {
-    if (!document) return;
+    if (!active || !document) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     let disposed = false;
@@ -249,7 +259,7 @@ function WindowsPdfPreview({ descriptor, localRoot, bytes }: { descriptor: OpenP
       disposed = true;
       task?.cancel();
     };
-  }, [document, pageNumber]);
+  }, [active, document, pageNumber]);
 
   if (loadError) {
     return <PreviewMessage detail={ERROR_LABELS[loadError] ?? "PDF 文档无法解析。"} title="无法显示 PDF"/>;
@@ -279,12 +289,6 @@ function ImagePreview({ bytes, contentType, name }: { bytes: ArrayBuffer; conten
   }, [bytes, contentType]);
   return failed ? <PreviewMessage title="图片无法解码"/> : <div className="preview-image-document">{url ? <img alt={name} onError={() => setFailed(true)} src={url}/> : null}</div>;
 }
-function decodeBase64(value: string): ArrayBuffer {
-  const decoded = atob(value); const bytes = new Uint8Array(decoded.length);
-  for (let i = 0; i < decoded.length; i += 1) bytes[i] = decoded.charCodeAt(i);
-  return bytes.buffer;
-}
-
 function normalizeBinaryPayload(payload: ArrayBuffer | Uint8Array | number[]): ArrayBuffer {
   if (payload instanceof ArrayBuffer) return payload;
   const bytes = payload instanceof Uint8Array ? payload : Uint8Array.from(payload);
@@ -311,36 +315,8 @@ function PreviewContent({ content, format, view }: { content: string; format: Pr
   if (view === "source" || !hasRenderedView(format)) {
     return <pre className="preview-plain-text"><code>{content}</code></pre>;
   }
-  if (format === "html") {
-    // 用户目录里的 HTML 是不可信输入，绝不能进主文档：主渲染进程持有宿主白名单通道，
-    // 一段脚本可能借它读写本地文件。放进 sandbox 为空的内联框架里，脚本、
-    // 表单、同源访问、跳转全部关闭，只剩排版和样式。应用自身的 CSP 是第二道拦截。
-    return <iframe className="preview-html-frame" sandbox="" srcDoc={prepareScriptlessHtmlPreview(content)} title="网页预览"/>;
-  }
-  return <MarkdownContent diagramIdPrefix="preview">{content}</MarkdownContent>;
-}
-
-const SCRIPTLESS_PREVIEW_STYLE = `<style data-contexthub-static-preview>
-  .reveal,
-  [data-aos],
-  [data-scroll-reveal] {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: none !important;
-    transition: none !important;
-  }
-</style>`;
-
-/**
- * 用户 HTML 的脚本在预览沙箱里不会执行，因此依赖滚动脚本解除隐藏的正文会永久透明。
- * 这里只改送入 iframe 的预览副本，让常见的滚动揭示容器静态可见；源文件和脚本权限都不变。
- */
-export function prepareScriptlessHtmlPreview(content: string): string {
-  const headEnd = content.search(/<\/head\s*>/i);
-  if (headEnd >= 0) return `${content.slice(0, headEnd)}${SCRIPTLESS_PREVIEW_STYLE}\n${content.slice(headEnd)}`;
-  const bodyStart = content.search(/<body\b/i);
-  if (bodyStart >= 0) return `${content.slice(0, bodyStart)}${SCRIPTLESS_PREVIEW_STYLE}\n${content.slice(bodyStart)}`;
-  return `${SCRIPTLESS_PREVIEW_STYLE}\n${content}`;
+  if (format === "html") return <DocumentLayoutPreview format="html" input={content}/>;
+  return <FileMarkdownPreview content={content}/>;
 }
 
 function PreviewMessage({
@@ -377,8 +353,14 @@ function useFilePreview(params: OpenPreviewParams, localRoot: string, relativePa
   const pageActive = usePageActive();
   const loadedKey = useRef<string | null>(null);
   const loadingKey = useRef<string | null>(null);
+  const ownedTicket = useRef<string | null>(null);
   const key = JSON.stringify([enabled,hostPlatform,localRoot,params.localFileId,params.source,params.workspaceId,relativePath,retryRevision,contentRevision]);
   const [state, setState] = useState<PreviewState>({ phase: "idle" });
+  useEffect(() => () => {
+    const ticket = ownedTicket.current;
+    ownedTicket.current = null;
+    if (ticket) releaseTextTicket(ticket);
+  }, [key]);
   useEffect(() => {
     if (!pageActive) return;
     if (loadedKey.current === key) return;
@@ -398,16 +380,25 @@ function useFilePreview(params: OpenPreviewParams, localRoot: string, relativePa
       if (cancelled) return;
       if (downloaded) await rpc("workspace/indexPath", { workspaceId: params.workspaceId, relativePath });
       if (cancelled) return;
-      const next = await loadPreview(params, localRoot, relativePath, hostPlatform);
-      if (!cancelled) { loadedKey.current = key; setState(next); }
+      const next = await loadPreview(params, localRoot, relativePath, hostPlatform, controller.signal);
+      if (cancelled) {
+        if (next.phase === "ready-text-page" && next.descriptor.ticketId) releaseTextTicket(next.descriptor.ticketId);
+        return;
+      }
+      if (next.phase === "ready-text-page") ownedTicket.current = next.descriptor.ticketId;
+      loadedKey.current = key;
+      setState(next);
     })().catch((error: unknown) => { if (!cancelled) { loadedKey.current = key; setState({ phase: "error", source: params.source, reason: extractReason(error) }); } });
     return cancelDownload;
   }, [enabled, hostPlatform, localRoot, params.localFileId, params.source, params.workspaceId, relativePath, retryRevision, contentRevision, pageActive, key]);
   return enabled && loadedKey.current !== key && !(state.phase === "hydrating" && loadingKey.current === key) ? {phase:"loading",source:params.source} : state;
 }
 
-async function loadPreview(params: OpenPreviewParams, localRoot: string, relativePath: string, hostPlatform: string | null): Promise<PreviewState> {
+async function loadPreview(params: OpenPreviewParams, localRoot: string, relativePath: string, hostPlatform: string | null, signal: AbortSignal): Promise<PreviewState> {
+  signal.throwIfAborted();
   const descriptor = await invoke<OpenPreviewResult>("preview_open", { params });
+  if (signal.aborted && descriptor.ticketId) releaseTextTicket(descriptor.ticketId);
+  signal.throwIfAborted();
   if (descriptor.availability === "unsupported") {
     try {
       const application = await invoke<WorkspaceApplication | null>("workspace_default_application", { localRoot, relativePath });
@@ -420,8 +411,8 @@ async function loadPreview(params: OpenPreviewParams, localRoot: string, relativ
     return { phase: "unavailable", descriptor };
   }
   if (["image", "docx", "pptx", "xlsx", "xmind"].includes(descriptor.format)) {
-    const binary = await rpc<ReadBinaryPreviewResult>("preview/readBinary", { workspaceId: params.workspaceId, localFileId: params.localFileId });
-    return { phase: "ready-binary", descriptor: { ...descriptor, contentRevision: binary.contentRevision, sizeBytes: binary.sizeBytes }, bytes: decodeBase64(binary.contentBase64), contentType: binary.contentType };
+    const binary = await readBinaryPreview(params, signal);
+    return { phase: "ready-binary", descriptor: { ...descriptor, contentRevision: binary.contentRevision, sizeBytes: binary.bytes.byteLength }, bytes: binary.bytes, contentType: binary.contentType };
   }
   if (descriptor.format === "pdf") {
     if (hostPlatform === null) return { phase: "waiting-pdf-platform", source: params.source };
@@ -435,24 +426,24 @@ async function loadPreview(params: OpenPreviewParams, localRoot: string, relativ
   if (!descriptor.ticketId || !descriptor.contentRevision) {
     throw new Error("preview_descriptor_invalid");
   }
-  const chunks: string[] = [];
-  let offset = 0;
-  while (true) {
-    const request: ReadTextResourceParams = {
-      ticketId: descriptor.ticketId,
-      offset,
-      maxBytes: 64 * 1024,
-    };
-    const chunk = await invoke<ReadTextResourceResult>("text_resource_read", { params: request });
-    if (chunk.contentRevision !== descriptor.contentRevision || chunk.offset !== offset) {
-      throw new Error("preview_source_changed");
+  if (descriptor.format === "plain_text") {
+    try {
+      const firstPage = await readPreviewPage(descriptor, 0, signal);
+      return { phase: "ready-text-page", descriptor, firstPage };
+    } catch (error) {
+      releaseTextTicket(descriptor.ticketId);
+      throw error;
     }
-    chunks.push(chunk.text);
-    if (chunk.endOfResource) break;
-    if (chunk.nextOffset <= offset) throw new Error("preview_read_failed");
-    offset = chunk.nextOffset;
   }
-  return { phase: "ready", descriptor, content: chunks.join("") };
+  try {
+    return { phase: "ready", descriptor, content: await readPreviewText(descriptor, signal) };
+  } finally {
+    releaseTextTicket(descriptor.ticketId);
+  }
+}
+
+function releaseTextTicket(ticketId: string) {
+  void rpc<ReleaseTextResourceResult>("textResource/release", { ticketId }).catch(error => console.error("预览资源未能释放", error));
 }
 
 function extractReason(error: unknown): string {

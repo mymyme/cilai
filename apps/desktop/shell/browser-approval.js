@@ -81,7 +81,7 @@ class BrowserApprovals {
         this.notify("browser-approval-closed", { confirmationId, decision: "timeout" });
         resolve({ approved: false, reason: "员工未在限期内确认，操作已按拒绝处理" });
       }, DECISION_TIMEOUT_MS);
-      this.pending.set(confirmationId, { resolve, timer, payload, scope: request.scope ?? null });
+      this.pending.set(confirmationId, { resolve, timer, payload, scope: request.scope ?? null, validateTarget: request.validateTarget });
       this.notify("browser-approval-request", payload);
     });
   }
@@ -98,6 +98,15 @@ class BrowserApprovals {
     if (!entry) return { accepted: false };
     clearTimeout(entry.timer);
     this.pending.delete(confirmationId);
+    let rejection = "员工拒绝了本次操作";
+    if (approved) {
+      try {
+        entry.validateTarget?.();
+      } catch (error) {
+        approved = false;
+        rejection = error.message;
+      }
+    }
     // 只有本来就允许给授权选项的请求才能建立授权，界面传什么都不能绕过这一条
     const granted = approved && grantSite && entry.payload.allowSiteGrant;
     if (granted) {
@@ -112,15 +121,17 @@ class BrowserApprovals {
     entry.resolve(
       approved
         ? { approved: true, grantedSite: granted ? entry.payload.site : null }
-        : { approved: false, reason: "员工拒绝了本次操作" },
+        : { approved: false, reason: rejection },
     );
     return { accepted: true, grantedSite: granted ? entry.payload.site : null };
   }
 
   /** 进程收尾时把在途审批一并拒绝，避免调用方悬着。 */
   rejectAll(reason) {
-    for (const [, entry] of this.pending) {
+    this.grants.clear();
+    for (const [confirmationId, entry] of this.pending) {
       clearTimeout(entry.timer);
+      this.notify("browser-approval-closed", { confirmationId, decision: "rejected", grantedSite: null });
       entry.resolve({ approved: false, reason });
     }
     this.pending.clear();

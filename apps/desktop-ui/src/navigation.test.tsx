@@ -141,6 +141,8 @@ function runtimeQueryFixture(source: unknown, args: unknown): AiRuntimeQuerySnap
     runDetails: details ? runs : [],
     permissionRequests: details ? snapshot.permissionRequests.filter((permission) => runIds.has(permission.runId)) : [],
     automationRules: request.scope === "automations" ? snapshot.automationRules : [],
+    incidentCandidateRunIds: request.scope === "incidents" ? runs.filter(run => ["failed", "interrupted"].includes(run.status)).map(run => run.runId) : [],
+    nextIncidentRunId: null,
   };
 }
 
@@ -163,12 +165,12 @@ function rpcResult(method: string): unknown {
     case "workspace/listDirectory": return { workspaceId: "ws-1", relativePath: null, entries: [], issueCount: 0 };
     case "conflict/list": return { conflicts: [] };
     case "event/replay": return { events: [], nextSequence: 0, hasMore: false };
-    case "project/get": return { project, workspaceIds: ["ws-1"] };
+    case "project/get": return { project, workspaceIds: ["ws-1"], workspaces: [workspace] };
     case "project/list": return { projects: [project] };
     case "projectProgress/get": return { projectId: "proj-1", plans: [plan], tasks: plan.phases.flatMap((phase) => phase.tasks) };
     case "deliverable/list": return { deliverables: [] };
     case "attentionCase/list": return { cases: [] };
-    case "projectPortfolio/list": return { items: [] };
+    case "projectPortfolio/list": return { items: [], workspaces: [] };
     case "myWork/get": return { items: [], generatedAt: 0 };
     case "capabilityCreation/list": return { projects: [] };
     default: return {};
@@ -1189,8 +1191,12 @@ test("归档成功提示查看定位详情，跨页撤销后会话恢复", async
   };
   let state = { ...emptyAiSnapshot, stateRevision: 1, conversations: [conversation], messages: [{ messageId: "archive-message", conversationId: conversation.conversationId, role: "user", content: "归档前的完整正文", runId: null, createdAt: 1, attachments: [] }] };
   const original = invoke.getMockImplementation()!;
-  invoke.mockImplementation((command: string, args?: { request?: { archived: boolean }; method?: string }) => {
+  invoke.mockImplementation((command: string, args?: { request?: { archived: boolean }; method?: string; conversationId?: string }) => {
     if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(state, args));
+    if (command === "ai_conversation_history_page") return Promise.resolve({
+      sessionId: "archive-test", conversationId: args?.conversationId, previousCursor: null, runs: [], permissionRequests: [],
+      messages: state.messages.filter(message => message.conversationId === args?.conversationId),
+    });
     if (command === "ai_runtime_snapshot") return Promise.resolve(state);
     if (command === "ai_conversation_set_archived") {
       state = { ...state, stateRevision: state.stateRevision + 1, conversations: [{ ...state.conversations[0], archived: args!.request!.archived }] };

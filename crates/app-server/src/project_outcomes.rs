@@ -352,14 +352,17 @@ pub fn get_project(
     }
     persistence.transact(|repositories| {
         let project = repositories.project_by_id(&params.project_id)?;
-        let workspace_ids = repositories
-            .workspaces_for_project(&params.project_id)?
+        let registered_ids = repositories.workspaces_for_project(&params.project_id)?;
+        let workspaces =
+            super::project_portfolio::registered_workspaces(repositories, registered_ids.iter())?;
+        let workspace_ids = registered_ids
             .into_iter()
-            .map(|workspace_id| workspace_id.as_str().to_owned())
+            .map(|id| id.as_str().to_owned())
             .collect();
         Ok(ProjectGetResult {
             project: project_summary(project),
             workspace_ids,
+            workspaces,
         })
     })
 }

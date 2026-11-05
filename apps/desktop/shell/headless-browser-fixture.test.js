@@ -1,53 +1,64 @@
-const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const test = require('node:test');
-const { installBrowserFixture, removeBrowserFixture } = require('./headless-browser-fixture');
+const assert = require("node:assert/strict");
+const { EventEmitter } = require("node:events");
+const test = require("node:test");
+const vm = require("node:vm");
+const { withBrowserFixture } = require("./headless-browser-fixture");
 
-function browserProbe(loginPage) {
-  const views = [];
-  const subscriptions = new Map();
-  const calls = [];
-  const api = {
-    transformCallback: callback => callback,
-    async invoke(command, input) {
-      calls.push({ command, input });
-      if (command === 'browser_state') return { profileId: 'isolated-profile' };
-      if (command === 'plugin:event|listen') { subscriptions.set(17, input); return 17; }
-      if (command === 'plugin:event|unlisten') { subscriptions.delete(input.eventId); return; }
-      throw new Error('unexpected call');
+function browserProbe() {
+  let attached;
+  const views = new Map();
+  const page = Object.assign(new EventEmitter(), {
+    getURL: () => views.get("headless-browser").src,
+    isDestroyed: () => false,
+  });
+  const host = Object.assign(new EventEmitter(), {
+    executeJavaScript: async code => vm.runInNewContext(code, {
+      document: {
+        createElement: () => ({ style: {}, setAttribute(name, value) { this[name] = value; }, remove() { views.delete(this.id); } }),
+        body: { appendChild(view) {
+          views.set(view.id, view);
+          host.emit("did-attach-webview", {}, page);
+          attached();
+        } },
+        getElementById: id => views.get(id),
+      },
+    }),
+  });
+  const onOpenTab = () => assert.fail("自检标签不能通过普通界面打开");
+  const runtime = {
+    profileId: "isolated-profile",
+    current: () => ({ contents: page }),
+    activeIdOf: () => "tab&1",
+    close() { this.closed = true; },
+    onOpenTab,
+    openTab(_url, { conversationId }) {
+      return new Promise(resolve => {
+        attached = () => resolve({ tabId: "tab&1" });
+        this.onOpenTab("tab&1", conversationId);
+      });
     },
   };
-  const context = vm.createContext({ window: { __CILAI_HOST__: api }, document: {
-    querySelector: () => loginPage,
-    createElement: tag => ({ tag, attributes: {}, style: {}, setAttribute(name, value) { this.attributes[name] = value; },
-      remove() { views.splice(views.indexOf(this), 1); } }),
-    body: { appendChild: view => views.push(view) },
-    getElementById: id => views.find(view => view.id === id),
-  } });
-  return { contents: { executeJavaScript: code => vm.runInContext(code, context) }, views, subscriptions, calls };
+  return { host, views, runtime, onOpenTab, page };
 }
 
-test('隔离登录页上的浏览器自检以当前profile创建受控WebView并注销监听', async () => {
-  const probe = browserProbe(true);
-  await installBrowserFixture(probe.contents);
-  const subscription = probe.subscriptions.get(17);
-  assert.equal(subscription.event, 'browser-open-tab');
-  await subscription.handler({ payload: { tabId: 'tab&1', conversationId: 'conversation&1' } });
-  assert.equal(probe.views.length, 1);
-  assert.equal(probe.views[0].tag, 'webview');
-  assert.equal(probe.views[0].attributes.partition, 'persist:ai-browser-isolated-profile');
-  const url = new URL(probe.views[0].attributes.src);
-  assert.equal(url.searchParams.get('cilaiTab'), 'tab&1');
-  assert.equal(url.searchParams.get('cilaiConversation'), 'conversation&1');
-  await removeBrowserFixture(probe.contents);
-  assert.equal(probe.subscriptions.size, 0);
-  assert.equal(probe.views.length, 0);
-});
-
-test('已登录页面保留真实浏览器事件处理，不注入匿名自检监听', async () => {
-  const probe = browserProbe(false);
-  await installBrowserFixture(probe.contents);
-  await removeBrowserFixture(probe.contents);
-  assert.equal(probe.calls.length, 0);
-  assert.equal(probe.views.length, 0);
+test("个人版自检只在初始页面加载完成后操作本次真实标签并还原宿主", async () => {
+  const { host, views, runtime, page, onOpenTab } = browserProbe();
+  let checked = false;
+  const result = withBrowserFixture(runtime, host, (active, tabId) => {
+    assert.equal(active, page);
+    assert.equal(tabId, "tab&1");
+    assert.equal(runtime.onOpenTab, onOpenTab);
+    checked = true;
+    return "通过";
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(checked, false);
+  const view = views.get("headless-browser");
+  assert.equal(view.partition, "persist:ai-browser-isolated-profile");
+  assert.equal(new URL(view.src).searchParams.get("cilaiTab"), "tab&1");
+  page.emit("did-finish-load");
+  assert.equal(await result, "通过");
+  assert.equal(host.listenerCount("did-attach-webview"), 0);
+  assert.equal(views.size, 0);
+  assert.equal(runtime.closed, true);
 });

@@ -1,14 +1,22 @@
 import { Select } from "../select";
+import { usePageActive } from "../page-visibility";
+import { DocumentLayoutPreview } from "../document-layout-preview";
 import { ChartView } from "./chart-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentPreviewModel, OfficePreviewFormat, PreviewParagraph, PreviewSheet, PreviewTopic, SlideObject } from "./model";
 import "./viewer.css";
 
 export function OfficeDocumentPreview({ bytes, format }: { bytes: ArrayBuffer; format: OfficePreviewFormat }) {
+  const [owner, setOwner] = useState({ bytes, format, id: 0 });
+  if (owner.bytes !== bytes || owner.format !== format) setOwner({ bytes, format, id: owner.id + 1 });
+  return <OfficeDocumentRead key={owner.id} bytes={bytes} format={format}/>;
+}
+function OfficeDocumentRead({ bytes, format }: { bytes: ArrayBuffer; format: OfficePreviewFormat }) {
+  const active = usePageActive();
   const [model, setModel] = useState<DocumentPreviewModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    setModel(null); setError(null);
+    if (!active || model || error) return;
     const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
     const timeout = window.setTimeout(() => { worker.terminate(); setError("文档解析超时。"); }, 20_000);
     worker.onmessage = (event: MessageEvent<{ model?: DocumentPreviewModel; error?: string }>) => {
@@ -19,7 +27,7 @@ export function OfficeDocumentPreview({ bytes, format }: { bytes: ArrayBuffer; f
     worker.onerror = () => { window.clearTimeout(timeout); worker.terminate(); setError("文档解析失败。"); };
     const copy = bytes.slice(0); worker.postMessage({ bytes: copy, format }, [copy]);
     return () => { window.clearTimeout(timeout); worker.terminate(); };
-  }, [bytes, format]);
+  }, [active, bytes, format, model, error]);
   if (error) return <div className="preview-message" role="alert"><h3>无法预览</h3><p>{error}</p></div>;
   return model ? <StructuredDocumentPreview model={model}/> : <div className="preview-message" role="status">正在解析文档</div>;
 }
@@ -30,31 +38,10 @@ function packageError(reason?: string): string {
   return "文档损坏、已加密或格式不受支持。";
 }
 export function StructuredDocumentPreview({ model }: { model: DocumentPreviewModel }) {
-  if (model.format === "docx") return <DocxPreview bytes={model.bytes}/>;
+  if (model.format === "docx") return <DocumentLayoutPreview format="docx" input={model.bytes}/>;
   if (model.format === "pptx") return <SlidesPreview model={model}/>;
   if (model.format === "xlsx") return <WorkbookPreview model={model}/>;
   return <MindMapPreview model={model}/>;
-}
-function DocxPreview({ bytes }: { bytes: ArrayBuffer }) {
-  const [html, setHtml] = useState<string | null>(null); const [error, setError] = useState(false);
-  useEffect(() => {
-    let disposed = false; setHtml(null); setError(false);
-    const body = document.createElement("div"); const styles = document.createElement("div");
-    void import("docx-preview").then(({ renderAsync }) => renderAsync(bytes, body, styles, {
-      useBase64URL: true, renderAltChunks: false, renderComments: false, renderChanges: false,
-      ignoreLastRenderedPageBreak: false, experimental: false,
-    })).then(() => {
-      if (disposed) return;
-      for (const element of body.querySelectorAll("a,form,script,iframe,object,embed,input,button")) {
-        if (element.tagName === "A") element.replaceWith(...element.childNodes);
-        else element.remove();
-      }
-      setHtml(`<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; font-src data: blob:; style-src 'unsafe-inline';"><style>body{margin:0;background:#f4f4f3} .docx-wrapper{padding:20px!important} section.docx{max-width:100%;box-sizing:border-box}</style>${styles.innerHTML}</head><body>${body.innerHTML}</body></html>`);
-    }).catch(() => { if (!disposed) setError(true); });
-    return () => { disposed = true; body.replaceChildren(); styles.replaceChildren(); };
-  }, [bytes]);
-  if (error) return <div className="preview-message" role="alert">Word 文档无法解析。</div>;
-  return html ? <iframe className="office-docx-frame" sandbox="" srcDoc={html} title="Word 文档预览"/> : <div className="preview-message" role="status">正在排版</div>;
 }
 function SlidesPreview({ model }: { model: Extract<DocumentPreviewModel, { format: "pptx" }> }) {
   const [index, setIndex] = useState(0); const [zoom, setZoom] = useState(1);

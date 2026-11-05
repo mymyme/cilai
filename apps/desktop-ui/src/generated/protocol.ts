@@ -2,7 +2,7 @@
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type AiRuntimeQueryScope = "automations" | "project" | "work" | "incidents" | "archive" | "conversation" | "run";
-export type AiRuntimeQuery = { scope: AiRuntimeQueryScope, projectId?: string, conversationId?: string, runId?: string, runIds?: Array<string>, };
+export type AiRuntimeQuery = { scope: AiRuntimeQueryScope, projectId?: string, conversationId?: string, runId?: string, runIds?: Array<string>, afterIncidentRunId?: string, };
 export type ConversationSessionSnapshot = { sessionId: string, revision: number, values: Record<string, unknown>, };
 export type ConversationSessionPatch = { sessionId: string, changes: Array<ConversationSessionChange>, };
 export type ConversationSessionChange = { key: string, previous: unknown, value: unknown, };
@@ -295,9 +295,13 @@ export type OpenPreviewResult = { source: PreviewSource, availability: PreviewAv
 export type FileHydrationParams = { workspaceId: string, relativePath: string, operationId: string | null, cancel: boolean, };
 export type FileHydrationResult = { state: string, relativePath: string, operationId: string | null, };
 export type ReadBinaryPreviewParams = { workspaceId: string, localFileId: string, };
-export type ReadBinaryPreviewResult = { contentBase64: string, contentRevision: string, contentType: string, sizeBytes: number, };
+export type ReadBinaryPreviewResult = { ticketId: string, contentRevision: string, contentType: string, sizeBytes: number, };
+export type ReadBinaryPreviewChunkParams = { ticketId: string, offset: number, };
+export type ReadBinaryPreviewChunkResult = { offset: number, contentBase64: string, };
 export type ReadTextResourceParams = { ticketId: string, offset: number, maxBytes: number, };
 export type ReadTextResourceResult = { offset: number, nextOffset: number, endOfResource: boolean, contentRevision: string, text: string, };
+export type ReleaseTextResourceParams = { ticketId: string, };
+export type ReleaseTextResourceResult = { released: boolean, };
 export type DiffSourceRef = { ticketId: string, source: PreviewSource, contentRevision: string, label: string, version: string | null, modifiedAt: number | null, };
 export type ComputeTextDiffParams = { left: DiffSourceRef, right: DiffSourceRef, };
 export type TextDiffSummary = { addedLines: number, deletedLines: number, unchangedLines: number, changeBlocks: number, };
@@ -482,11 +486,11 @@ export type ProjectUpdateParams = { projectId: string, displayName: string, goal
 expectedRevision: number, };
 export type ProjectUpdateResult = { project: ProjectSummary, };
 export type ProjectGetParams = { projectId: string, };
-export type ProjectGetResult = { project: ProjectSummary, workspaceIds: Array<string>, };
+export type ProjectGetResult = { project: ProjectSummary, workspaceIds: Array<string>, workspaces: Array<WorkspaceSummary>, };
 export type ProjectPortfolioListParams = { workspaceIds: Array<string>, };
 export type ProjectPortfolioPhaseItem = { phaseId: string, name: string, status: string, };
 export type ProjectPortfolioItem = { projectId: string, displayName: string, goal: string, status: string, workspaceId: string | null, workspaceDisplayName: string | null, workspaceIds: Array<string>, stateRevision: number, updatedAt: number, hasPlan: boolean, activePhases: Array<ProjectPortfolioPhaseItem>, nextPhaseName: string | null, taskTotal: number, taskCompleted: number, deliverableTotal: number, deliverableAccepted: number, blockerCount: number, decisionCount: number, incidentCount: number, };
-export type ProjectPortfolioListResult = { items: Array<ProjectPortfolioItem>, };
+export type ProjectPortfolioListResult = { items: Array<ProjectPortfolioItem>, workspaces: Array<WorkspaceSummary>, };
 export type DeliverableListParams = { projectId: string, };
 export type DeliverableFileBindingItem = { localFileId: string, workspaceId: string, relativePath: string, fileRevision: number, checksumAlgorithm: string, checksumValue: string, bindingRole: string, };
 export type DeliverableCarrierItem = { carrierId: string, carrierType: string, carrierRole: string, label: string, reference: string, versionLabel: string, sourceProjectId: string | null, sourceDeliverableId: string | null, sourceVersionId: string | null, };

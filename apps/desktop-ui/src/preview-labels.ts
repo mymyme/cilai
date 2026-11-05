@@ -8,6 +8,8 @@ export const SOURCE_LABELS: Record<PreviewSource, string> = {
 };
 
 export const ERROR_LABELS: Record<string, string> = {
+  host_command_capacity_exceeded: "工作台正忙，请稍后重试。",
+  preview_ticket_capacity_reached: "预览资源已满，请关闭其他预览后重试。",
   personal_cloud_source_unavailable: "个人版不支持此云端来源，请明确选择本地文件。",
   preview_file_too_large: "文件超过 32 MiB，无法在客户端预览。",
   preview_binary_content: "文件包含二进制内容，不能作为文本预览。",

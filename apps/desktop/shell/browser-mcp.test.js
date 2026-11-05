@@ -9,6 +9,9 @@ function recordingRuntime() {
     calls,
     proxy: new Proxy({}, {
       get: (_target, name) => {
+        if (name === "captureWriteTarget") return async (conversationId, target) => ({
+          conversationId, site: "https://example.com", ...target,
+        });
         // current() 是取"这次对话当前那个标签"，审批摘要要用它，不能当成被记录的工具调用
         if (name === "current") {
           return () => ({ contents: { isDestroyed: () => false, getURL: () => "https://example.com/x" } });
@@ -49,7 +52,7 @@ test("每个读工具都把对话标识交给运行时", async () => {
     ["browser_extract", {}],
     ["browser_screenshot", {}],
     ["browser_scroll", {}],
-    ["browser_wait_for", { expression: "1" }],
+    ["browser_wait_for", { condition: { kind: "ready", state: "complete" } }],
   ];
   for (const [name, args] of tools) await callTool(server, name, args, "conv-7");
   assert.equal(runtime.calls.length, tools.length, "每个工具都该落到运行时上");
@@ -64,7 +67,7 @@ test("写工具经过审批之后同样带着对话标识", async () => {
   await callTool(server, "browser_click", { x: 1, y: 2, purpose: "试" }, "conv-9");
   await callTool(server, "browser_type", { text: "你好", purpose: "试" }, "conv-9");
   assert.deepEqual(runtime.calls.map((call) => call.name), ["click", "type"]);
-  for (const call of runtime.calls) assert.ok(call.args.includes("conv-9"));
+  for (const call of runtime.calls) assert.equal(call.args.at(-1).conversationId, "conv-9");
 });
 
 test("工具失败时错误如实回给模型，不伪装成成功", async () => {
@@ -112,20 +115,20 @@ test("点击优先按句柄定位，句柄缺失时才用坐标", async () => {
   const seen = [];
   const runtime = {
     click: async (target) => { seen.push(target); return { ok: true }; },
-    current: () => ({ contents: { isDestroyed: () => false, getURL: () => "https://example.com/" } }),
+    captureWriteTarget: async (_scope, target) => ({ site: "https://example.com", ...target }),
   };
   const server = new BrowserMcpServer(runtime, alwaysApprove);
   await callTool(server, "browser_click", { ref: "ref_12", purpose: "试" }, "c1");
   await callTool(server, "browser_click", { x: 10, y: 20, purpose: "试" }, "c1");
   assert.equal(seen[0].ref, "ref_12");
-  assert.equal(seen[1].x, 10);
+  assert.deepEqual(seen[1].point, { x: 10, y: 20 });
 });
 
 test("表单设值按句柄下发，值原样传给运行时", async () => {
   const seen = [];
   const runtime = {
-    setValue: async (ref, value) => { seen.push({ ref, value }); return { ok: true }; },
-    current: () => ({ contents: { isDestroyed: () => false, getURL: () => "https://example.com/" } }),
+    setValue: async (value, target) => { seen.push({ ref: target.ref, value }); return { ok: true }; },
+    captureWriteTarget: async (_scope, target) => ({ site: "https://example.com", ...target }),
   };
   const server = new BrowserMcpServer(runtime, alwaysApprove);
   await callTool(server, "browser_set_value",

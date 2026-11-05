@@ -7,6 +7,7 @@
  * 隐藏一个没预料到的错误比显示得难看更糟。
  */
 const reasons: Record<string, string> = {
+  host_command_capacity_exceeded: "工作台正忙，请稍后重试。",
   cloud_download_destination_exists: "本地已有同名文件，请使用其他文件名。",
   cloud_download_cleanup_pending: "下载未完成，临时文件清理待完成。",
   cloud_download_cleanup_registration_failed: "无法登记临时文件清理，下载未开始。",

@@ -38,8 +38,14 @@ pub fn ensure_restricted_directory(directory: &Path) -> io::Result<()> {
         }
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]
-    fs::create_dir_all(directory)
-        .map_err(|error| contextual_error("create restricted directory", &error))?;
+    {
+        use std::os::unix::fs::DirBuilderExt as _;
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(directory)
+            .map_err(|error| contextual_error("create restricted directory", &error))?;
+    }
     restrict_existing_path(directory)
         .map_err(|error| contextual_error("restrict directory permissions", &error))?;
     verify_restricted_path(directory, true)
@@ -276,6 +282,28 @@ mod tests {
         assert!(root.is_dir());
         verify_restricted_path(&root, true).unwrap();
         fs::remove_dir(&root).unwrap();
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[test]
+    fn new_private_parents_are_restricted_without_changing_existing_ancestors() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let existing = unique_root("existing-ancestor");
+        fs::create_dir(&existing).unwrap();
+        fs::set_permissions(&existing, fs::Permissions::from_mode(0o755)).unwrap();
+        let parent = existing.join("new-parent");
+        let leaf = parent.join("new-private");
+        ensure_restricted_directory(&leaf).unwrap();
+        assert_eq!(
+            fs::metadata(&existing).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
+        assert_eq!(
+            fs::metadata(&parent).unwrap().permissions().mode() & 0o077,
+            0
+        );
+        verify_restricted_path(&leaf, true).unwrap();
+        fs::remove_dir_all(&existing).unwrap();
     }
 
     #[test]

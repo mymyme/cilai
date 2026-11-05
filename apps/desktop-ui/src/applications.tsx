@@ -27,11 +27,42 @@ type PersonalTab = {
   name: string;
   creationProjectId: string;
   installed: boolean;
+  awaitingResume?: boolean;
   targetType: string;
   packageDigest: string | null;
   html: string;
   contentDigest: string;
 };
+
+type SavedApplicationTabs = { ids: string[]; activeId: string | null };
+const applicationTabsKey = (profileId: string) => `cilai.personal-application-tabs.v1:${profileId}`;
+const restorable = (project: CapabilityCreationProject) =>
+  project.status === "installed" && matchesWebTarget(project.targetType) && Boolean(project.packageDigest);
+const tabId = (projectId: string) => `personal:${projectId}`;
+
+function readApplicationTabs(profileId: string): SavedApplicationTabs {
+  const stored = localStorage.getItem(applicationTabsKey(profileId));
+  if (stored === null) return { ids: [], activeId: null };
+  const value: unknown = JSON.parse(stored);
+  if (!value || typeof value !== "object" || !("ids" in value) || !Array.isArray(value.ids)
+    || value.ids.length > 30 || !value.ids.every(id => typeof id === "string" && /^[-_a-z0-9]{1,100}$/i.test(id))
+    || !("activeId" in value) || !(value.activeId === null || typeof value.activeId === "string")) {
+    throw new Error("personal_application_tab_state_invalid");
+  }
+  return { ids: [...new Set<string>(value.ids)], activeId: value.activeId };
+}
+
+async function openApplicationTab(project: CapabilityCreationProject): Promise<PersonalTab> {
+  const preview = project.status === "installed"
+    ? await invoke<PersonalApplicationOpenResult>("personal_application_open", { creationProjectId: project.creationProjectId })
+    : await rpc<CapabilityCreationPreviewResult>("capabilityCreation/preview", { creationProjectId: project.creationProjectId });
+  if (preview.creationProjectId !== project.creationProjectId) throw new Error("personal_application_identity_changed");
+  return {
+    applicationId: tabId(project.creationProjectId), name: preview.title, creationProjectId: preview.creationProjectId,
+    installed: project.status === "installed", targetType: project.targetType,
+    packageDigest: project.packageDigest, html: preview.html, contentDigest: preview.contentDigest,
+  };
+}
 
 export type ApplicationSearchOpenIntent = {
   token: string; kind: "application"; applicationId: string;
@@ -64,14 +95,26 @@ export function ApplicationsPage(props: {
   const [closeToken,setCloseToken]=useState<string|null>(null);
   const generation = useRef(0);
   const openedIntent = useRef<string | null>(null);
+  const tabEpoch = useRef(0);
+  const userSelection = useRef(0);
+  const restoring = useRef(false);
+  const [restoreProfile, setRestoreProfile] = useState<string | null>(null);
+  const [restoreFailures, setRestoreFailures] = useState<Record<string, string>>({});
+  const selectTab = (id: string | null) => {
+    userSelection.current += 1;
+    setActiveTabId(id);
+  };
   useEffect(()=>{
     let active=true;let dispose:(()=>void)|undefined;
     void listen<{token:string}>("personal-applications-close",message=>{
       if(!active||typeof message?.token!=="string"||!/^[-a-f0-9]{36}$/.test(message.token))return;
+      tabEpoch.current += 1;
+      restoring.current = true;
+      setRestoreProfile(props.profileId ?? null);setRestoreFailures({});
       setTabs([]);setActiveTabId(null);setRunning(null);setEditing(null);setCloseToken(message.token);
     }).then(remove=>{if(active)dispose=remove;else remove();}).catch(()=>{if(active)props.onMessage("个人应用关闭确认不可用。","error");});
     return()=>{active=false;dispose?.();};
-  },[]);
+  },[props.profileId]);
   useEffect(()=>{
     if(!closeToken||tabs.length||running||editing)return;
     const token=closeToken;setCloseToken(null);
@@ -99,11 +142,14 @@ export function ApplicationsPage(props: {
   }, []);
 
   useEffect(() => {
+    tabEpoch.current += 1;
+    restoring.current = false;
+    setRestoreProfile(null); setRestoreFailures({});
     setProjects(null); setTabs([]); setActiveTabId(null);
     setEditing(null); setManaging(null); setRunning(null); setInstalling(null); setImporting(null);
     openedIntent.current = null;
     setLoading(false); setError(null); setBusyId(null);
-    return () => { generation.current += 1; };
+    return () => { generation.current += 1; tabEpoch.current += 1; };
   }, [props.profileId]);
   useEffect(() => {
     if (active && projects === null && !loading && !error) void load();
@@ -112,29 +158,74 @@ export function ApplicationsPage(props: {
     props.onActiveApplicationChange?.(active ? activeTabId : null);
   }, [active, activeTabId, props.onActiveApplicationChange]);
 
+  useEffect(() => {
+    if (!active || projects === null || !props.profileId || restoring.current) return;
+    restoring.current = true;
+    const epoch = tabEpoch.current;
+    const selection = userSelection.current;
+    const profileId = props.profileId;
+    void (async () => {
+      try {
+        const saved = readApplicationTabs(profileId);
+        for (const id of saved.ids) {
+          if (epoch !== tabEpoch.current) return;
+          const project = projects.find(candidate => candidate.creationProjectId === id);
+          if (!project || !restorable(project)) continue;
+          try {
+            const tab = await openApplicationTab(project);
+            if (epoch !== tabEpoch.current) return;
+            setTabs(current => current.some(item => item.applicationId === tab.applicationId) ? current : [...current, { ...tab, awaitingResume: true }]);
+            if (saved.activeId === id && selection === userSelection.current) setActiveTabId(tab.applicationId);
+          } catch (reason) {
+            if (epoch === tabEpoch.current) setRestoreFailures(current => ({ ...current, [id]: describeServerError(reason) }));
+          }
+        }
+      } catch {
+        if (epoch === tabEpoch.current) props.onMessage("无法读取应用标签记录。", "error");
+      } finally {
+        if (epoch === tabEpoch.current) setRestoreProfile(profileId);
+      }
+    })();
+  }, [active, projects, props.profileId]);
+
+  useEffect(() => {
+    if (!props.profileId || restoreProfile !== props.profileId) return;
+    const ids = [...new Set([...tabs.filter(tab => tab.installed).map(tab => tab.creationProjectId), ...Object.keys(restoreFailures)])].slice(0, 30);
+    const activeId = ids.find(id => tabId(id) === activeTabId) ?? null;
+    try { localStorage.setItem(applicationTabsKey(props.profileId), JSON.stringify({ ids, activeId })); }
+    catch { props.onMessage("无法保存应用标签。", "error"); }
+  }, [restoreProfile, props.profileId, tabs, restoreFailures, activeTabId]);
+
   const open = async (project: CapabilityCreationProject) => {
     if (!matchesPersonalPreview(project)) return;
-    const applicationId = `personal:${project.creationProjectId}`;
+    const applicationId = tabId(project.creationProjectId);
     const existing = tabs.find(tab => tab.applicationId === applicationId);
-    if (existing) { setActiveTabId(applicationId); return; }
+    if (existing) { selectTab(applicationId); if (existing.awaitingResume) await resumeRestoredTab(existing); return; }
     setBusyId(applicationId);
-    const request = generation.current;
+    const epoch = tabEpoch.current;
+    const selection = ++userSelection.current;
     try {
-      const preview = project.status === "installed"
-        ? await invoke<PersonalApplicationOpenResult>("personal_application_open", { creationProjectId: project.creationProjectId })
-        : await rpc<CapabilityCreationPreviewResult>("capabilityCreation/preview", { creationProjectId: project.creationProjectId });
-      if (request !== generation.current) return;
-      const tab: PersonalTab = {
-        applicationId, name: preview.title, creationProjectId: preview.creationProjectId,
-        installed: project.status === "installed", targetType: project.targetType,
-        packageDigest: project.packageDigest, html: preview.html, contentDigest: preview.contentDigest,
-      };
+      const tab = await openApplicationTab(project);
+      if (epoch !== tabEpoch.current) return;
       setTabs(current => current.some(item => item.applicationId === applicationId) ? current : [...current, tab]);
-      setActiveTabId(applicationId);
+      setRestoreFailures(current => Object.fromEntries(Object.entries(current).filter(([id]) => id !== project.creationProjectId)));
+      if (selection === userSelection.current) setActiveTabId(applicationId);
     } catch (reason) {
-      if (request === generation.current) props.onMessage(`打开失败：${describeServerError(reason)}`, "error");
+      if (epoch === tabEpoch.current) props.onMessage(`打开失败：${describeServerError(reason)}`, "error");
     } finally {
-      if (request === generation.current) setBusyId(null);
+      if (epoch === tabEpoch.current) setBusyId(current => current === applicationId ? null : current);
+    }
+  };
+
+  const resumeRestoredTab = async (tab: PersonalTab) => {
+    const project = projects?.find(candidate => candidate.creationProjectId === tab.creationProjectId);
+    if (!project || !restorable(project)) { close(tab.applicationId); return; }
+    const epoch = tabEpoch.current;
+    try {
+      const next = await openApplicationTab(project);
+      if (epoch === tabEpoch.current) setTabs(current => current.map(item => item === tab ? next : item));
+    } catch (reason) {
+      if (epoch === tabEpoch.current) props.onMessage(`打开失败：${describeServerError(reason)}`, "error");
     }
   };
 
@@ -170,6 +261,7 @@ export function ApplicationsPage(props: {
   };
 
   const close = (applicationId: string) => {
+    userSelection.current += 1;
     setTabs(current => {
       const index = current.findIndex(tab => tab.applicationId === applicationId);
       const remaining = current.filter(tab => tab.applicationId !== applicationId);
@@ -180,13 +272,15 @@ export function ApplicationsPage(props: {
 
   const refreshTab = async () => {
     const tab = tabs.find(item => item.applicationId === activeTabId);
-    if (!tab) return;
+    if (!tab || tab.awaitingResume) return;
+    const epoch = tabEpoch.current;
     try {
       const preview = tab.installed
         ? await invoke<PersonalApplicationOpenResult>("personal_application_open", { creationProjectId: tab.creationProjectId })
         : await rpc<CapabilityCreationPreviewResult>("capabilityCreation/preview", { creationProjectId: tab.creationProjectId });
-      setTabs(current => current.map(item => item.applicationId === tab.applicationId ? { ...item, html: preview.html, contentDigest: preview.contentDigest } : item));
-    } catch (reason) { props.onMessage(`刷新失败：${describeServerError(reason)}`, "error"); }
+      if (epoch !== tabEpoch.current || preview.creationProjectId !== tab.creationProjectId) return;
+      setTabs(current => current.map(item => item === tab ? { ...item, html: preview.html, contentDigest: preview.contentDigest } : item));
+    } catch (reason) { if (epoch === tabEpoch.current) props.onMessage(`刷新失败：${describeServerError(reason)}`, "error"); }
   };
 
   useEffect(() => {
@@ -197,7 +291,7 @@ export function ApplicationsPage(props: {
       const tab = tabs.find(item => item.creationProjectId === intent.applicationId && item.installed);
       const frame = [...(applicationSurface.current?.querySelectorAll<HTMLIFrameElement>("iframe") ?? [])].find(item => item.getAttribute("src") === intent.objectId
         && item.closest("[data-personal-project]")?.getAttribute("data-personal-project") === intent.applicationId);
-      if (tab && frame) setActiveTabId(tab.applicationId);
+      if (tab && frame) selectTab(tab.applicationId);
       else props.onMessage("通知对应的页面已关闭。", "error");
       props.onOpenIntentConsumed?.(intent.token); return;
     }
@@ -216,18 +310,31 @@ export function ApplicationsPage(props: {
   };
 
   return <PageVisibilityContext.Provider value={active}><section className="applications-page" ref={applicationSurface} hidden={!active}>
+    {active && !activeTabId && Object.entries(restoreFailures).map(([id, reason]) => {
+      const project = projects?.find(candidate => candidate.creationProjectId === id);
+      if (!project || !restorable(project)) return null;
+      return <div role="status" className="application-restore-notice" key={id}>
+        <span>{project.title}未恢复：{reason}</span>
+        <button type="button" disabled={busyId === tabId(id)} onClick={() => void open(project)}>重试</button>
+        <button type="button" aria-label={`关闭${project.title}的恢复提示`} onClick={() => setRestoreFailures(current => Object.fromEntries(Object.entries(current).filter(([item]) => item !== id)))}>关闭</button>
+      </div>;
+    })}
     {tabs.length ? <section className={`application-tabs-shell${activeTabId ? " active" : ""}`}>
       <nav aria-label="已打开应用" className="application-tabs">
-        <button aria-current={activeTabId === null ? "page" : undefined} className="application-catalog-tab" onClick={() => { setActiveTabId(null); void load(); }} type="button"><ApplicationsIcon/><span>应用</span></button>
+        <button aria-current={activeTabId === null ? "page" : undefined} className="application-catalog-tab" onClick={() => { selectTab(null); void load(); }} type="button"><ApplicationsIcon/><span>应用</span></button>
         {tabs.map(tab => <div className={activeTabId === tab.applicationId ? "active" : ""} key={tab.applicationId}>
-          <button aria-current={activeTabId === tab.applicationId ? "page" : undefined} onClick={() => setActiveTabId(tab.applicationId)} type="button"><span>{tab.name}</span></button>
+          <button aria-current={activeTabId === tab.applicationId ? "page" : undefined} onClick={() => selectTab(tab.applicationId)} type="button"><span>{tab.name}</span></button>
           <button aria-label={`关闭${tab.name}`} onClick={() => close(tab.applicationId)} title="关闭" type="button"><CloseIcon/></button>
         </div>)}
         {activeTabId && props.browser?.available ? <button type="button" aria-pressed={props.browser.open} onClick={props.browser.onToggle}>浏览器</button> : null}
-        <button aria-label="刷新当前应用" className="application-tab-reload" disabled={!activeTabId} onClick={() => void refreshTab()} title="刷新" type="button"><RefreshIcon/></button>
+        <button aria-label="刷新当前应用" className="application-tab-reload" disabled={!activeTabId || tabs.some(tab => tab.applicationId === activeTabId && tab.awaitingResume)} onClick={() => void refreshTab()} title="刷新" type="button"><RefreshIcon/></button>
       </nav>
       <div aria-label="应用内容" className="application-webview-host" hidden={!activeTabId}>
-        {tabs.map(tab => tab.installed && tab.targetType === "web_mcp_application" && tab.packageDigest
+        {tabs.map(tab => tab.awaitingResume
+          ? activeTabId === tab.applicationId ? <div className="application-restore-notice" key={tab.applicationId}>
+              <button type="button" onClick={() => void resumeRestoredTab(tab)}>打开应用</button>
+            </div> : null
+          : tab.installed && tab.targetType === "web_mcp_application" && tab.packageDigest
           ? <PersonalApplication key={`${tab.applicationId}:${tab.contentDigest}`} projectId={tab.creationProjectId} packageDigest={tab.packageDigest} html={tab.html} title={tab.name} active={active && activeTabId === tab.applicationId} onOpenModels={props.onOpenModels}/>
           : tab.installed && tab.targetType === "web_application" && tab.packageDigest
             ? <PersonalWebApplication key={`${tab.applicationId}:${tab.contentDigest}`} projectId={tab.creationProjectId} packageDigest={tab.packageDigest} html={tab.html} title={tab.name} active={active && activeTabId === tab.applicationId} onOpenModels={props.onOpenModels}/>

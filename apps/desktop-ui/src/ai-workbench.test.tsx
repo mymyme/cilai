@@ -22,6 +22,11 @@ vi.mock("./conversation-session-api", () => ({
     return structuredClone(sessionApi.snapshot);
   },
 }));
+function activityFixture(result: Omit<import("./ai-runtime").AiRuntimeActivitySnapshot, "eventPages">) {
+  return { ...result, eventPages: Object.fromEntries(result.runs.map(run =>
+    [run.runId, { retained: 0, cursor: { count: run.events.length, digest: "0".repeat(64) } }])) };
+}
+
 const invoke = vi.hoisted(() => vi.fn());
 const modelApi = vi.hoisted(() => ({ models: [] as unknown[], fail: null as string | null }));
 const writeText = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -40,6 +45,16 @@ vi.mock("./host", () => ({
     return result;
   },
   writeClipboard: writeText,
+}));
+vi.mock("./ai-message-receipt", () => ({
+  readAiMessageReceipt: async (_profile: string, clientMessageId: string) => {
+    const state = await invoke("ai_runtime_snapshot", { refreshNativeCatalog: false });
+    if (!state) throw new Error("ai_message_receipt_unconfirmed");
+    const message = state.messages.find((item: { messageId: string; role: string }) => item.messageId === clientMessageId && item.role === "user");
+    if (message) return { status: "recorded", conversationId: message.conversationId };
+    const submission = state.messageSubmissions?.find((item: { clientMessageId: string }) => item.clientMessageId === clientMessageId);
+    return { status: submission?.status ?? "absent", conversationId: submission?.conversationId ?? null };
+  },
 }));
 vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), render: renderMermaid } }));
 
@@ -252,7 +267,8 @@ async function renderWorkbench(context: AiContext = conversationContext(), overr
   let generatedSkillFailed = false;
   invoke.mockImplementation(async (command: string, args?: { request?: Record<string, unknown>; attachmentId?: string; method?: string }) => {
     if (command === "ai_runtime_snapshot") return { ...snapshot(context, overrides.executionSupported ?? true, overrides.agentModel ?? null, overrides.runtimeCapabilities ?? []), localAgentsEnabled: overrides.localAgentsEnabled ?? true, conversations: overrides.conversations ?? snapshot(context).conversations, messages: overrides.messages ?? [], runs: overrides.runs ?? [], permissionRequests: overrides.permissionRequests ?? [] };
-    if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: overrides.conversations ?? snapshot(context).conversations, messages: overrides.messages ?? [], runs: overrides.runs ?? [], permissionRequests: overrides.permissionRequests ?? [], missingRunIds: [] };
+    if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: overrides.permissionRequests ?? [] };
+    if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: overrides.conversations ?? snapshot(context).conversations, messages: overrides.messages ?? [], runs: overrides.runs ?? [], missingRunIds: [] });
     if (command === "app_server_request" && args?.method === "skill/runList") return { installations: overrides.skillInstallations ?? [] };
     if (command === "app_server_request" && args?.method === "skill/conversationCatalog") return { skills: overrides.conversationSkills ?? [] };
     if (command === "app_server_request" && (args?.method === "skill/save" || args?.method === "skill/importDirectory")) {
@@ -595,7 +611,8 @@ describe("运行中消息", () => {
     const finished = { ...activeRun, status: "completed" as const, completedAt: Date.now(), partialOutput: null, output: "完成" };
     const reply = { messageId: "activity-reply", conversationId: "conv-1", role: "assistant" as const, content: "完成", attachments: [], runId: activeRun.runId, createdAt: Date.now() };
     invoke.mockImplementation(async (command: string) => {
-      if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: [], messages: completed ? [reply] : [], runs: [completed ? finished : activeRun], permissionRequests: [], missingRunIds: [] };
+      if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+      if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: [], messages: completed ? [reply] : [], runs: [completed ? finished : activeRun], missingRunIds: [] });
       if (command === "ai_runtime_snapshot") return { ...snapshot(conversationContext()), messages: [existingMessage, reply], runs: [finished] };
       throw new Error(`unexpected command ${command}`);
     });
@@ -1627,7 +1644,8 @@ describe("应用转交消息", () => {
     const originalInvoke = invoke.getMockImplementation()!;
     invoke.mockImplementation(async (command: string, args?: { request?: Record<string, unknown> }) => {
       if (command === "ai_runtime_snapshot") return { ...snapshot(conversationContext()), messages: recordedMessages, runs: [activeRun] };
-      if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: recordedMessages, runs: [activeRun], permissionRequests: [], missingRunIds: [] };
+      if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+      if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: recordedMessages, runs: [activeRun], missingRunIds: [] });
       return originalInvoke(command, args);
     });
 
@@ -1815,7 +1833,8 @@ describe("应用转交消息", () => {
     const originalInvoke = invoke.getMockImplementation()!;
     invoke.mockImplementation(async (command: string, args?: { request?: Record<string, unknown> }) => {
       if (command === "ai_runtime_snapshot") return { ...snapshot(conversationContext()), messages: [existingMessage], runs };
-      if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: [existingMessage], runs, permissionRequests: [], missingRunIds: [] };
+      if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+      if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: [existingMessage], runs, missingRunIds: [] });
       if (command === "ai_message_steer") return pendingSteer;
       if (command === "ai_message_submit") return { status: "recorded", run: { ...activeRun, runId: "run-after-timeout", inputMessageId: "message-after-timeout" } };
       return originalInvoke(command, args);
@@ -1859,7 +1878,8 @@ describe("应用转交消息", () => {
     const base = invoke.getMockImplementation()!;
     invoke.mockImplementation(async (command: string, args?: { request?: Record<string, unknown> }) => {
       if (command === "ai_runtime_snapshot") return { ...snapshot(conversationContext()), messages, runs };
-      if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages, runs, permissionRequests: [], missingRunIds: [] };
+      if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+      if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages, runs, missingRunIds: [] });
       if (command === "ai_message_steer") {
         const messageId = String(args!.request!.clientMessageId);
         const nextRun = { ...activeRun, runId: "run-next", status: "queued" as const, threadWriterActive: false, inputMessageId: messageId };
@@ -1912,7 +1932,8 @@ describe("应用转交消息", () => {
     const base = invoke.getMockImplementation()!;
     invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "ai_runtime_snapshot") return { ...snapshot(conversationContext()), messages: [existingMessage], runs };
-      if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: [existingMessage], runs, permissionRequests: [], missingRunIds: [] };
+      if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+      if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: [existingMessage], runs, missingRunIds: [] });
       return base(command, args);
     });
     fireEvent.change(screen.getByLabelText("发送给 AI"), { target: { value: "补充约束" } });
@@ -1943,7 +1964,8 @@ describe("应用转交消息", () => {
     fireEvent.click(screen.getByRole("button", { name: "排队发送" }));
     invoke.mockImplementation(async (command: string) => {
       if (command === "ai_runtime_snapshot") return { ...snapshot(conversationContext()), messages: [existingMessage], runs: [activeRun] };
-      if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: [existingMessage], runs: [activeRun], permissionRequests: [], missingRunIds: [] };
+      if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+      if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: snapshot(conversationContext()).conversations, messages: [existingMessage], runs: [activeRun], missingRunIds: [] });
       if (command === "ai_message_steer") return { ...activeRun, runId: "accepted-next-run", status: "queued", threadWriterActive: false };
       throw new Error(`unexpected command ${command}`);
     });
@@ -3321,6 +3343,13 @@ describe("应用转交消息", () => {
       { ...failedRun, runId: "run-request", conversationId: "conv-2", approvalMode: "request" },
     ];
     await renderWorkbench(conversationContext(), { conversations, runs });
+    const original = invoke.getMockImplementation()!;
+    invoke.mockImplementation((command: string, args?: { request?: { conversationId: string; approvalMode?: AiConversation["approvalMode"] } }) => {
+      if (command !== "ai_conversation_update") return original(command, args);
+      const index = conversations.findIndex(item => item.conversationId === args?.request?.conversationId);
+      conversations[index] = { ...conversations[index], approvalMode: args?.request?.approvalMode };
+      return Promise.resolve(conversations[index]);
+    });
 
     expect(await screen.findByRole("button", { name: "选择审批模式：帮我批准" })).toBeTruthy();
     fireEvent.click(document.querySelector(".ai-conversation-open[title='请求审批对话']") as HTMLButtonElement);
@@ -4403,7 +4432,8 @@ test("没有可用模型时模型下拉说明原因，不只剩一个分组标�
   const state = { ...snapshot(conversationContext()), localAgentsEnabled: false, models: [], messages: [existingMessage] } as unknown as AiRuntimeSnapshot;
   invoke.mockImplementation(async (command: string) => {
     if (command === "ai_runtime_snapshot") return state;
-    if (command === "ai_runtime_activity_snapshot") return { stateRevision: 0, conversations: state.conversations, messages: state.messages, runs: [], permissionRequests: [] };
+    if (command === "ai_runtime_approval_snapshot") return { stateRevision: 0, permissionRequests: [] };
+    if (command === "ai_runtime_activity_snapshot") return activityFixture({ stateRevision: 0, conversations: state.conversations, messages: state.messages, runs: [], missingRunIds: [] });
     if (command === "app_server_request") return { installations: [], skills: [] };
     return {};
   });
@@ -4571,16 +4601,16 @@ describe("提交中的用户消息", () => {
       fireEvent.click(screen.getByRole("button", { name: "发送" }));
       await waitFor(() => expect(requests).toHaveLength(1));
       await waitFor(() => expect(poll).toBeDefined());
-      expect(requests[0].args).toEqual({ refreshNativeCatalog: false });
+      expect(requests[0].args).toEqual({ refreshNativeCatalog: false, conversationId: "conv-1" });
       act(() => poll!());
       await act(async () => { requests[0].resolve(prepared()); });
       await waitFor(() => expect(requests).toHaveLength(2));
-      expect(requests[1].args).toEqual({ refreshNativeCatalog: false });
+      expect(requests[1].args).toEqual({ refreshNativeCatalog: false, conversationId: "conv-1" });
       act(() => window.dispatchEvent(new Event("cilai-ai-runtime-changed")));
       act(() => poll!());
       await act(async () => { requests[1].resolve(prepared()); });
       await waitFor(() => expect(requests).toHaveLength(3));
-      expect(requests[2].args).toBeUndefined();
+      expect(requests[2].args).toEqual({ refreshNativeCatalog: true, conversationId: "conv-1" });
       await act(async () => { requests[2].resolve(prepared()); });
     } finally {
       interval.mockRestore();

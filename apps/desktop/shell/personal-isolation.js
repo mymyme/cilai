@@ -45,6 +45,7 @@ function personalServiceEnvironment(source = {}, explicit = {}) {
     if (selected !== 'dev' && selected !== 'prod') throw new Error('数据环境配置无效，只允许 dev 或 prod。');
     environment.CILAI_DATA_ENVIRONMENT = selected;
   }
+  if (explicit.CILAI_PERSONAL_STARTUP_TIMING === '1') environment.CILAI_PERSONAL_STARTUP_TIMING = '1';
   return environment;
 }
 

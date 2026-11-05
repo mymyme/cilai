@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReleaseTextResourceParams",
+  "type": "object",
+  "properties": {
+    "ticketId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "ticketId"
+  ]
+}

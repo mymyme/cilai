@@ -65,6 +65,48 @@ pub(super) fn conversation_preparing(state: &ManagerState, conversation_id: &str
 }
 
 impl AiRuntimeManager {
+    /// # Errors
+    /// 未加载资料、持久化回执未确认或消息归属冲突时不能判定是否落库。
+    pub fn message_receipt(
+        &self,
+        client_id: &str,
+        conversation_id: Option<&str>,
+    ) -> Result<Value, String> {
+        if !valid_client_message_id(client_id) {
+            return Err("ai_message_client_id_invalid".into());
+        }
+        let state = lock(&self.inner);
+        data_dir_for_state(&state)?;
+        ensure_persistence_ready(&state)?;
+        if persistence_outcome_unknown(&state) {
+            return Err("ai_message_receipt_unconfirmed".into());
+        }
+        if let Some(message) = state
+            .persisted
+            .messages
+            .iter()
+            .find(|message| message.message_id == client_id)
+        {
+            if message.role != "user"
+                || conversation_id.is_some_and(|expected| expected != message.conversation_id)
+            {
+                return Err("ai_message_receipt_scope_mismatch".into());
+            }
+            return Ok(
+                serde_json::json!({"status":"recorded","conversationId":message.conversation_id}),
+            );
+        }
+        if let Some(item) = state.message_submissions.get(client_id) {
+            if conversation_id.is_some_and(|expected| expected != item.conversation_id) {
+                return Err("ai_message_receipt_scope_mismatch".into());
+            }
+            return Ok(
+                serde_json::json!({"status":item.status,"conversationId":item.conversation_id}),
+            );
+        }
+        Ok(serde_json::json!({"status":"absent","conversationId":null}))
+    }
+
     /// 创建本地对话并受理首条消息；网络准备与运行启动由宿主在回执之后执行。
     ///
     /// # Errors

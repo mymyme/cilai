@@ -3,9 +3,6 @@
   "title": "ReadBinaryPreviewResult",
   "type": "object",
   "properties": {
-    "contentBase64": {
-      "type": "string"
-    },
     "contentRevision": {
       "type": "string"
     },
@@ -16,10 +13,13 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0
+    },
+    "ticketId": {
+      "type": "string"
     }
   },
   "required": [
-    "contentBase64",
+    "ticketId",
     "contentRevision",
     "contentType",
     "sizeBytes"

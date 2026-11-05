@@ -12,7 +12,8 @@ use super::{
     WorkspaceRecord, WorkspaceRepository, configuration_error, conflict_error, database_error,
     params,
 };
-use rusqlite::OptionalExtension;
+use contexthub_domain::WorkspaceRelativePath;
+use rusqlite::{OptionalExtension, params_from_iter};
 use std::fmt::Write as _;
 
 fn workspace_files_filtered(
@@ -32,12 +33,23 @@ fn workspace_files_filtered(
     }
     // 按快照取时条件要单独写成等值：写成"参数为空或相等"，查询规划就用不上
     // first_seen_snapshot_id 的索引，只能把整个工作区的记录过一遍。
-    let (filter, argument) = match scope {
-        WorkspaceFileScope::All => ("", None),
-        WorkspaceFileScope::PresentOnly => (" AND lf.materialization_state='materialized'", None),
-        WorkspaceFileScope::FirstSeenIn(snapshot_id) => {
-            (" AND lf.first_seen_snapshot_id=?2", Some(*snapshot_id))
+    let (filter, arguments) = match scope {
+        WorkspaceFileScope::All => ("", Vec::new()),
+        WorkspaceFileScope::PresentOnly => {
+            (" AND lf.materialization_state='materialized'", Vec::new())
         }
+        WorkspaceFileScope::FirstSeenIn(snapshot_id) => (
+            " AND lf.first_seen_snapshot_id=?2",
+            vec![(*snapshot_id).to_owned()],
+        ),
+        WorkspaceFileScope::PresentExact(path) => (
+            " AND lf.materialization_state='materialized' AND lf.normalized_relative_path=?2",
+            vec![(*path).to_owned()],
+        ),
+        WorkspaceFileScope::PresentDescendants(path) => (
+            " AND lf.materialization_state='materialized' AND lf.normalized_relative_path>=?2 AND lf.normalized_relative_path<?3",
+            vec![format!("{path}/"), format!("{path}0")],
+        ),
     };
     let mut statement = transaction.prepare(&format!(
         "SELECT lf.local_file_id, lf.relative_path, lf.normalized_relative_path, lf.file_identity, lf.file_type, lf.size_bytes, lf.modified_at_fs, CASE lf.materialization_state WHEN 'materialized' THEN 'present' WHEN 'missing' THEN 'missing' ELSE lf.materialization_state END, fs.display_state, fs.baseline_relation, fs.local_change_state, fs.confirmation_state, fs.conflict_state, fs.state_revision, lf.local_checksum_algorithm, lf.local_checksum_value, fs.baseline_version_id FROM local_files lf LEFT JOIN file_states fs ON fs.local_file_id=lf.local_file_id WHERE lf.workspace_id=?1{filter} ORDER BY lf.normalized_relative_path, lf.local_file_id",
@@ -63,10 +75,8 @@ fn workspace_files_filtered(
             baseline_version_id: row.get(16)?,
         })
     };
-    let rows = match argument {
-        Some(snapshot_id) => statement.query_map(params![workspace_id.as_str(), snapshot_id], bind),
-        None => statement.query_map(params![workspace_id.as_str()], bind),
-    };
+    let arguments = std::iter::once(workspace_id.as_str().to_owned()).chain(arguments);
+    let rows = statement.query_map(params_from_iter(arguments), bind);
     rows.map_err(database_error("query workspace files"))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(database_error("read workspace file"))
@@ -211,6 +221,26 @@ impl WorkspaceRepository for SqliteRepositoryTransaction<'_> {
             workspace_id,
             &WorkspaceFileScope::PresentOnly,
         )
+    }
+
+    fn present_workspace_files_in_scope(
+        &mut self,
+        workspace_id: &WorkspaceId,
+        relative_root: &str,
+    ) -> Result<Vec<WorkspaceFileRecord>, Self::Error> {
+        let path = WorkspaceRelativePath::parse(relative_root)
+            .map_err(|_| configuration_error("invalid_workspace_file_scope"))?;
+        let mut exact = workspace_files_filtered(
+            &self.transaction,
+            workspace_id,
+            &WorkspaceFileScope::PresentExact(path.as_str()),
+        )?;
+        exact.extend(workspace_files_filtered(
+            &self.transaction,
+            workspace_id,
+            &WorkspaceFileScope::PresentDescendants(path.as_str()),
+        )?);
+        Ok(exact)
     }
 
     fn workspace_files_first_seen_in(
@@ -1344,6 +1374,8 @@ fn capability_reasons_json(output: &FileStateOutput) -> String {
 enum WorkspaceFileScope<'a> {
     All,
     PresentOnly,
+    PresentExact(&'a str),
+    PresentDescendants(&'a str),
     /// 只取在这次快照里首次出现的记录。分批写入首次索引时每批只需处理本批新增的
     /// 记录，按工作区全量读会让每一批都比上一批更慢。
     FirstSeenIn(&'a str),

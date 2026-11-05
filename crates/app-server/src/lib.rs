@@ -79,11 +79,12 @@ use contexthub_protocol::{
     ProjectPhaseTransitionResult, ProjectPortfolioListParams, ProjectPortfolioListResult,
     ProjectProgressGetParams, ProjectProgressGetResult, ProjectUpdateParams, ProjectUpdateResult,
     ProtocolLimits, ReadTextDiffParams, ReadTextDiffResult, ReadTextResourceParams,
-    ReadTextResourceResult, Request, ResumeResult, ServerCapabilities, ServerInfo, SessionInfo,
-    SkillConversationCatalogParams, SkillDeleteParams, SkillGetParams, SkillImportDirectoryParams,
-    SkillImportParams, SkillListParams, SkillRunListParams, SkillRunRetryParams,
-    SkillRuntimeCatalogParams, SkillSaveParams, SkillSetStateParams, UnifiedSearchParams,
-    WorkspaceCreateParams, WorkspaceCreateResult, WorkspaceDeleteParams, WorkspaceDeleteResult,
+    ReadTextResourceResult, ReleaseTextResourceParams, ReleaseTextResourceResult, Request,
+    ResumeResult, ServerCapabilities, ServerInfo, SessionInfo, SkillConversationCatalogParams,
+    SkillDeleteParams, SkillGetParams, SkillImportDirectoryParams, SkillImportParams,
+    SkillListParams, SkillRunListParams, SkillRunRetryParams, SkillRuntimeCatalogParams,
+    SkillSaveParams, SkillSetStateParams, UnifiedSearchParams, WorkspaceCreateParams,
+    WorkspaceCreateResult, WorkspaceDeleteParams, WorkspaceDeleteResult,
     WorkspaceDirectoryCreateParams, WorkspaceFileItem, WorkspaceFilesParams, WorkspaceFilesResult,
     WorkspaceListParams, WorkspaceListResult, WorkspaceScanParams, WorkspaceScanResult,
     WorkspaceSummary, WorkspaceTargetValidateParams, WorkspaceTargetValidateResult, business_error,
@@ -159,6 +160,7 @@ pub struct AppServerServices {
     persistence: Option<SqlitePersistence>,
     data_dir: Option<PathBuf>,
     text_tickets: text_resource::TextResourceTickets,
+    binary_tickets: preview_binary::BinaryPreviewTickets,
     diff_tickets: text_diff::TextDiffTickets,
     hydration_tasks: file_hydration::HydrationTasks,
     search_cursors: unified_search::LocalSearchCursors,
@@ -192,6 +194,7 @@ impl AppServerServices {
             persistence,
             data_dir,
             text_tickets: text_resource::TextResourceTickets::default(),
+            binary_tickets: preview_binary::BinaryPreviewTickets::default(),
             diff_tickets: text_diff::TextDiffTickets::default(),
             hydration_tasks: file_hydration::HydrationTasks::default(),
             search_cursors: unified_search::LocalSearchCursors::default(),
@@ -510,7 +513,8 @@ impl AppServerServices {
     fn read_binary_preview(
         &mut self,
         params: &contexthub_protocol::ReadBinaryPreviewParams,
-        _now: i64,
+        owner: &str,
+        now: i64,
     ) -> Result<contexthub_protocol::ReadBinaryPreviewResult, ServiceError> {
         let record = self
             .persistence
@@ -524,7 +528,9 @@ impl AppServerServices {
             })
             .map_err(|_| ServiceError::new("preview_state_read_failed"))?
             .ok_or_else(|| ServiceError::new("preview_file_not_found"))?;
-        preview_binary::read(&record).map_err(ServiceError::new)
+        self.binary_tickets
+            .issue(owner, now, &record)
+            .map_err(ServiceError::new)
     }
 
     fn compute_text_diff(
@@ -636,13 +642,18 @@ impl AppServerServices {
     pub(crate) fn prepare_watched_rescan(
         &mut self,
         workspace_id: &str,
+        paths: Option<&[String]>,
     ) -> Result<workspace::IncrementalScanBasis, ServiceError> {
         let persistence = self
             .persistence
             .as_mut()
             .ok_or_else(|| ServiceError::new("persistence_unavailable"))?;
-        workspace::prepare_incremental_scan(persistence, &WorkspaceId::new(workspace_id.to_owned()))
-            .map_err(|error| ServiceError::new(workspace::index_failure_reason(&error)))
+        workspace::prepare_incremental_scan_scope(
+            persistence,
+            &WorkspaceId::new(workspace_id.to_owned()),
+            paths,
+        )
+        .map_err(|error| ServiceError::new(workspace::index_failure_reason(&error)))
     }
 
     /// 增量重扫的第二段：把扫描结果提交成一次快照。
@@ -712,40 +723,7 @@ impl AppServerServices {
                         })
                         .map(|workspace| {
                             let binding = repositories.platform_binding(&workspace.workspace_id)?;
-                            Ok(WorkspaceSummary {
-                                workspace_id: workspace.workspace_id.as_str().to_owned(),
-                                workspace_kind: workspace.workspace_kind.as_str().to_owned(),
-                                display_name: workspace.display_name,
-                                local_root: workspace.local_root,
-                                local_status: workspace.local_status.as_str().to_owned(),
-                                state_revision: workspace.state_revision,
-                                platform_bound: binding
-                                    .as_ref()
-                                    .is_some_and(|value| value.binding_state.as_str() == "bound"),
-                                platform_revision: binding
-                                    .as_ref()
-                                    .and_then(|value| value.platform_snapshot_revision.clone()),
-                                team_space_id: binding
-                                    .as_ref()
-                                    .and_then(|value| value.team_space_id.clone()),
-                                managed_root: binding
-                                    .as_ref()
-                                    .and_then(|value| value.managed_root.clone()),
-                                device_id: binding
-                                    .as_ref()
-                                    .and_then(|value| value.device_id.clone()),
-                                baseline_revision: binding
-                                    .as_ref()
-                                    .and_then(|value| value.baseline_revision.clone()),
-                                change_cursor: binding
-                                    .as_ref()
-                                    .and_then(|value| value.change_cursor.clone()),
-                                permission_role: binding
-                                    .as_ref()
-                                    .and_then(|value| value.permission_role.clone()),
-                                permission_revision: binding
-                                    .and_then(|value| value.permission_revision),
-                            })
+                            Ok(project_portfolio::workspace_summary(workspace, binding))
                         })
                         .collect()
                 })
@@ -1838,6 +1816,22 @@ impl ConnectionRouter {
             ),
             "preview/open" => self.open_preview(id, params),
             "textResource/read" => self.read_text_resource(id, params),
+            "textResource/release" | "textDiff/release" => {
+                let owner = self.connection_id.clone();
+                self.route_typed_service_call::<ReleaseTextResourceParams, _>(
+                    id, params, "Preview resource could not be released",
+                    |services, request, _now| {
+                        let released = if method == "textResource/release" {
+                            services.text_tickets.belongs_to(&request.ticket_id, &owner)
+                                && services.text_tickets.release(&request.ticket_id)
+                        } else {
+                            services.diff_tickets.belongs_to(&request.ticket_id, &owner)
+                                && services.diff_tickets.release(&request.ticket_id)
+                        };
+                        Ok(ReleaseTextResourceResult { released })
+                    },
+                )
+            }
             "textDiff/compute" => self.compute_text_diff(id, params),
             "textDiff/read" => self.read_text_diff(id, params),
             "file/confirm" => self.confirm_file(id, params),
@@ -1861,13 +1855,31 @@ impl ConnectionRouter {
                     "Directory creation failed",
                     AppServerServices::workspace_directory_create,
                 ),
-            "preview/readBinary" => self
-                .route_typed_service_call::<contexthub_protocol::ReadBinaryPreviewParams, _>(
-                    id,
-                    params,
-                    "Binary preview read failed",
-                    AppServerServices::read_binary_preview,
-                ),
+            "preview/readBinary" => {
+                let owner = self.connection_id.clone();
+                self.route_typed_service_call::<contexthub_protocol::ReadBinaryPreviewParams, _>(
+                    id, params, "Binary preview open failed",
+                    |services, request, now| services.read_binary_preview(request, &owner, now),
+                )
+            }
+            "preview/readBinaryChunk" => {
+                let owner = self.connection_id.clone();
+                self.route_typed_service_call::<contexthub_protocol::ReadBinaryPreviewChunkParams, _>(
+                    id, params, "Binary preview chunk read failed",
+                    |services, request, now| services.binary_tickets
+                        .read(&owner, &request.ticket_id, request.offset, now)
+                        .map_err(ServiceError::new),
+                )
+            }
+            "preview/releaseBinary" => {
+                let owner = self.connection_id.clone();
+                self.route_typed_service_call::<ReleaseTextResourceParams, _>(
+                    id, params, "Binary preview release failed",
+                    |services, request, _now| Ok(ReleaseTextResourceResult {
+                        released: services.binary_tickets.release(&owner, &request.ticket_id),
+                    }),
+                )
+            }
             "workspace/targetValidate" => self
                 .route_typed_service_call::<WorkspaceTargetValidateParams, _>(
                     id,
@@ -2526,12 +2538,16 @@ impl ConnectionRouter {
                 return business_error(id, reason, "System time is unavailable", json!({}));
             }
         };
-        match services
+        let mut services = services
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .open_preview(&params, now)
-        {
-            Ok(result) => success(id, &result).expect("preview result serializes"),
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        match services.open_preview(&params, now) {
+            Ok(result) => {
+                if let Some(ticket) = result.ticket_id.as_deref() {
+                    services.text_tickets.claim(ticket, &self.connection_id);
+                }
+                success(id, &result).expect("preview result serializes")
+            }
             Err(error) => {
                 business_error(id, error.reason, "Preview could not be opened", json!({}))
             }
@@ -2560,11 +2576,21 @@ impl ConnectionRouter {
                 return business_error(id, reason, "System time is unavailable", json!({}));
             }
         };
-        match services
+        let mut services = services
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .read_text_resource(&params, now)
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !services
+            .text_tickets
+            .belongs_to(&params.ticket_id, &self.connection_id)
         {
+            return business_error(
+                id,
+                "preview_ticket_not_found",
+                "Text resource is unavailable",
+                json!({}),
+            );
+        }
+        match services.read_text_resource(&params, now) {
             Ok(result) => success(id, &result).expect("text resource result serializes"),
             Err(error) => business_error(
                 id,
@@ -2584,7 +2610,20 @@ impl ConnectionRouter {
             return invalid_params(id, "invalid_text_diff_compute_params");
         };
         self.route_service_call(id, "Text diff could not be computed", |services, now| {
-            services.compute_text_diff(&params, now)
+            if !services
+                .text_tickets
+                .belongs_to(&params.left.ticket_id, &self.connection_id)
+                || !services
+                    .text_tickets
+                    .belongs_to(&params.right.ticket_id, &self.connection_id)
+            {
+                return Err(ServiceError::new("text_diff_ticket_not_found"));
+            }
+            let result = services.compute_text_diff(&params, now)?;
+            services
+                .diff_tickets
+                .claim(&result.diff_ticket_id, &self.connection_id);
+            Ok(result)
         })
     }
 
@@ -2597,6 +2636,12 @@ impl ConnectionRouter {
             return invalid_params(id, "invalid_text_diff_read_params");
         };
         self.route_service_call(id, "Text diff could not be read", |services, now| {
+            if !services
+                .diff_tickets
+                .belongs_to(&params.diff_ticket_id, &self.connection_id)
+            {
+                return Err(ServiceError::new("text_diff_ticket_not_found"));
+            }
             services.read_text_diff(&params, now)
         })
     }

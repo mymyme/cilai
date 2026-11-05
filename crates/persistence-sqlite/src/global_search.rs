@@ -146,7 +146,7 @@ WITH text_matches AS MATERIALIZED (
     SELECT 'task', t.business_task_id, t.title, t.objective, t.project_id, COALESCE(pw.workspace_id,''),
            t.phase_id, ph.required_deliverable_id, NULL, NULL, t.updated_at, 0, NULL, NULL, NULL
     FROM business_tasks t
-    JOIN project_phases ph ON ph.phase_id=t.phase_id
+    LEFT JOIN project_phases ph ON ph.phase_id=t.phase_id
     LEFT JOIN project_workspaces pw ON pw.project_id=t.project_id AND pw.role='primary'
     WHERE t.title LIKE ?1 ESCAPE '\\' OR t.objective LIKE ?1 ESCAPE '\\' OR t.expected_output LIKE ?1 ESCAPE '\\'
     UNION ALL
@@ -177,3 +177,74 @@ FROM search_results
 WHERE ?3 IS NULL OR updated_at < ?3 OR (updated_at = ?3 AND (object_type > ?4 OR (object_type = ?4 AND object_id > ?5)))
 ORDER BY updated_at DESC, object_type, object_id
 LIMIT ?2";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use contexthub_application::UnitOfWork;
+
+    #[test]
+    fn tasks_with_and_without_phases_keep_their_identity_across_search_pages() {
+        let root = std::env::temp_dir().join(format!("search-tasks-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut db = crate::SqlitePersistence::open(&root.join("contexthub.db"), "0.1.0").unwrap();
+        db.connection.execute_batch(
+            "INSERT INTO projects(project_id,display_name,goal,status,state_revision,client_operation_id,request_fingerprint,created_at,updated_at)
+             VALUES ('project','项目','','active',0,'project','project',1,1);
+             INSERT INTO deliverables(deliverable_id,project_id,title,deliverable_type,owner_label,acceptance_criteria,status,state_revision,client_operation_id,request_fingerprint,created_at,updated_at)
+             VALUES ('deliverable','project','交付物','document','负责人','标准','draft',0,'deliverable','deliverable',1,1);
+             INSERT INTO phase_plans(plan_id,project_id,version_no,status,summary,state_revision,client_operation_id,request_fingerprint,created_at)
+             VALUES ('plan','project',1,'active','计划',0,'plan','plan',1);
+             INSERT INTO project_phases(phase_id,plan_id,project_id,name,goal,acceptance_criteria,required_deliverable_id,sort_order,is_main,status,state_revision,created_at,updated_at)
+             VALUES ('phase','plan','project','阶段','目标','标准','deliverable',0,1,'in_progress',0,1,1);",
+        ).unwrap();
+        for index in 0..7 {
+            let phase_id = (index % 2 == 0).then_some("phase");
+            db.connection.execute(
+                "INSERT INTO business_tasks(business_task_id,project_id,phase_id,title,objective,input_context,expected_output,completion_criteria,assignee_type,assignee_label,priority,status,state_revision,client_operation_id,request_fingerprint,created_at,updated_at)
+                 VALUES (?1,'project',?2,?3,'目标','','产出','标准','collaboration','AI','medium','todo',0,?1,?1,20,20)",
+                params![format!("task-{index}"), phase_id, format!("搜索待办 {index}")],
+            ).unwrap();
+        }
+        let mut after = None;
+        let mut records = Vec::new();
+        for _ in 0..5 {
+            let page = db
+                .transact(|repository| {
+                    repository.global_search(&GlobalSearchQuery {
+                        query: "搜索待办".to_owned(),
+                        limit: 2,
+                        after: after.clone(),
+                    })
+                })
+                .unwrap();
+            if page.is_empty() {
+                break;
+            }
+            let last = page.last().unwrap();
+            after = Some((
+                last.updated_at,
+                last.object_type.clone(),
+                last.object_id.clone(),
+            ));
+            records.extend(page);
+        }
+        assert_eq!(records.len(), 7);
+        for (index, record) in records.iter().enumerate() {
+            assert_eq!(record.object_id, format!("task-{index}"));
+            assert_eq!(record.object_type, "task");
+            assert_eq!(record.project_id.as_deref(), Some("project"));
+            assert!(record.workspace_id.is_empty());
+            assert_eq!(
+                record.phase_id.as_deref(),
+                (index % 2 == 0).then_some("phase")
+            );
+            assert_eq!(
+                record.deliverable_id.as_deref(),
+                (index % 2 == 0).then_some("deliverable")
+            );
+        }
+        drop(db);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}

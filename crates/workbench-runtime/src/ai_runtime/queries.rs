@@ -5,7 +5,7 @@ use super::{
 };
 use contexthub_protocol::{AiRuntimeQuery, AiRuntimeQueryScope};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -80,6 +80,8 @@ pub struct AiRuntimeQuerySnapshot {
     pub run_details: Vec<AgentRun>,
     pub permission_requests: Vec<PermissionRequest>,
     pub automation_rules: Vec<AutomationRule>,
+    pub incident_candidate_run_ids: Vec<String>,
+    pub next_incident_run_id: Option<String>,
 }
 
 fn validate_request(request: &AiRuntimeQuery) -> Result<(), String> {
@@ -88,6 +90,7 @@ fn validate_request(request: &AiRuntimeQuery) -> Result<(), String> {
         request.project_id.as_deref(),
         request.conversation_id.as_deref(),
         request.run_id.as_deref(),
+        request.after_incident_run_id.as_deref(),
     ]
     .into_iter()
     .flatten()
@@ -127,7 +130,10 @@ fn validate_request(request: &AiRuntimeQuery) -> Result<(), String> {
                 && request.run_ids.is_none()
         }
     };
-    if !valid {
+    if !valid
+        || (request.scope != AiRuntimeQueryScope::Incidents
+            && request.after_incident_run_id.is_some())
+    {
         return Err("ai_runtime_query_invalid".into());
     }
     Ok(())
@@ -230,6 +236,101 @@ fn select<'a>(
     })
 }
 
+const INCIDENT_PAGE_SIZE: usize = 40;
+const INCIDENT_MAX_CHAIN: usize = 128;
+
+fn incident_page<'a>(
+    state: &'a PersistedAiState,
+    after: Option<&str>,
+) -> Result<(Selection<'a>, Vec<String>, Option<String>), String> {
+    let conversations: HashMap<_, _> = state
+        .conversations
+        .iter()
+        .filter(|c| {
+            c.context.project_id.is_some()
+                && c.work_classification
+                    .as_ref()
+                    .and_then(|classification| classification.task_id.as_deref())
+                    .is_some_and(|task| c.context.task_id.as_deref() == Some(task))
+        })
+        .map(|c| (c.conversation_id.as_str(), c))
+        .collect();
+    let runs: HashMap<_, _> = state
+        .runs
+        .iter()
+        .map(|run| (run.run_id.as_str(), run))
+        .collect();
+    let anchor = after
+        .map(|id| runs.get(id).copied().ok_or("ai_incident_cursor_expired"))
+        .transpose()?;
+    let mut candidates = state
+        .runs
+        .iter()
+        .filter(|run| {
+            matches!(run.status.as_str(), "failed" | "interrupted")
+                && conversations.contains_key(run.conversation_id.as_str())
+                && anchor.is_none_or(|last| {
+                    (run.started_at, &run.run_id) > (last.started_at, &last.run_id)
+                })
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_unstable_by(|a, b| (a.started_at, &a.run_id).cmp(&(b.started_at, &b.run_id)));
+    let more = candidates.len() > INCIDENT_PAGE_SIZE;
+    candidates.truncate(INCIDENT_PAGE_SIZE);
+    let next = if more {
+        candidates.last().map(|run| run.run_id.clone())
+    } else {
+        None
+    };
+    let mut included_runs = HashSet::new();
+    let mut included_conversations = HashSet::new();
+    let mut ids = Vec::new();
+    for run in candidates {
+        let conversation = conversations[run.conversation_id.as_str()];
+        let Some(classification) = conversation.work_classification.as_ref() else {
+            continue;
+        };
+        let mut chain = HashSet::new();
+        let mut current = run;
+        loop {
+            if !chain.insert(current.run_id.as_str()) || chain.len() > INCIDENT_MAX_CHAIN {
+                return Err("ai_incident_retry_chain_invalid".into());
+            }
+            if current.run_id == classification.run_id {
+                included_runs.extend(chain);
+                included_conversations.insert(run.conversation_id.as_str());
+                ids.push(run.run_id.clone());
+                break;
+            }
+            let Some(parent) = current
+                .retry_of_run_id
+                .as_deref()
+                .and_then(|id| runs.get(id).copied())
+                .filter(|parent| parent.conversation_id == run.conversation_id)
+            else {
+                break;
+            };
+            current = parent;
+        }
+    }
+    Ok((
+        Selection {
+            conversations: state
+                .conversations
+                .iter()
+                .filter(|c| included_conversations.contains(c.conversation_id.as_str()))
+                .collect(),
+            runs: state
+                .runs
+                .iter()
+                .filter(|run| included_runs.contains(run.run_id.as_str()))
+                .collect(),
+        },
+        ids,
+        next,
+    ))
+}
+
 fn selected_messages(
     state: &PersistedAiState,
     scope: AiRuntimeQueryScope,
@@ -237,6 +338,12 @@ fn selected_messages(
     run_ids: &HashSet<&str>,
     input_ids: &HashSet<&str>,
 ) -> Vec<ConversationMessage> {
+    if !matches!(
+        scope,
+        AiRuntimeQueryScope::Conversation | AiRuntimeQueryScope::Run | AiRuntimeQueryScope::Work
+    ) {
+        return Vec::new();
+    }
     state
         .messages
         .iter()
@@ -264,10 +371,18 @@ impl AiRuntimeManager {
         validate_request(request)?;
         let state = lock(&self.inner);
         data_dir_for_state(&state)?;
-        let Selection {
-            conversations,
-            runs,
-        } = select(&state.persisted, request)?;
+        let (
+            Selection {
+                conversations,
+                runs,
+            },
+            incident_candidate_run_ids,
+            next_incident_run_id,
+        ) = if request.scope == AiRuntimeQueryScope::Incidents {
+            incident_page(&state.persisted, request.after_incident_run_id.as_deref())?
+        } else {
+            (select(&state.persisted, request)?, Vec::new(), None)
+        };
         let details = matches!(
             request.scope,
             AiRuntimeQueryScope::Conversation | AiRuntimeQueryScope::Run
@@ -294,6 +409,8 @@ impl AiRuntimeManager {
         Ok(AiRuntimeQuerySnapshot {
             scope: request.scope,
             state_revision: state.state_revision,
+            incident_candidate_run_ids,
+            next_incident_run_id,
             agents: if matches!(
                 request.scope,
                 AiRuntimeQueryScope::Automations | AiRuntimeQueryScope::Incidents

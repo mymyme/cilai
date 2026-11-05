@@ -1,12 +1,12 @@
 # 兼容状态 / Compatibility
 
-Updated: **2026-10-25**. Search and document-preview boundaries were checked against source on **2026-10-25**. Model-validation and Rust-audit evidence below was recorded on **2026-10-22**. Office component tests, isolated Chrome rendering and the workspace npm audit were refreshed on **2026-10-25**; these do not establish new Electron-package, service or platform acceptance. This is a developer preview. Source implementation, simulated tests, native builds, real service calls, and formal releases are separate validation levels.
+Updated: **2026-11-05**. The v0.1.2 source and macOS arm64 package integrate scoped conversation history, runtime and permission lifecycle changes, chunked previews, and isolated Word/HTML layout. Type checking, 1,366 frontend tests, 281 desktop-shell tests, 86 Rust host tests and focused native/runtime tests passed during implementation. Seven shell checks were conditionally skipped; these include platform and opt-in native scenarios. The packaged app passed startup in a new isolated profile, browser approval/takeover checks and PDF/Word/HTML probes. This is a developer preview: source tests, simulated fixtures, native package checks, real service calls and formal distribution remain separate validation levels. The model evidence below remains historical and was not repeated for this update.
 
 ## Platforms
 
 | Platform | Current evidence | Remaining work |
 | --- | --- | --- |
-| macOS 13.5+ arm64 | v0.1.1 preview ZIP; local Electron 44.9.1 package built; isolated startup without a model and seven navigation entries checked | Broader first-release business acceptance, native notification delivery/click, actual macOS 13.5 hardware, clean-machine build, formal signing |
+| macOS 13.5+ arm64 | v0.1.2 preview ZIP; Electron 44.9.1; isolated startup, seven navigation entries, browser controls and PDF/Word/HTML package probes checked | Broader first-release business acceptance, native notification delivery/click, actual macOS 13.5 hardware, clean-machine build, formal signing |
 | macOS x64 | Source and official runtime target present | Native package and business validation |
 | Windows 10 22H2 x64 and later client x64, including Windows 11 | Shared source and selected platform contracts exist | Native build, launch, security and complete business validation |
 | Linux | No desktop packaging target registered | Outside the current desktop platform scope |
@@ -55,7 +55,7 @@ On **2026-10-25**, the installed source and personal-stage Electron distribution
 
 ## Source submission and releases
 
-The [v0.1.1 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.1) provides a ZIP for **macOS 13.5 or later on Apple Silicon (arm64)**, with a `SHA256SUMS` file. No Windows or macOS Intel package is included. See the [bilingual release notes](releases/v0.1.1.md). The previous v0.1.0 archive remains available.
+The [v0.1.2 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.2) provides a ZIP for **macOS 13.5 or later on Apple Silicon (arm64)**, with a `SHA256SUMS` file. No Windows or macOS Intel package is included. See the [bilingual release notes](releases/v0.1.2.md). The previous v0.1.1 and v0.1.0 archives remain available.
 
 For v0.1.1 on **2026-10-26**, the standard personal build produced the macOS arm64 application with Electron 44.9.1, bundled notices, and an isolated no-model startup check. The release preparation passed 1338 frontend tests, 522 Node/shell/build checks with 12 conditional skips, type checking, workspace/all-target Clippy and formatting, protocol consistency, and the system-proxy route-isolation test. Both npm dependency trees reported zero audit findings. These are local source/package checks; the provider evidence above remains historical and was not repeated for this release.
 

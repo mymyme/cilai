@@ -21,10 +21,12 @@ function conversation(id: string, projectId: string | null, overrides: Partial<A
 
 function setup(conversations: AiConversation[], messages: AiRuntimeQuerySnapshot["messages"] = []) {
   const state: AiRuntimeQuerySnapshot = { ...emptyAiQuerySnapshot("archive"), conversations, messages };
-  invoke.mockImplementation(async (command: string, args?: { request: { scope?: string; conversationId?: string; conversationIds?: string[]; archived?: boolean } }) => {
-    if (command === "ai_runtime_query") return args?.request.scope === "conversation"
-      ? { ...state, scope: "conversation", conversations: state.conversations.filter((item) => item.conversationId === args.request.conversationId), messages: state.messages.filter((message) => message.conversationId === args.request.conversationId) }
-      : { ...state, messages: [] };
+  invoke.mockImplementation(async (command: string, args?: { conversationId?: string; request: { scope?: string; conversationId?: string; conversationIds?: string[]; archived?: boolean } }) => {
+    if (command === "ai_conversation_history_page") return {
+      sessionId: "archive-test", conversationId: args?.conversationId, previousCursor: null, runs: [], permissionRequests: [],
+      messages: state.messages.filter(message => message.conversationId === args?.conversationId).sort((left, right) => left.createdAt - right.createdAt),
+    };
+    if (command === "ai_runtime_query") return { ...state, scope: "archive", messages: [] };
     if (command === "ai_attachment_read") return new Uint8Array([137, 80, 78, 71]).buffer;
     if (command === "ai_conversation_set_archived") {
       const item = state.conversations.find((candidate) => candidate.conversationId === args?.request.conversationIds?.[0])!;
@@ -107,7 +109,8 @@ describe("已归档会话", () => {
     fireEvent.click(screen.getByRole("button", { name: /^会话 a 更新于/ }));
     expect((await screen.findAllByRole("article")).map((item) => item.textContent)).toEqual([expect.stringContaining("问题正文"), expect.stringContaining("答复正文")]);
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(invoke.mock.calls.filter(([command]) => command !== "ai_runtime_query")).toHaveLength(0);
+    expect(invoke).toHaveBeenCalledWith("ai_conversation_history_page", { conversationId: "a", archived: true, cursor: null });
+    expect(new Set(invoke.mock.calls.map(([command]) => command))).toEqual(new Set(["ai_runtime_query", "ai_conversation_history_page"]));
     expect(state.conversations[0].archived).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "返回归档清单" }));
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("会话 a");

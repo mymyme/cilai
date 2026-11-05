@@ -5,10 +5,12 @@
   "type": "module",
   "description": "词来工作台内嵌业务应用公共组件与设计规范",
   "exports": {
-    "./conversation": "./src/conversation/index.tsx"
+    "./conversation": "./src/conversation/index.tsx",
+    "./page-notice": "./src/page-notice/index.tsx"
   },
   "files": [
     "src/conversation",
+    "src/page-notice",
     "LICENSE",
     "NOTICE"
   ],

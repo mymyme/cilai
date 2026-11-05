@@ -110,8 +110,12 @@ export function ProjectPortfolioPage(props: { createIntent: number; deleteProjec
 }
 
 async function loadPortfolio(workspaces: WorkspaceSummary[]): Promise<PortfolioItem[]> {
-  const workspaceById = new Map(workspaces.map((workspace) => [workspace.workspaceId, workspace]));
-  const result = await rpc<ProjectPortfolioListResult>("projectPortfolio/list", { workspaceIds: workspaces.map((workspace) => workspace.workspaceId) });
+  const result = await rpc<ProjectPortfolioListResult>("projectPortfolio/list", { workspaceIds: [] });
+  const available = new Set(workspaces.map(workspace => workspace.workspaceId));
+  const workspaceById = new Map(result.workspaces.map(workspace => [workspace.workspaceId, {
+    ...workspace,
+    localStatus: workspace.workspaceKind === "local" && !available.has(workspace.workspaceId) ? "unavailable" : workspace.localStatus,
+  }]));
   return result.items.map((item) => portfolioItem(item, workspaceById));
 }
 
@@ -148,7 +152,7 @@ function ProjectRow({ item, onProgress, onDelete, onEdit }: { item: PortfolioIte
     : item.nextPhaseName ?? "尚无活动阶段";
   const workspaceLabel = `${item.workspaces.length} 个`;
   const workspaceNames = item.workspaces.length
-    ? item.workspaces.map((workspace) => workspace.displayName).join("、")
+    ? item.workspaces.map((workspace) => workspace.displayName + (workspace.localStatus === "unavailable" ? "（不可用）" : "")).join("、")
     : "暂无工作区";
   return <tr className="portfolio-row">
     <td className="portfolio-project-cell">

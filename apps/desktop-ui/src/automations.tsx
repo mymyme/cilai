@@ -1,6 +1,7 @@
 import { useModelCatalog, ModelCatalogNotice } from "./use-model-catalog";
 import { reuseInstructions, type WorkReuseIntent } from "./work-reuse";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePageActive } from "./page-visibility";
 import type { WorkspaceSummary } from "./generated/protocol";
 import type { AiProjectOption } from "./ai-workbench";
 import { aiErrorMessage, deleteAiAutomationRule, aiRuntimeChangedEvent, emptyAiQuerySnapshot, loadAiRuntimeQuery, runAiAutomationRule, saveAiAutomationRule, type AiAutomationRule, type AiRuntimeQuerySnapshot } from "./ai-runtime";
@@ -13,6 +14,8 @@ import "./automations.css";
 import { AutomationTriggerHistory } from "./automation-trigger-history";
 
 type AutomationFilter = "all" | "enabled" | "paused" | "attention";
+
+const activeRunStatuses = new Set(["queued", "running", "paused", "terminating", "waiting_permission"]);
 
 const filters: Array<{ value: AutomationFilter; label: string }> = [
   { value: "all", label: "全部" },
@@ -52,10 +55,11 @@ const suggestions: Array<{ name: string; description: string; actionPrompt: stri
 ];
 
 export function AutomationsPage(props: { openIntent?: {ruleId:string;token:string}|null; onOpenIntentConsumed?: (token:string)=>void; reuseIntent?: WorkReuseIntent | null; onReuseConsumed?: () => void; workspace: WorkspaceSummary | null; project: { projectId: string; displayName: string } | null; projects?: AiProjectOption[]; onMessage: MessageSink; onOpenRun: (runId: string) => void }) {
+  const pageActive = usePageActive();
   const [snapshot, setSnapshot] = useState<AiRuntimeQuerySnapshot>(() => emptyAiQuerySnapshot("automations"));
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
-  const catalog = useModelCatalog(snapshotLoaded);
+  const catalog = useModelCatalog(pageActive && snapshotLoaded);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const automationSurface = useRef<HTMLElement>(null);
   const consumedOpen = useRef<string|null>(null);
@@ -67,6 +71,10 @@ export function AutomationsPage(props: { openIntent?: {ruleId:string;token:strin
   const [pendingDelete, setPendingDelete] = useState<AiAutomationRule | null>(null);
   const deleting = useRef(false);
   const refreshGeneration = useRef(0);
+  const inFlight = useRef<Promise<void> | null>(null);
+  const pendingRefresh = useRef(false);
+  const scope = useRef({ active: pageActive, workspaceId: props.workspace?.workspaceId });
+  scope.current = { active: pageActive, workspaceId: props.workspace?.workspaceId };
   const consumedReuse = useRef<string | null>(null);
   useEffect(() => {
     const intent = props.reuseIntent;
@@ -78,29 +86,54 @@ export function AutomationsPage(props: { openIntent?: {ruleId:string;token:strin
 
   const hasWorkspace = Boolean(props.workspace?.localRoot || props.projects?.some((project) => project.primaryWorkspaceRoot));
 
-  const refresh = async () => {
-    const generation = ++refreshGeneration.current;
-    try {
-      const result = await loadAiRuntimeQuery({ scope: "automations" });
-      if (generation !== refreshGeneration.current) return;
-      setSnapshot(result);
-      setSnapshotLoaded(true);
-      setSnapshotError(null);
-      setSelectedId((current) => current && result.automationRules.some((item) => item.automationRuleId === current) ? current : null);
-    } catch (error) {
-      if (generation === refreshGeneration.current) setSnapshotError(aiErrorMessage(error));
+  const refresh = (invalidate = true): Promise<void> => {
+    if (!scope.current.active) return Promise.resolve();
+    if (inFlight.current) {
+      pendingRefresh.current ||= invalidate;
+      return inFlight.current;
     }
+    const drain = async () => {
+      do {
+        pendingRefresh.current = false;
+        const workspaceId = scope.current.workspaceId;
+        const generation = ++refreshGeneration.current;
+        const current = () => scope.current.active && scope.current.workspaceId === workspaceId && generation === refreshGeneration.current;
+        try {
+          const result = await loadAiRuntimeQuery({ scope: "automations" });
+          if (!current()) continue;
+          setSnapshot(result);
+          setSnapshotLoaded(true);
+          setSnapshotError(null);
+          setSelectedId(selected => selected && result.automationRules.some(item => item.automationRuleId === selected) ? selected : null);
+        } catch (error) {
+          if (current()) setSnapshotError(aiErrorMessage(error));
+        }
+      } while (pendingRefresh.current && scope.current.active);
+    };
+    inFlight.current = drain().finally(() => { inFlight.current = null; });
+    return inFlight.current;
   };
 
   useEffect(() => {
+    scope.current.active = pageActive;
+    if (!pageActive) return;
     void refresh();
     const changed = () => { void refresh(); };
     window.addEventListener(aiRuntimeChangedEvent, changed);
     return () => {
       refreshGeneration.current += 1;
+      scope.current.active = false;
+      pendingRefresh.current = false;
       window.removeEventListener(aiRuntimeChangedEvent, changed);
     };
-  }, [props.workspace?.workspaceId]);
+  }, [pageActive, props.workspace?.workspaceId]);
+
+  const activeRuns = snapshot.runs.filter(run => run.automationRuleId && activeRunStatuses.has(run.status)).map(run => run.runId).sort().join("|");
+  useEffect(() => {
+    if (!pageActive || !activeRuns) return;
+    const timer = setInterval(() => { if (!document.hidden) void refresh(false); }, 1_500);
+    return () => clearInterval(timer);
+  }, [pageActive, activeRuns, props.workspace?.workspaceId]);
 
   useEffect(() => {
     const intent = props.openIntent;

@@ -51,6 +51,8 @@ class BrowserRuntime {
     this.waiting = new Map();
     this.profileId = "legacy";
     this.storageMaintenance = null;
+    this.writeRevision = 0;
+    this.writeTargets = new WeakSet();
   }
 
   assertStorageAvailable() {
@@ -74,6 +76,7 @@ class BrowserRuntime {
     }
     const token = {};
     this.storageMaintenance = token;
+    this.writeRevision += 1;
     try {
       expectedSession.webRequest.onBeforeRequest((_details, callback) => callback({ cancel: true }));
     } catch (error) {
@@ -200,7 +203,7 @@ class BrowserRuntime {
      * AI 按句柄操作元素，而不是按坐标——坐标一滚动、一改窗口宽度就全废，句柄绑在元素上。
      */
     const tab = { contents, debug: contents.debugger, runtimeEnabled: false, axEnabled: false,
-      conversationId, refs: new Map(), refSeq: 0, console: [], requests: [] };
+      conversationId, documentId: 0, navigationPending: false, refs: new Map(), refSeq: 0, console: [], requests: [] };
     this.tabs.set(tabId, tab);
     denyAmbientCapabilities(this.sessionOf(), "browser");
     /*
@@ -243,8 +246,21 @@ class BrowserRuntime {
     });
 
     // 换了文档，上一次快照的句柄全部失效：拿旧句柄去点会点到别的元素上，必须让它明确失败
-    contents.on("did-navigate", () => { tab.refs.clear(); });
-    contents.on("did-navigate-in-page", () => { tab.refs.clear(); });
+    const invalidateDocument = () => { tab.documentId += 1; tab.refs.clear(); };
+    contents.on("did-start-navigation", (details) => {
+      if (!details.isMainFrame) return;
+      if (!details.isSameDocument) tab.navigationPending = true;
+      invalidateDocument();
+    });
+    contents.on("did-navigate", () => {
+      tab.navigationPending = false;
+      invalidateDocument();
+    });
+    contents.on("did-navigate-in-page", (_event, _url, isMainFrame) => { if (isMainFrame) invalidateDocument(); });
+    contents.on("render-process-gone", () => {
+      tab.navigationPending = true;
+      invalidateDocument();
+    });
     contents.on("will-navigate", (event, target) => guard(event, target));
     contents.on("will-frame-navigate", (event) => guard(event, event.url));
     contents.on("will-redirect", (event, target) => guard(event, target));
@@ -256,15 +272,18 @@ class BrowserRuntime {
     });
     for (const event of ["did-navigate", "did-navigate-in-page", "page-title-updated",
       "did-start-loading", "did-stop-loading"]) {
-      contents.on(event, () => this.notifyState());
+      contents.on(event, () => {
+        if (event === "did-stop-loading" && !contents.isLoadingMainFrame()) tab.navigationPending = false;
+        this.notifyState();
+      });
     }
     contents.once("destroyed", () => {
-      if (this.tabs.get(tabId) === tab) this.tabs.delete(tabId);
+      if (this.tabs.get(tabId) !== tab) return;
+      this.tabs.delete(tabId);
       this.forgetTab(tabId, tab.conversationId ?? null);
       this.notifyState();
     });
-    this.activeByConversation.set(conversationId, tabId);
-    this.lastActiveId = tabId;
+    this.selectTab(tabId, conversationId);
     this.waiting.get(tabId)?.();
     this.waiting.delete(tabId);
     this.notifyState();
@@ -300,6 +319,9 @@ class BrowserRuntime {
 
   /** 撤销一个标签后补上当前标签：只在它所属的对话里找替补，不跨对话顶替。 */
   forgetTab(tabId, conversationId) {
+    if (this.lastActiveId === tabId || this.activeByConversation.get(conversationId) === tabId) {
+      this.writeRevision += 1;
+    }
     if (this.lastActiveId === tabId) this.lastActiveId = null;
     if (this.activeByConversation.get(conversationId) !== tabId) return;
     const sibling = [...this.tabs.entries()]
@@ -309,18 +331,27 @@ class BrowserRuntime {
     this.lastActiveId = this.lastActiveId ?? (sibling ? sibling[0] : null);
   }
 
+  selectTab(tabId, conversationId) {
+    if (this.lastActiveId !== tabId || this.activeByConversation.get(conversationId) !== tabId) {
+      this.writeRevision += 1;
+    }
+    this.activeByConversation.set(conversationId, tabId);
+    this.lastActiveId = tabId;
+  }
+
   activateTab(tabId) {
     const tab = this.tabs.get(tabId);
     if (!tab) throw new Error("未知标签");
-    this.activeByConversation.set(tab.conversationId ?? null, tabId);
-    this.lastActiveId = tabId;
+    this.selectTab(tabId, tab.conversationId ?? null);
     this.notifyState();
     return { activeId: tabId };
   }
 
   /** 驾驶权。同一时刻只有一方操作页面，两边同时动同一个页面就说不清谁改了什么。 */
   setDriver(driver) {
-    this.driver = driver === "employee" ? "employee" : "ai";
+    const next = driver === "employee" ? "employee" : "ai";
+    if (next !== this.driver) this.writeRevision += 1;
+    this.driver = next;
     this.notifyState();
     return { driver: this.driver };
   }
@@ -436,8 +467,7 @@ class BrowserRuntime {
     if (tabId) {
       const target = this.tabs.get(tabId);
       if (!target) throw new Error(`未知标签：${tabId}`);
-      this.activeByConversation.set(target.conversationId ?? null, tabId);
-      this.lastActiveId = tabId;
+      this.selectTab(tabId, target.conversationId ?? null);
       return this.attach(target);
     }
     await this.ensure(conversationId);
@@ -507,7 +537,9 @@ class BrowserRuntime {
       await tab.debug.sendCommand("Accessibility.enable");
       tab.axEnabled = true;
     }
+    const documentId = tab.documentId;
     const { nodes } = await tab.debug.sendCommand("Accessibility.getFullAXTree");
+    if (tab.documentId !== documentId) throw new Error("读取快照期间页面已变化，请重新读取");
     /*
      * 每次快照重建句柄表。给出的 ref 是操作元素的唯一凭据——此前快照返回的是可访问性树的
      * 内部节点号，而点击只收坐标，那个号没有任何工具能用，AI 只能靠截图目测像素去点。
@@ -669,7 +701,7 @@ class BrowserRuntime {
    * 元素。这种情况必须明确失败并让 AI 重新取快照，不能退化成"点个大概位置"：点错地方
    * 比点不到危险得多，而 AI 无法从结果里看出自己点错了。
    */
-  async resolveRef(tab, ref) {
+  async resolveRef(tab, ref, requireHit = false) {
     const backendNodeId = tab.refs.get(ref);
     if (backendNodeId === undefined) {
       throw new Error(`句柄 ${ref} 不在当前页面的快照里，请重新调用 browser_snapshot 取句柄`);
@@ -681,22 +713,116 @@ class BrowserRuntime {
     const box = await tab.debug.sendCommand("Runtime.callFunctionOn", {
       objectId,
       returnByValue: true,
-      functionDeclaration: `function () {
+      arguments: [{ value: requireHit }],
+      functionDeclaration: `function (requireHit) {
+        if (!this.isConnected || (requireHit && this.ownerDocument.defaultView !== this.ownerDocument.defaultView.top)) return null;
         this.scrollIntoView({ block: "center", inline: "center" });
         const rect = this.getBoundingClientRect();
-        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2,
-          width: rect.width, height: rect.height };
+        const x = Math.round(rect.left + rect.width / 2), y = Math.round(rect.top + rect.height / 2);
+        if (requireHit && !this.contains(this.ownerDocument.elementFromPoint(x, y))) return null;
+        return { x, y, width: rect.width, height: rect.height };
       }`,
     });
     const position = box?.result?.value;
     if (!position || position.width <= 0 || position.height <= 0) {
-      throw new Error(`句柄 ${ref} 对应的元素当前不可见，无法操作`);
+      void tab.debug.sendCommand("Runtime.releaseObject", { objectId }).catch(() => {});
+      throw new Error(`句柄 ${ref} 对应的元素当前不可操作，请重新读取页面`);
     }
     return { objectId, x: Math.round(position.x), y: Math.round(position.y) };
   }
 
   assertAiMayWrite() {
+    this.assertStorageAvailable();
     if (this.driver !== "ai") throw new Error("员工正在操作该页面，AI 的写操作已暂停");
+  }
+
+  async captureWriteTarget(conversationId, { ref, point, textInput = false } = {}) {
+    this.assertAiMayWrite();
+    const tabId = this.activeIdOf(conversationId);
+    const tab = tabId ? this.tabs.get(tabId) : null;
+    if (!tab || tab.contents.isDestroyed() || tab.navigationPending
+      || (tab.conversationId ?? null) !== (conversationId ?? null)) {
+      throw new Error("浏览器操作目标不可用，请重新读取当前对话页面");
+    }
+    const url = tab.contents.getURL();
+    if (this.checkOrigin(url)) throw new Error("当前页面不允许 AI 写入");
+    const site = new URL(url).origin;
+    if (point && ![point.x, point.y].every(value => Number.isFinite(value) && value >= 0 && value <= 2_147_483_647)) {
+      throw new Error("点击坐标无效，请重新读取页面");
+    }
+    const target = {
+      profileId: this.profileId, conversationId: conversationId ?? null, tabId,
+      contents: tab.contents, documentId: tab.documentId, url, site,
+      writeRevision: this.writeRevision, ref,
+      point: point && Object.freeze({ x: Math.round(point.x), y: Math.round(point.y) }), pointBackendNodeId: null,
+      backendNodeId: ref ? tab.refs.get(ref) : undefined, focusBackendNodeId: null,
+    };
+    if (ref && target.backendNodeId === undefined) throw new Error("目标元素句柄已失效，请重新读取页面");
+    this.writeTargets.add(target);
+    if (point) {
+      await this.attach(tab);
+      this.assertWriteTarget(target);
+      target.pointBackendNodeId = await this.nodeAtPoint(tab, target.point);
+    }
+    if (textInput) {
+      await this.attach(tab);
+      this.assertWriteTarget(target);
+      const { result, exceptionDetails } = await tab.debug.sendCommand("Runtime.evaluate", {
+        expression: `(() => {
+          const element = document.activeElement;
+          return element && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+            || element.isContentEditable) ? element : null;
+        })()`, returnByValue: false, throwOnSideEffect: true,
+      });
+      if (exceptionDetails || !result?.objectId) throw new Error("无法确认输入焦点，请重新读取页面");
+      try {
+        const { node } = await tab.debug.sendCommand("DOM.describeNode", { objectId: result.objectId });
+        if (!Number.isInteger(node?.backendNodeId)) throw new Error("无法确认输入焦点，请重新读取页面");
+        target.focusBackendNodeId = node.backendNodeId;
+      } finally {
+        void tab.debug.sendCommand("Runtime.releaseObject", { objectId: result.objectId }).catch(() => {});
+      }
+    }
+    this.assertWriteTarget(target);
+    return Object.freeze(target);
+  }
+
+  assertWriteTarget(target) {
+    this.assertAiMayWrite();
+    const tab = target && this.tabs.get(target.tabId);
+    if (!target || !this.writeTargets.has(target) || !tab || tab.contents.isDestroyed()
+      || target.profileId !== this.profileId || target.contents !== tab.contents
+      || target.documentId !== tab.documentId || target.url !== tab.contents.getURL()
+      || target.writeRevision !== this.writeRevision || tab.navigationPending
+      || target.conversationId !== (tab.conversationId ?? null)
+      || this.activeIdOf(target.conversationId) !== target.tabId
+      || (target.ref && tab.refs.get(target.ref) !== target.backendNodeId)) {
+      throw new Error("浏览器操作目标已变化，请重新读取页面并确认操作");
+    }
+    return tab;
+  }
+
+  async assertFocusedTarget(target) {
+    const tab = this.assertWriteTarget(target);
+    if (!Number.isInteger(target.focusBackendNodeId)) throw new Error("输入操作缺少已确认的焦点");
+    const { object } = await tab.debug.sendCommand("DOM.resolveNode", { backendNodeId: target.focusBackendNodeId });
+    if (!object?.objectId) throw new Error("输入焦点已失效，请重新确认操作");
+    try {
+      const { result, exceptionDetails } = await tab.debug.sendCommand("Runtime.callFunctionOn", {
+        objectId: object.objectId, returnByValue: true, throwOnSideEffect: true,
+        functionDeclaration: "function () { return this.isConnected && this === document.activeElement; }",
+      });
+      if (exceptionDetails || result?.value !== true) throw new Error("输入焦点已变化，请重新确认操作");
+    } finally {
+      void tab.debug.sendCommand("Runtime.releaseObject", { objectId: object.objectId }).catch(() => {});
+    }
+    return this.assertWriteTarget(target);
+  }
+
+  async nodeAtPoint(tab, { x, y }) {
+    const { backendNodeId } = await tab.debug.sendCommand("DOM.getNodeForLocation", { x, y });
+    if (!Number.isInteger(backendNodeId)) throw new Error("点击位置没有可确认的目标");
+    return backendNodeId;
   }
 
   /**
@@ -706,22 +832,29 @@ class BrowserRuntime {
    * 上述任何一项一变就点到别处，而且标签没呈现时根本取不到截图。坐标这条路保留只是为了
    * 极少数快照里没有的元素（如画布内的图形），不是常规做法。
    */
-  async click({ ref, x, y }, conversationId) {
-    this.assertAiMayWrite();
-    await this.ensure(conversationId);
-    const tab = this.current(conversationId);
-    let point = { x, y };
-    if (ref) {
-      await this.attach(tab);
-      const resolved = await this.resolveRef(tab, ref);
-      point = { x: resolved.x, y: resolved.y };
-    } else if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      throw new Error("点击需要 ref 或者 x、y 坐标；建议先用 browser_snapshot 取句柄");
+  async click(target) {
+    const tab = this.assertWriteTarget(target);
+    let point = target.point;
+    let objectId;
+    try {
+      if (target.ref) {
+        await this.attach(tab);
+        this.assertWriteTarget(target);
+        const resolved = await this.resolveRef(tab, target.ref, true);
+        objectId = resolved.objectId;
+        point = { x: resolved.x, y: resolved.y };
+      } else if (!point || await this.nodeAtPoint(tab, point) !== target.pointBackendNodeId) {
+        throw new Error("点击位置的目标已变化，请重新读取页面并确认操作");
+      }
+      this.assertWriteTarget(target);
+      this.writeTargets.delete(target);
+      for (const type of ["mouseDown", "mouseUp"]) {
+        tab.contents.sendInputEvent({ type, x: point.x, y: point.y, button: "left", clickCount: 1 });
+      }
+      return { clicked: target.ref ? { ref: target.ref, ...point } : point };
+    } finally {
+      if (objectId) void tab.debug.sendCommand("Runtime.releaseObject", { objectId }).catch(() => {});
     }
-    for (const type of ["mouseDown", "mouseUp"]) {
-      tab.contents.sendInputEvent({ type, x: point.x, y: point.y, button: "left", clickCount: 1 });
-    }
-    return { clicked: ref ? { ref, ...point } : point };
   }
 
   /**
@@ -730,37 +863,47 @@ class BrowserRuntime {
    * 下拉框、复选框用"点开再点选项"去凑极不可靠：选项可能渲染在页面之外、可能是原生控件
    * 根本不在 DOM 里。按句柄设值一步到位，还能覆盖复选框与文本框。
    */
-  async setValue(ref, value, conversationId) {
-    this.assertAiMayWrite();
-    const tab = await this.connect(undefined, conversationId);
+  async setValue(value, target) {
+    const tab = this.assertWriteTarget(target);
+    const { ref } = target;
+    await this.attach(tab);
+    this.assertWriteTarget(target);
     const { objectId } = await this.resolveRef(tab, ref);
-    const applied = await tab.debug.sendCommand("Runtime.callFunctionOn", {
-      objectId,
-      returnByValue: true,
-      arguments: [{ value }],
-      functionDeclaration: `function (next) {
-        const tag = this.tagName ? this.tagName.toLowerCase() : "";
-        if (tag === "select") {
-          const wanted = String(next);
-          const option = Array.from(this.options).find((item) =>
-            item.value === wanted || item.text === wanted);
-          if (!option) return { ok: false, reason: "没有这个选项", options: Array.from(this.options).map((item) => item.text) };
-          this.value = option.value;
-        } else if (this.type === "checkbox" || this.type === "radio") {
-          this.checked = next === true || next === "true" || next === "on";
-        } else if ("value" in this) {
-          this.value = String(next);
-        } else if (this.isContentEditable) {
-          this.textContent = String(next);
-        } else {
-          return { ok: false, reason: "这个元素不接受设值" };
-        }
-        // 页面通常监听的是这两个事件；只改 value 不派发，框架层读不到新值
-        this.dispatchEvent(new Event("input", { bubbles: true }));
-        this.dispatchEvent(new Event("change", { bubbles: true }));
-        return { ok: true, value: this.value ?? this.textContent, checked: this.checked };
-      }`,
-    });
+    let applied;
+    try {
+      this.assertWriteTarget(target);
+      this.writeTargets.delete(target);
+      applied = await tab.debug.sendCommand("Runtime.callFunctionOn", {
+        objectId,
+        returnByValue: true,
+        arguments: [{ value }],
+        functionDeclaration: `function (next) {
+          if (!this.isConnected) return { ok: false, reason: "目标元素已离开页面" };
+          const tag = this.tagName ? this.tagName.toLowerCase() : "";
+          if (tag === "select") {
+            const wanted = String(next);
+            const option = Array.from(this.options).find((item) =>
+              item.value === wanted || item.text === wanted);
+            if (!option) return { ok: false, reason: "没有这个选项", options: Array.from(this.options).map((item) => item.text) };
+            this.value = option.value;
+          } else if (this.type === "checkbox" || this.type === "radio") {
+            this.checked = next === true || next === "true" || next === "on";
+          } else if ("value" in this) {
+            this.value = String(next);
+          } else if (this.isContentEditable) {
+            this.textContent = String(next);
+          } else {
+            return { ok: false, reason: "这个元素不接受设值" };
+          }
+          // 页面通常监听的是这两个事件；只改 value 不派发，框架层读不到新值
+          this.dispatchEvent(new Event("input", { bubbles: true }));
+          this.dispatchEvent(new Event("change", { bubbles: true }));
+          return { ok: true, value: this.value ?? this.textContent, checked: this.checked };
+        }`,
+      });
+    } finally {
+      void tab.debug.sendCommand("Runtime.releaseObject", { objectId }).catch(() => {});
+    }
     const result = applied?.result?.value;
     if (!result?.ok) {
       throw new Error(`句柄 ${ref} 设值未成功：${result?.reason ?? "未知原因"}${
@@ -769,9 +912,10 @@ class BrowserRuntime {
     return { ref, value: result.value, checked: result.checked };
   }
 
-  async type(text, conversationId) {
-    this.assertAiMayWrite();
-    const tab = await this.connect(undefined, conversationId);
+  async type(text, target) {
+    const tab = await this.assertFocusedTarget(target);
+    this.assertWriteTarget(target);
+    this.writeTargets.delete(target);
     // 经调试协议写入：可覆盖组合输入，也不受合成按键的可信标记限制
     await tab.debug.sendCommand("Input.insertText", { text });
     return { typed: text.length };
@@ -787,22 +931,47 @@ class BrowserRuntime {
   }
 
   /** 以条件成立为准，不以固定延时代替确定性等待。 */
-  async waitFor(expression, timeoutMs = 10000, conversationId) {
-    const tab = await this.connect(undefined, conversationId);
+  async waitFor(request, conversationId) {
+    const { expression, timeoutMs } = waitCondition(request);
+    const tabId = this.activeIdOf(conversationId);
+    const tab = this.current(conversationId);
+    if (!tab || (tab.conversationId ?? null) !== (conversationId ?? null)) throw new Error("没有可等待的页面");
     const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      const { result } = await tab.debug.sendCommand("Runtime.evaluate", {
-        expression, returnByValue: true,
-      });
-      if (result.value) return { satisfied: true };
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    const timeoutError = new Error(`等待条件未在 ${timeoutMs} 毫秒内成立`);
+    const assertPage = () => {
+      this.assertStorageAvailable();
+      if (tab.contents.isDestroyed() || this.tabs.get(tabId) !== tab || this.activeIdOf(conversationId) !== tabId) {
+        throw new Error("等待页面已关闭或切换");
+      }
+      if (Date.now() >= deadline) throw timeoutError;
+    };
+    const observe = async () => {
+      await this.attach(tab);
+      for (;;) {
+        assertPage();
+        const { result, exceptionDetails } = await tab.debug.sendCommand("Runtime.evaluate", {
+          expression, returnByValue: true, throwOnSideEffect: true,
+          timeout: Math.min(1000, Math.max(1, deadline - Date.now())),
+        });
+        assertPage();
+        if (exceptionDetails) throw new Error(`等待条件无法读取：${exceptionDetails.text}`);
+        if (result?.value === true) return { satisfied: true };
+        await new Promise((resolve) => setTimeout(resolve, Math.min(200, Math.max(1, deadline - Date.now()))));
+      }
+    };
+    let timer;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(timeoutError), timeoutMs); });
+    try {
+      return await Promise.race([observe(), timeout]);
+    } finally {
+      clearTimeout(timer);
     }
-    throw new Error(`等待条件未在 ${timeoutMs} 毫秒内成立`);
   }
 
   /** 关闭全部标签。驾驶权随之复位，下次打开不带着上一轮的状态。 */
   close() {
     if (this.tabs.size === 0) return;
+    this.writeRevision += 1;
     this.tabs.clear();
     this.activeByConversation.clear();
     this.lastActiveId = null;
@@ -810,6 +979,44 @@ class BrowserRuntime {
     this.notifyState();
   }
 
+}
+
+function waitCondition(request) {
+  const invalid = () => { throw new Error("等待参数无效：请使用结构化 condition，expression 已不支持"); };
+  if (!request || typeof request !== "object" || Array.isArray(request)
+    || Object.keys(request).some(key => !["condition", "timeoutMs"].includes(key))) invalid();
+  const timeoutMs = request.timeoutMs === undefined ? 10000 : request.timeoutMs;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) invalid();
+  const condition = request.condition;
+  if (!condition || typeof condition !== "object" || Array.isArray(condition)) invalid();
+  const text = (value, max) => typeof value === "string" && value.length > 0 && value.length <= max;
+  const fields = allowed => { if (Object.keys(condition).some(key => !allowed.includes(key))) invalid(); };
+  let expression;
+  switch (condition.kind) {
+    case "element": {
+      fields(["kind", "selector", "state"]);
+      if (!text(condition.selector, 1000) || !["present", "absent"].includes(condition.state)) invalid();
+      expression = `${condition.state === "absent" ? "!" : "!!"}document.querySelector(${JSON.stringify(condition.selector)})`;
+      break;
+    }
+    case "text":
+      fields(["kind", "selector", "text"]);
+      if (!text(condition.selector, 1000) || !text(condition.text, 10000)) invalid();
+      expression = `(document.querySelector(${JSON.stringify(condition.selector)})?.textContent ?? "").includes(${JSON.stringify(condition.text)})`;
+      break;
+    case "url":
+      fields(["kind", "url"]);
+      if (!text(condition.url, 4000)) invalid();
+      expression = `location.href === ${JSON.stringify(condition.url)}`;
+      break;
+    case "ready":
+      fields(["kind", "state"]);
+      if (!["interactive", "complete"].includes(condition.state)) invalid();
+      expression = condition.state === "complete" ? 'document.readyState === "complete"' : '["interactive", "complete"].includes(document.readyState)';
+      break;
+    default: invalid();
+  }
+  return { expression, timeoutMs };
 }
 
 module.exports = { BrowserRuntime, browserPartitionName: partitionName };

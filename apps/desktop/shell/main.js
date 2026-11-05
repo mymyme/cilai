@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, clipboard, dialog, protocol, net, screen,
+const { app, BrowserWindow, WebContentsView, ipcMain, clipboard, dialog, protocol, session, net, screen,
   Tray, Menu, nativeImage, powerMonitor, Notification, autoUpdater: nativeUpdater } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("node:path");
@@ -49,6 +49,7 @@ const { pdfSelfCheckMode, runtimePdfJsAssets, runtimeStartupReady, localProfileR
 const { createPersonalDocuments, ORIGIN: PERSONAL_DOCUMENT_ORIGIN } = require("./personal-documents");
 const { createMacosDiskAccess } = require("./macos-disk-access");
 const { createBackgroundLifecycle } = require("./background-lifecycle");
+const { createDocumentLayout, SCHEME: DOCUMENT_LAYOUT_SCHEME } = require("./document-layout");
 
 // 开发期界面产物在源码树中，打包后随包置于资源目录
 const DIST = app.isPackaged
@@ -71,6 +72,7 @@ const CSP = [
  * 表现为页面空白且无报错。现有壳用的也是自定义协议，这里保持一致。
  */
 protocol.registerSchemesAsPrivileged([
+  { scheme: DOCUMENT_LAYOUT_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
   {
     scheme: "app",
     privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
@@ -83,6 +85,13 @@ protocol.registerSchemesAsPrivileged([
 
 
 let main = null;
+const documentLayout = createDocumentLayout({
+  contentRoot: DIST, sessionOf: name => session.fromPartition(name),
+  createView: webPreferences => new WebContentsView({ webPreferences }),
+  metrics: () => app.getAppMetrics(),
+  getOwner: () => main && !main.isDestroyed() ? main.webContents : null,
+  ipc: ipcMain,
+});
 const activeHostOperations = new Set();
 const updateConfiguration = app.isPackaged ? loadUpdateConfiguration({
   resourcesPath: process.resourcesPath, platform: process.platform, arch: process.arch,
@@ -117,14 +126,20 @@ const macosDiskAccess = createMacosDiskAccess(() => main && !main.isDestroyed() 
 const backgroundLifecycle = createBackgroundLifecycle({
   app, Tray, Menu, nativeImage, nativeUpdater, headless: HEADLESS,
   getWindow: () => main,
-  cleanup: () => {
+  cleanup: async () => {
+    documentLayout.stop();
     notificationNavigation.stop();
-    void personalNotifications.stop();
+    const stoppingNotifications = personalNotifications.stop();
     personalPageAi.invalidate(); personalPageAi.stop();
-    personalDocuments.clear();
-    browser.close();
-    browserMcp.stop();
-    service.stop();
+    try {
+      const results = await Promise.allSettled([service.stop(), stoppingNotifications]);
+      const failed = results.find(result => result.status === "rejected");
+      if (failed) throw failed.reason;
+    } finally {
+      personalDocuments.clear();
+      browser.close();
+      browserMcp.stop();
+    }
   },
 });
 const portableUpdater = app.isPackaged && updateConfiguration?.distribution === "portable" ? loadPortableUpdater({
@@ -230,6 +245,7 @@ if (!HEADLESS && !app.requestSingleInstanceLock({ executablePath: process.execPa
 }
 
 ipcMain.handle("host:invoke", async (event, message) => {
+  if (documentLayout.handles(message?.command)) return documentLayout.invoke(event, message);
   const readOnly = isUpdateRead(message?.command, message?.args?.method);
   if (service.updateHold && !readOnly) throw new Error('正在准备重启更新，请稍后再操作。');
   const operation = Symbol();
@@ -308,7 +324,9 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error("[service] 诊断日志无法创建，耗时与错误只输出到控制台：", error);
   }
-  service.start({ ...browserMcpEnv, ...dataEnvironmentEnv }, personalHostArguments);
+  service.start({ ...browserMcpEnv, ...dataEnvironmentEnv,
+    ...(service.testDiagnostics?.status().enabled ? { CILAI_PERSONAL_STARTUP_TIMING: "1" } : {}),
+  }, personalHostArguments);
 
   protocol.handle("app", (request) => {
     const { pathname, host } = new URL(request.url);
@@ -365,8 +383,7 @@ app.whenReady().then(async () => {
       app.quit();
     } catch (error) {
       console.error('[personal-check] failed:', error.message);
-      service.stop();
-      app.exit(1);
+      await backgroundLifecycle.exit(1);
     }
     return;
   }
@@ -413,6 +430,14 @@ app.whenReady().then(async () => {
       console.log("应用隔离页面:", error.message);
       check("应用隔离页面", false);
     } finally { personalDocumentProbe = false; }
+    try {
+      const result = await require("./document-layout-check").checkDocumentLayout(main.webContents);
+      console.log("独立文档排版:", JSON.stringify(result));
+      check("独立文档排版", result.html && result.word);
+    } catch (error) {
+      console.log("独立文档排版:", error.message);
+      check("独立文档排版", false);
+    }
     if (process.platform === "win32") {
       const expectedControls = ["最小化", "最大化", "关闭"];
       let windowControls = probe.windowControls;
@@ -481,48 +506,31 @@ app.whenReady().then(async () => {
       const localNonWeb = runtime.checkOrigin("ftp://localhost/file");
       check("浏览器传输策略", !allowedHttps && Boolean(insecure) && Boolean(localNonWeb));
 
-      await require('./headless-browser-fixture').installBrowserFixture(main.webContents);
-      await runtime.ensure();
-      // 声明字符集，否则中文会被按单字节解码
-      await runtime.current().contents.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(
-        "<title>探针页</title><body><h1>标题一</h1><button>提交</button><p>正文内容</p></body>"));
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      const snapshot = await runtime.snapshot();
-      const extracted = await runtime.extract();
-      /*
-       * 截图依赖页面正在呈现。浏览器归属某一次对话，自检里开的标签不属于界面此刻停留的
-       * 对话，因此取不到帧——这不是故障，要的是它带着原因失败而不是把自检挂死。
-       */
-      const shot = await runtime.screenshot().catch((error) => ({ reason: error.message }));
-      pieces.push(`快照节点 ${snapshot.nodes.length}`);
-      pieces.push(`提取文本 ${JSON.stringify(extracted.text.replace(/\s+/g, "").slice(0, 10))}`);
-      pieces.push(shot.reason ? `截图未取到：${shot.reason.slice(0, 24)}` : `截图 ${Math.round(shot.data.length / 1024)} KB`);
-      check("浏览器页面结构", snapshot.nodes.length > 0);
-      check("浏览器文本提取", extracted.text.includes("正文内容"));
-      check("隐藏页面截图状态", !shot.reason || shot.reason.includes("页面当前未呈现在界面上"));
-      // 页面自身跳转到非安全传输地址，应被拦下且留在原地
-      const before = runtime.current().contents.getURL();
-      await runtime.current().contents.executeJavaScript(
-        'location.href = "http://example.com/"').catch(() => undefined);
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const navigationBlocked = runtime.current().contents.getURL() === before;
-      pieces.push(`非安全跳转：${
-        navigationBlocked ? "已拦下" : "未拦下"}`);
-      check("浏览器非安全跳转", navigationBlocked);
-      // 写操作：审批链路未接入，无论是否带令牌一律拒绝
-      const write = await dispatch({ command: "browser_click", args: { x: 1, y: 1 } }, main.webContents)
-        .then(() => "未拒绝").catch(() => "已拒绝");
-      pieces.push(`AI 写操作：${write}`);
-      check("浏览器写入确认", write === "已拒绝");
-
-      // 人工接管：非接管态不受理界面输入，接管期间 AI 暂停
-      // 驾驶权：员工接手期间 AI 的写操作被拒，交还后恢复。输入不再经宿主转送，无从拦截
-      await dispatch({ command: "browser_takeover_begin", args: {} }, main.webContents);
-      const duringEmployee = await runtime.click({ x: 1, y: 1 }).then(() => "未拒绝").catch(() => "已拒绝");
-      await dispatch({ command: "browser_takeover_end", args: {} }, main.webContents);
-      const afterReturn = await runtime.click({ x: 1, y: 1 }).then(() => "已受理").catch((error) => "失败：" + error.message);
-      pieces.push(`员工接手期间 AI 写操作：${duringEmployee}，交还后：${afterReturn}`);
-      check("浏览器接管与交还", duringEmployee === "已拒绝" && afterReturn === "已受理");
+      await require("./headless-browser-fixture").withBrowserFixture(runtime, main.webContents, async (page, tabId) => {
+        // 声明字符集，否则中文会被按单字节解码
+        await page.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(
+          "<title>探针页</title><body><h1>标题一</h1><button>提交</button><p>正文内容</p></body>"));
+        const snapshot = await runtime.snapshot(200, tabId, null);
+        const extracted = await runtime.extract(undefined, tabId, null);
+        const shot = await runtime.screenshot(tabId, null).catch((error) => ({ reason: error.message }));
+        pieces.push(`快照节点 ${snapshot.nodes.length}`);
+        pieces.push(`提取文本 ${JSON.stringify(extracted.text.replace(/\s+/g, "").slice(0, 10))}`);
+        pieces.push(shot.reason ? `截图未取到：${shot.reason.slice(0, 24)}` : `截图 ${Math.round(shot.data.length / 1024)} KB`);
+        check("浏览器页面结构", snapshot.nodes.some(node => node.role === "button" && node.name === "提交"));
+        check("浏览器文本提取", extracted.text.includes("正文内容"));
+        check("隐藏页面截图状态", !shot.reason || shot.reason.includes("页面当前未呈现在界面上"));
+        // 页面自身发起的非安全跳转应被拦下且留在原地。
+        const before = page.getURL();
+        await page.executeJavaScript('void (location.href = "http://example.com/")').catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const navigationBlocked = page.getURL() === before;
+        pieces.push(`非安全跳转：${navigationBlocked ? "已拦下" : "未拦下"}`);
+        check("浏览器非安全跳转", navigationBlocked);
+        const write = await dispatch({ command: "browser_click", args: { x: 1, y: 1 } }, main.webContents)
+          .then(() => "未拒绝").catch(() => "已拒绝");
+        pieces.push(`AI 写操作：${write}`);
+        check("浏览器写入确认", write === "已拒绝");
+      });
 
       /*
        * 界面上的运行面板。接管是必需能力：登录、验证码、支付确认必须由人完成，没有这个
@@ -536,8 +544,6 @@ app.whenReady().then(async () => {
       pieces.push(`界面面板：${panel === "未呈现" ? "未呈现" : "已呈现，接管入口「" + panel + "」"}`);
 
       browserResult = pieces.join("，");
-      runtime.close();
-      await new Promise((resolve) => setTimeout(resolve, 400));
       const closed = await main.webContents.executeJavaScript(
         `document.querySelector(".ai-browser")?.getAttribute("data-open") === "true"`);
       console.log(`AI 浏览器面板：${closed ? "仍展开" : "已收起（元素保留，标签不被杀掉）"}`);
@@ -547,7 +553,6 @@ app.whenReady().then(async () => {
       checkFailures.push("浏览器运行时");
     }
     console.log("AI 浏览器:", browserResult);
-    await require('./headless-browser-fixture').removeBrowserFixture(main.webContents);
 
     const personalApplications = await service.call("app_server_request", { method: "capabilityCreation/list", params: {} });
     check("个人应用目录", Array.isArray(personalApplications.projects));
@@ -622,29 +627,16 @@ app.whenReady().then(async () => {
           arguments: { text: "1234", fieldHint: "登录密码", purpose: "登录" },
         },
       }).then((response) => response.json());
-      let seen = null;
-      const stopWatch = (() => {
-        const previousNotify = browserApprovals.notify;
-        const handler = (payload) => { seen = payload; };
-        browserApprovals.notify = (event, payload) => {
-          if (event === "browser-approval-request") handler(payload);
-        };
-        return () => { browserApprovals.notify = previousNotify; };
-      })();
-      const pending = post({
-        jsonrpc: "2.0", id: 6, method: "tools/call",
-        params: { name: "browser_click", arguments: { x: 5, y: 5, purpose: "自检" } },
-      }).then((response) => response.json());
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const raised = seen !== null;
-      // 拒绝这次操作，确认工具把拒绝原因回给模型而不是照常执行
-      if (raised) browserApprovals.resolve(seen.confirmationId, false);
-      const rejected = await pending;
-      stopWatch();
+      const writeCheck = await require("./headless-browser-write-check").checkBrowserWriteApproval({
+        runtime: browser, contents: main.webContents, approvals: browserApprovals, post,
+      });
       mcpResult += `，凭据字段：${credential.result?.isError ? "已拒绝" : "未拒绝"}`
-        + `，写操作请示：${raised ? "已发起" : "未发起"}`
-        + `，员工拒绝后：${rejected.result?.isError ? "未执行" : "仍执行"}`;
-      check("浏览器工具写入确认", credential.result?.isError && raised && rejected.result?.isError);
+        + `，写操作请示：${writeCheck.raised ? "已发起" : "未发起"}`
+        + `，拒绝后点击 ${writeCheck.clickCount} 次，接管交还核对后 ${writeCheck.afterTakeover} 次`
+        + `，写工具结果 ${JSON.stringify(writeCheck.reason)}`;
+      check("浏览器工具写入确认", credential.result?.isError && writeCheck.raised
+        && writeCheck.rejected && writeCheck.clickCount === 0);
+      check("浏览器接管与交还", writeCheck.paused && writeCheck.staleRejected && writeCheck.availableAfterReturn && writeCheck.afterTakeover === 0);
     } catch (error) {
       mcpResult = "失败：" + error.message;
       checkFailures.push("浏览器工具");
@@ -735,7 +727,7 @@ app.whenReady().then(async () => {
     console.log(HEADLESS_SCOPE_MARKER);
     console.log(AUTHENTICATED_CHECK_MARKER);
     console.log(`\n启动自检：${ok ? "通过" : "未通过"}`);
-    backgroundLifecycle.exit(ok ? 0 : 1);
+    await backgroundLifecycle.exit(ok ? 0 : 1);
   }
 });
 

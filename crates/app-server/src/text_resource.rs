@@ -29,6 +29,7 @@ pub enum TextTicketError {
 }
 
 struct TicketEntry {
+    owner: Option<String>,
     expires_at: i64,
     resource: TicketResource,
 }
@@ -163,6 +164,7 @@ impl TextResourceTickets {
         self.entries.insert(
             ticket_id.clone(),
             TicketEntry {
+                owner: None,
                 expires_at,
                 resource: TicketResource::File(resource),
             },
@@ -221,6 +223,7 @@ impl TextResourceTickets {
         self.entries.insert(
             ticket_id.clone(),
             TicketEntry {
+                owner: None,
                 expires_at,
                 resource: TicketResource::Memory {
                     content,
@@ -252,13 +255,37 @@ impl TextResourceTickets {
             self.entries.remove(ticket_id);
             return Err(TextTicketError::Expired);
         }
-        match entry.resource.read_chunk(offset, max_bytes) {
-            Ok(chunk) => Ok(chunk),
+        let first = entry.resource.metadata().first_offset;
+        let physical_offset = offset
+            .checked_add(first)
+            .ok_or(TextTicketError::InvalidRequest)?;
+        match entry.resource.read_chunk(physical_offset, max_bytes) {
+            Ok(mut chunk) => {
+                chunk.offset -= first;
+                chunk.next_offset = chunk.next_offset.map(|next| next - first);
+                Ok(chunk)
+            }
             Err(error) => {
                 self.entries.remove(ticket_id);
                 Err(error)
             }
         }
+    }
+
+    pub(super) fn claim(&mut self, ticket_id: &str, owner: &str) {
+        if let Some(ticket) = self.entries.get_mut(ticket_id) {
+            ticket.owner = Some(owner.to_owned());
+        }
+    }
+
+    pub(super) fn belongs_to(&self, ticket_id: &str, owner: &str) -> bool {
+        self.entries
+            .get(ticket_id)
+            .is_some_and(|ticket| ticket.owner.as_deref() == Some(owner))
+    }
+
+    pub fn release(&mut self, ticket_id: &str) -> bool {
+        self.entries.remove(ticket_id).is_some()
     }
 
     /// 在有界大小内读取完整文本，并在完成后再次校验源资源。

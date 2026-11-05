@@ -1,4 +1,7 @@
 use crate::application_tool_adapter::{AdapterSlot, ApplicationToolAdapter, ScopeValidator};
+use crate::model_input_capabilities::{
+    HarnessInputModality, harness_input_modalities, validate_text_model,
+};
 use crate::persistent_threads::PersistentThread;
 use crate::work_classification;
 use contexthub_platform_adapter::executable_search::validate_executable_file;
@@ -1956,12 +1959,22 @@ fn product_model_messages() -> Result<Value, String> {
 
 fn write_model_catalog(request: &CodexHarnessRequest) -> Result<PathBuf, String> {
     request.conversation_kind.validate(request)?;
+    let selected = request
+        .model_catalog
+        .iter()
+        .find(|model| model.model_id == request.model)
+        .ok_or_else(|| "codex_harness_model_catalog_invalid:selected_model_missing".to_owned())?;
+    validate_text_model(&selected.model_id, &selected.input_modalities)?;
     let model_messages = product_model_messages()?;
     let models = request
         .model_catalog
         .iter()
         .enumerate()
-        .map(|(index, model)| {
+        .filter_map(|(index, model)| {
+            let input_modalities = harness_input_modalities(&model.input_modalities);
+            if !input_modalities.contains(&HarnessInputModality::Text) {
+                return None;
+            }
             let supported_reasoning_levels = model
                 .supported_reasoning_efforts
                 .iter()
@@ -1981,7 +1994,7 @@ fn write_model_catalog(request: &CodexHarnessRequest) -> Result<PathBuf, String>
                     })
                 })
                 .collect::<Vec<_>>();
-            json!({
+            Some(json!({
                 "slug": model.model_id,
                 "display_name": model.display_name,
                 "description": format!("词来 通过 {} 提供", request.provider_label),
@@ -2012,14 +2025,14 @@ fn write_model_catalog(request: &CodexHarnessRequest) -> Result<PathBuf, String>
                 "comp_hash": format!("contexthub-codex-{CODEX_HARNESS_VERSION}-{}", json!(&model.tool_capabilities)),
                 "effective_context_window_percent": 95,
                 "experimental_supported_tools": [],
-                "input_modalities": model.input_modalities,
+                "input_modalities": input_modalities,
                 "supports_search_tool": model.tool_capabilities.as_ref().is_some_and(|capability| capability.client_tool_search),
                 "use_responses_lite": false,
                 "auto_review_model_override": request.approval_review_model,
                 "model_specialty": null,
                 "tool_mode": null,
                 "multi_agent_version": null
-            })
+            }))
         })
         .collect::<Vec<_>>();
     let path = request.event_log_path.with_extension("model-catalog.json");

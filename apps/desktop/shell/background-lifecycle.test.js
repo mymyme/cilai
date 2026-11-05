@@ -3,6 +3,7 @@ const { EventEmitter } = require("node:events");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const tick = () => new Promise(resolve => setImmediate(resolve));
 const { createBackgroundLifecycle } = require("./background-lifecycle");
 
 function fixture(platform, { headless = false, emptyIcon = false, menuFails = false } = {}) {
@@ -31,7 +32,7 @@ function fixture(platform, { headless = false, emptyIcon = false, menuFails = fa
     state.quits++;
     app.emit("before-quit");
     win.close();
-    if (state.destroyed) app.emit("will-quit");
+    if (state.destroyed) app.emit("will-quit", { preventDefault() {} });
   };
   const trays = [];
   class Tray extends EventEmitter {
@@ -77,24 +78,27 @@ for (const platform of ["darwin", "win32"]) {
     assert.equal(f.state.focuses, 1);
   });
 
-  test(`${platform} 托盘退出真正结束进程，只清理一次`, () => {
+  test(`${platform} 托盘退出真正结束进程，只清理一次`, async () => {
     const f = fixture(platform);
     f.lifecycle.createTray();
     f.win.close();
     f.trays[0].menu[2].click();
     assert.equal(f.state.quits, 1);
+    await tick();
+    assert.equal(f.state.quits, 2);
     assert.equal(f.state.destroyed, true);
     assert.equal(f.state.cleanups, 1);
     assert.equal(f.trays[0].destroyed, true);
-    f.app.emit("will-quit");
+    f.app.emit("will-quit", { preventDefault() {} });
     f.lifecycle.showWindow();
     assert.equal(f.state.cleanups, 1);
     assert.equal(f.state.visible, false);
   });
 
-  test(`${platform} 系统菜单退出与原生更新先关闭窗口的顺序均不被隐藏逻辑阻挡`, () => {
+  test(`${platform} 系统菜单退出与原生更新先关闭窗口的顺序均不被隐藏逻辑阻挡`, async () => {
     const regular = fixture(platform);
     regular.app.quit();
+    await tick();
     assert.equal(regular.state.destroyed, true);
     assert.equal(regular.state.cleanups, 1);
     const updating = fixture(platform);
@@ -102,11 +106,12 @@ for (const platform of ["darwin", "win32"]) {
     assert.equal(updating.win.close().prevented, false);
     assert.equal(updating.state.cleanups, 0);
     updating.app.emit("before-quit");
-    updating.app.emit("will-quit");
+    updating.app.emit("will-quit", { preventDefault() {} });
+    await tick();
     assert.equal(updating.state.cleanups, 1);
   });
 
-  test(`${platform} 草稿阻止退出时不停止服务，重新关闭仍转后台且可以再次主动退出`, () => {
+  test(`${platform} 草稿阻止退出时不停止服务，重新关闭仍转后台且可以再次主动退出`, async () => {
     const f = fixture(platform);
     f.lifecycle.createTray();
     f.win.close();
@@ -119,11 +124,12 @@ for (const platform of ["darwin", "win32"]) {
     f.state.vetoUnload = false;
     assert.equal(f.win.close().prevented, true);
     f.app.quit();
+    await tick();
     assert.equal(f.state.cleanups, 1);
   });
 }
 
-test("Windows 托盘单击及双击均恢复窗口，系统会话结束只清理一次", () => {
+test("Windows 托盘单击及双击均恢复窗口，系统会话结束只清理一次", async () => {
   const f = fixture("win32");
   f.lifecycle.createTray();
   for (const event of ["click", "double-click"]) {
@@ -135,7 +141,8 @@ test("Windows 托盘单击及双击均恢复窗口，系统会话结束只清理
   assert.equal(f.state.cleanups, 0);
   f.win.emit("session-end");
   assert.equal(f.win.close().prevented, false);
-  f.app.emit("will-quit");
+  f.app.emit("will-quit", { preventDefault() {} });
+  await tick();
   assert.equal(f.state.cleanups, 1);
 });
 
@@ -159,7 +166,7 @@ test("自检模式不创建托盘、不隐藏或唤起窗口", () => {
   assert.equal(f.state.quits, 1);
 });
 
-test("自检成功和失败直接退出前完成一次清理，保留真实退出码", () => {
+test("自检成功和失败直接退出前完成一次清理，保留真实退出码", async () => {
   for (const code of [0, 1]) {
     const f = fixture("darwin", { headless: true });
     let beforeQuitEvents = 0;
@@ -168,9 +175,9 @@ test("自检成功和失败直接退出前完成一次清理，保留真实退�
       assert.equal(actualCode, code);
       assert.equal(f.state.cleanups, 1);
     };
-    f.lifecycle.exit(code);
+    await f.lifecycle.exit(code);
     assert.equal(beforeQuitEvents, 0);
-    f.app.emit("will-quit");
+    f.app.emit("will-quit", { preventDefault() {} });
     assert.equal(f.state.cleanups, 1);
     assert.equal(f.win.close().prevented, false);
   }

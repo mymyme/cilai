@@ -1,5 +1,7 @@
 import { invoke } from "./host";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { rpc } from "./app-server-rpc";
+import { usePageActive } from "./page-visibility";
 import type {
   ComputeTextDiffParams,
   ComputeTextDiffResult,
@@ -44,16 +46,23 @@ export interface FileDiffPaneProps {
   leftSource: PreviewSource;
   rightSource: PreviewSource;
   onReadyChange?: (ready: boolean) => void;
+  serviceScope?: string | null;
+  fileRevision?: string | null;
 }
 
-export function FileDiffPane({
+export function FileDiffPane(props: FileDiffPaneProps) {
+  const key = JSON.stringify([props.serviceScope, props.workspaceId, props.localFileId, props.leftSource, props.rightSource, props.fileRevision]);
+  return <ActiveFileDiffPane key={key} {...props}/>;
+}
+
+function ActiveFileDiffPane({
   workspaceId,
   localFileId,
   leftSource,
   rightSource,
   onReadyChange,
 }: FileDiffPaneProps) {
-  const { state, loadMore } = useTextDiff({ workspaceId, localFileId, leftSource, rightSource });
+  const { state, loadMore, retry } = useTextDiff({ workspaceId, localFileId, leftSource, rightSource });
   useEffect(() => {
     onReadyChange?.(state.phase === "ready");
   }, [onReadyChange, state.phase]);
@@ -63,7 +72,7 @@ export function FileDiffPane({
         <SourceHeader side="旧文档" source={leftSource} />
         <SourceHeader side="新文档" source={rightSource} />
       </header>
-      <DiffBody loadMore={loadMore} state={state} />
+      <DiffBody loadMore={loadMore} retry={retry} state={state} />
     </section>
   );
 }
@@ -77,7 +86,7 @@ function SourceHeader({ side, source }: { side: string; source: PreviewSource })
   );
 }
 
-function DiffBody({ state, loadMore }: { state: DiffState; loadMore: () => void }) {
+function DiffBody({ state, loadMore, retry }: { state: DiffState; loadMore: () => void; retry: () => void }) {
   if (state.phase === "loading") {
     return <DiffMessage title="正在读取两个来源并生成差异" />;
   }
@@ -104,6 +113,7 @@ function DiffBody({ state, loadMore }: { state: DiffState; loadMore: () => void 
       <DiffMessage
         detail={DIFF_ERROR_LABELS[state.reason] ?? "差异生成失败，请查看诊断后重新生成。"}
         title={state.reason === "text_diff_source_changed" ? "差异已失效" : "差异生成失败"}
+        retry={retry}
       />
     );
   }
@@ -157,46 +167,75 @@ function DiffMessage({
   title,
   detail,
   source,
+  retry,
 }: {
   title: string;
   detail?: string;
   source?: PreviewSource;
+  retry?: () => void;
 }) {
   return (
     <div className="preview-message" role="status">
       {source ? <span className="preview-source-label">{SOURCE_LABELS[source]}</span> : null}
       <h3>{title}</h3>
       {detail ? <p>{detail}</p> : null}
+      {retry ? <button type="button" onClick={retry}>重试比较</button> : null}
     </div>
   );
 }
 
-function useTextDiff(params: {
-  workspaceId: string;
-  localFileId: string;
-  leftSource: PreviewSource;
-  rightSource: PreviewSource;
-}): { state: DiffState; loadMore: () => void } {
+type DiffRequest = { workspaceId: string; localFileId: string; leftSource: PreviewSource; rightSource: PreviewSource };
+
+class DiffResourceOwner {
+  readonly controller = new AbortController();
+  private readonly resources = new Map<string, string>();
+  accept(method: string, ticket: string | null) {
+    if (!ticket) return;
+    if (this.controller.signal.aborted) {
+      this.release(method, ticket);
+      this.controller.signal.throwIfAborted();
+    }
+    this.resources.set(ticket, method);
+  }
+  private release(method: string, ticketId: string) {
+    void rpc(method, { ticketId }).catch(error => console.error("差异资源未能释放", error));
+  }
+  close() {
+    this.controller.abort();
+    for (const [ticket, method] of this.resources) this.release(method, ticket);
+    this.resources.clear();
+  }
+}
+
+function useTextDiff(params: DiffRequest) {
+  const active = usePageActive();
+  const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<DiffState>({ phase: "loading" });
+  const owned = useRef<DiffResourceOwner | null>(null);
   useEffect(() => {
-    let cancelled = false;
+    if (!active) return;
+    const owner = new DiffResourceOwner();
+    owned.current = owner;
     setState({ phase: "loading" });
-    void loadTextDiff(params)
-      .then((next) => {
-        if (!cancelled) setState(next);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setState({ phase: "error", reason: extractDiffReason(error) });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [params.leftSource, params.localFileId, params.rightSource, params.workspaceId]);
+    void loadTextDiff(params, owner).then(next => {
+      if (!owner.controller.signal.aborted) {
+        if (next.phase !== "ready") owner.close();
+        setState(next);
+      }
+    }).catch((error: unknown) => {
+      if (!owner.controller.signal.aborted) {
+        owner.close();
+        setState({ phase: "error", reason: extractDiffReason(error) });
+      }
+    });
+    return () => { owner.close(); if (owned.current === owner) owned.current = null; };
+  }, [active, attempt, params.leftSource, params.localFileId, params.rightSource, params.workspaceId]);
   const loadMore = useCallback(() => {
-    if (state.phase !== "ready" || state.nextCursor === null || state.loadingMore) return;
+    const owner = owned.current;
+    if (!owner || owner.controller.signal.aborted || state.phase !== "ready" || state.nextCursor === null || state.loadingMore) return;
     const { result, nextCursor } = state;
     setState({ ...state, loadingMore: true });
-    void readDiffPage(result.diffTicketId, nextCursor)
+    void readDiffPage(result.diffTicketId, nextCursor, owner.controller.signal)
       .then((page) => {
         setState((current) => {
           if (
@@ -215,6 +254,8 @@ function useTextDiff(params: {
         });
       })
       .catch((error: unknown) => {
+        if (owner.controller.signal.aborted) return;
+        owner.close();
         setState((current) =>
           current.phase === "ready" && current.result.diffTicketId === result.diffTicketId
             ? { phase: "error", reason: extractDiffReason(error) }
@@ -222,19 +263,18 @@ function useTextDiff(params: {
         );
       });
   }, [state]);
-  return { state, loadMore };
+  return { state, loadMore, retry: () => setAttempt(value => value + 1) };
 }
 
-async function loadTextDiff(params: {
-  workspaceId: string;
-  localFileId: string;
-  leftSource: PreviewSource;
-  rightSource: PreviewSource;
-}): Promise<DiffState> {
-  const [left, right] = await Promise.all([
-    openSource(params.workspaceId, params.localFileId, params.leftSource),
-    openSource(params.workspaceId, params.localFileId, params.rightSource),
-  ]);
+async function loadTextDiff(params: DiffRequest, owner: DiffResourceOwner): Promise<DiffState> {
+  const signal = owner.controller.signal;
+  const open = async (source: PreviewSource) => {
+    const descriptor = await openSource(params.workspaceId, params.localFileId, source);
+    owner.accept("textResource/release", descriptor.ticketId);
+    signal.throwIfAborted();
+    return descriptor;
+  };
+  const [left, right] = await Promise.all([open(params.leftSource), open(params.rightSource)]);
   if (left.availability !== "ready") {
     return unavailableState(left);
   }
@@ -246,7 +286,8 @@ async function loadTextDiff(params: {
     right: diffSource(right),
   };
   const result = await invoke<ComputeTextDiffResult>("text_diff_compute", { params: computeParams });
-  const page = await readDiffPage(result.diffTicketId, 0);
+  owner.accept("textDiff/release", result.diffTicketId);
+  const page = await readDiffPage(result.diffTicketId, 0, signal);
   return {
     phase: "ready",
     result,
@@ -256,14 +297,16 @@ async function loadTextDiff(params: {
   };
 }
 
-async function readDiffPage(diffTicketId: string, cursor: number): Promise<ReadTextDiffResult> {
+async function readDiffPage(diffTicketId: string, cursor: number, signal: AbortSignal): Promise<ReadTextDiffResult> {
   const params: ReadTextDiffParams = {
     diffTicketId,
     cursor,
     maxRows: 200,
     maxBytes: 256 * 1024,
   };
+  signal.throwIfAborted();
   const page = await invoke<ReadTextDiffResult>("text_diff_read", { params });
+  signal.throwIfAborted();
   if (page.cursor !== cursor) throw new Error("text_diff_read_failed");
   if (page.nextCursor !== null && page.nextCursor <= cursor) {
     throw new Error("text_diff_read_failed");

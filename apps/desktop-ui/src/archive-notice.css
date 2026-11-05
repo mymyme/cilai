@@ -1,13 +1,8 @@
 .archive-notice {
-  position: fixed;
-  z-index: 160;
-  top: 52px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: calc(100vw - 32px);
+  max-width: 100%;
   padding: 9px 10px 9px 14px;
   border: 1px solid var(--border-default);
   border-radius: 12px;
@@ -29,3 +24,8 @@
 .archive-notice button:disabled { opacity: .5; cursor: default; }
 .archive-notice .archive-notice-close { display: grid; place-items: center; width: 26px; padding: 4px; color: var(--text-tertiary); background: transparent; }
 .archive-notice-close svg { width: 14px; height: 14px; }
+
+@media (max-width: 400px) {
+  .archive-notice { gap: 4px; padding-inline: 8px 5px; }
+  .archive-notice button { padding-inline: 5px; }
+}

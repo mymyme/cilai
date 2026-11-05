@@ -8,21 +8,21 @@ publish.workspace = true
 
 [dependencies]
 base64 = "=0.22.1"
-contexthub-application = { path = "../application", version = "=0.1.1" }
-contexthub-domain = { path = "../domain", version = "=0.1.1" }
-contexthub-local-transport = { path = "../local-transport", version = "=0.1.1" }
-contexthub-observability = { path = "../observability", version = "=0.1.1" }
-contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.1" }
-contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.1" }
-contexthub-protocol = { path = "../protocol", version = "=0.1.1" }
-contexthub-workspace-fs = { path = "../workspace-fs", version = "=0.1.1" }
+contexthub-application = { path = "../application", version = "=0.1.2" }
+contexthub-domain = { path = "../domain", version = "=0.1.2" }
+contexthub-local-transport = { path = "../local-transport", version = "=0.1.2" }
+contexthub-observability = { path = "../observability", version = "=0.1.2" }
+contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.2" }
+contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.2" }
+contexthub-protocol = { path = "../protocol", version = "=0.1.2" }
+contexthub-workspace-fs = { path = "../workspace-fs", version = "=0.1.2" }
 chrono = { version = "=0.4.44", default-features = false, features = ["std"] }
 regex = "=1.13.1"
 serde_json = "=1.0.151"
 serde = { version = "=1.0.229", features = ["derive"] }
 sha2 = "=0.10.9"
 similar = "=2.7.0"
-tokio = { version = "=1.53.1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "=1.53.3", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 uuid = { version = "=1.24.0", features = ["v4"] }
 zip = { version = "=9.0.4", default-features = false, features = ["deflate"] }
 

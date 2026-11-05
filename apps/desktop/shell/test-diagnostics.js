@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const { createHmac, randomBytes } = require("node:crypto");
 const path = require("node:path");
 const { createServiceLog } = require("./service-log");
 const { errorsOnlyReport } = require("./diagnostic-report");
@@ -49,7 +50,8 @@ function errorCodes(value) {
   if (codes.some(code => code.startsWith("sandbox_preflight_")) && !codes.includes("sandbox_preflight_failed")) codes.push("sandbox_preflight_failed");
   return codes;
 }
-const events = new Set(["app_start", "service_start", "service_exit", "service_error", "stderr_error", "command_error", "sandbox_status", "permission_check", "permission_repair", "logging_enabled", "ai_run_failure"]);
+const startupStages = new Set(["profile", "service", "history", "history_catalog"]);
+const events = new Set(["startup_timing", "startup_lock", "response_timing", "app_start", "service_start", "service_exit", "service_error", "stderr_error", "command_error", "sandbox_status", "permission_check", "permission_repair", "logging_enabled", "ai_run_failure"]);
 const statuses = new Set(["ready", "repairRequired", "error", "notApplicable", "notConfigured", "updateRequired", "failed", "starting", "running", "stopped"]);
 const knownCodes = new Set(["powershell_policy_failed", "startup_data_initialization_failed", "startup_permission_repair_failed", "instance_discovery_failed", "private_file_owner_mismatch", "private_file_acl_invalid", "sandbox_refresh_failed", "sandbox_helper_unknown_error", "workspace_acl_access_denied", "runtime_directory_owner_mismatch", "sandbox_not_ready", "sandbox_preflight_failed", "response_envelope_invalid", "administrator_authorization_cancelled", "permission_plan_expired", "permission_verification_failed", "permission_check_failed", "process_access_denied", "connection_closed"]);
 for (const code of [...startupRepairCodes, ...sandboxStatusCodes, ...sandboxPreflightCodes, ...nativeHistoryCodes, ...personalDiagnosticCodes]) knownCodes.add(code);
@@ -61,6 +63,14 @@ function safeRecord(event, fields = {}) {
   if (Number.isInteger(fields.exitCode)) value.exitCode = fields.exitCode;
   if (Number.isFinite(fields.durationMs)) value.durationMs = Math.max(0, Math.round(fields.durationMs));
   if (Array.isArray(fields.codes)) value.codes = fields.codes.filter(code => knownCodes.has(code) || publicAiCodes.has(code)).slice(0, 16);
+  if (event === "startup_timing" && startupStages.has(fields.stage)) value.stage = fields.stage;
+  if (event === "startup_lock" && fields.stage === "runtime_publish") {
+    value.stage = fields.stage;
+    if (Number.isSafeInteger(fields.waitMs) && fields.waitMs >= 0) value.waitMs = fields.waitMs;
+    if (Number.isSafeInteger(fields.holdMs) && fields.holdMs >= 0) value.holdMs = fields.holdMs;
+  }
+  if (event === "response_timing" && Number.isSafeInteger(fields.responseBytes) && fields.responseBytes >= 0) value.responseBytes = fields.responseBytes;
+  if (["service_start", "sandbox_status", "command_error"].includes(event) && /^[a-f0-9]{32}$/.test(fields.fingerprint ?? "")) value.fingerprint = fields.fingerprint;
   if (safeId(fields.requestId)) value.requestId = safeId(fields.requestId);
   if (event === "ai_run_failure") {
     if (safeRunId(fields.runId)) value.runId = safeRunId(fields.runId);
@@ -79,6 +89,15 @@ function createTestDiagnostics({ directory, metadata, maxBytes = 512 * 1024 }) {
   let stderrPending = "";
   let storagePaused = false;
   const observedFailures = new Set();
+  const lastStatus = new Map();
+  const fingerprintKey = randomBytes(32);
+  const fingerprint = (detail, codes) => detail && !codes.length
+    ? createHmac("sha256", fingerprintKey).update(detail).digest("hex").slice(0, 32)
+    : undefined;
+  function observe(command, event, fields) {
+    const signature = JSON.stringify(safeRecord(event, fields));
+    if (lastStatus.get(command) !== signature && api.record(event, fields)) lastStatus.set(command, signature);
+  }
   try {
     const saved = JSON.parse(fs.readFileSync(preferences, "utf8"));
     if (typeof saved.enabled !== "boolean") throw new Error("invalid preferences");
@@ -97,6 +116,7 @@ function createTestDiagnostics({ directory, metadata, maxBytes = 512 * 1024 }) {
           lease.rebase();
           stderrPending = "";
           observedFailures.clear();
+          lastStatus.clear();
         },
         resume() {
           lease.resume();
@@ -110,7 +130,7 @@ function createTestDiagnostics({ directory, metadata, maxBytes = 512 * 1024 }) {
       const temporary = `${preferences}.tmp`;
       fs.writeFileSync(temporary, JSON.stringify({ schemaVersion: 1, enabled: next }), { mode: 0o600 });
       fs.renameSync(temporary, preferences);
-      enabled = next; settingsError = null; stderrPending = "";
+      enabled = next; settingsError = null; stderrPending = ""; lastStatus.clear();
       if (enabled) api.record("logging_enabled");
       return api.status();
     },
@@ -127,17 +147,40 @@ function createTestDiagnostics({ directory, metadata, maxBytes = 512 * 1024 }) {
       const lines = stderrPending.split("\n");
       stderrPending = (lines.pop() ?? "").slice(-8192);
       for (const line of lines) {
+        const timing = /^personal_startup_timing stage=(profile|service|history|history_catalog) ms=(\d+) status=(ready|failed)$/.exec(line.trim());
+        if (timing) {
+          api.record("startup_timing", { stage: timing[1], durationMs: Number(timing[2]), status: timing[3] });
+          continue;
+        }
+        const lock = /^personal_startup_lock stage=runtime_publish wait_ms=(\d+) hold_ms=(\d+)$/.exec(line.trim());
+        if (lock) {
+          api.record("startup_lock", { stage: "runtime_publish", waitMs: Number(lock[1]), holdMs: Number(lock[2]) });
+          continue;
+        }
         const codes = errorCodes(line);
         if (codes.length) api.record("stderr_error", { codes });
       }
     },
-    response(command, result, error, durationMs) {
+    response(command, result, error, durationMs, responseBytes) {
       if (!enabled) return;
-      if (error) api.record("command_error", { command, durationMs, codes: errorCodes(error), requestId: requestId(error) });
-      else if (command === "app_server_status") api.record("service_start", { status: result?.runtimeInitializationError ? "failed" : result?.phase, codes: errorCodes([result?.runtimeInitializationError, result?.errorReason, ...(Array.isArray(result?.stderrTail) ? result.stderrTail : [])].filter(item => typeof item === "string").join("\n")) });
-      else if (command.startsWith("ai_windows_sandbox_")) api.record("sandbox_status", { command, status: result?.status,
-        codes: errorCodes([result?.errorCode, result?.errorMessage].filter(value => typeof value === "string").join("\n")), durationMs });
-      else if (command === "workspace_permissions_check" || command === "workspace_permissions_repair") api.record(command.endsWith("repair") ? "permission_repair" : "permission_check", { status: result?.status, durationMs });
+      if (command === "app_server_status" || command === "ai_windows_sandbox_status") {
+        const detail = [error, result?.runtimeInitializationError, result?.errorReason, result?.errorCode, result?.errorMessage]
+          .filter(item => typeof item === "string").join("\n");
+        const tail = Array.isArray(result?.stderrTail) ? result.stderrTail.slice(-12)
+          .filter(line => typeof line === "string").map(line => line.slice(0, 4096)).join("\n") : "";
+        const codes = errorCodes(`${detail}\n${tail}`);
+        const status = error || result?.runtimeInitializationError ? "failed"
+          : result?.runtimeInitializing ? "starting" : result?.phase ?? result?.status;
+        observe(command, command === "app_server_status" ? "service_start" : "sandbox_status", {
+          command, status, codes, fingerprint: fingerprint(detail, codes),
+        });
+      }
+      else if (error) {
+        const codes = errorCodes(error);
+        api.record("command_error", { command, durationMs, codes, requestId: requestId(error), fingerprint: fingerprint(error, codes) });
+      }
+      if (!error && durationMs >= 100 && Number.isSafeInteger(responseBytes) && command !== "app_server_status") api.record("response_timing", { command, durationMs, responseBytes });
+      if (!error && (command === "workspace_permissions_check" || command === "workspace_permissions_repair")) api.record(command.endsWith("repair") ? "permission_repair" : "permission_check", { status: result?.status, durationMs });
       else {
         const runs = command === "ai_runtime_snapshot" || command === "ai_runtime_activity_snapshot" ? result?.runs
           : command === "ai_conversation_start" || command === "ai_message_submit" ? [result?.run]

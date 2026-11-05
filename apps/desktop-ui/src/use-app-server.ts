@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "./host";
 import type { MessageSink } from "./app-message";
 
@@ -11,6 +11,7 @@ export interface AppServerStatus {
   protocolVersion: string | null;
   lastExitCode: number | null;
   errorReason: string | null;
+  runtimeInitializing?: boolean;
   runtimeInitializationError?: string | null;
   personalDataState?: "idle" | "applying" | "restart_required";
   stderrTail: string[];
@@ -30,18 +31,42 @@ export interface AppServerStatus {
 export function useAppServer(onMessage: MessageSink) {
   const [status, setStatus] = useState<AppServerStatus | null>(null);
 
+  const generation = useRef(0);
+  const restarting = useRef(false);
+
   useEffect(() => {
-    const refresh = () => void invoke<AppServerStatus>("app_server_status")
-      .then(setStatus)
-      .catch((error) => onMessage(String(error), "error"));
-    refresh();
+    let active = true;
+    let reading = false;
+    const refresh = async () => {
+      if (reading || restarting.current) return;
+      reading = true;
+      const current = generation.current;
+      try {
+        const next = await invoke<AppServerStatus>("app_server_status");
+        if (active && generation.current === current) setStatus(next);
+      } catch (error) {
+        if (active && generation.current === current) onMessage(String(error), "error");
+      } finally {
+        reading = false;
+      }
+    };
+    void refresh();
     const timer = window.setInterval(refresh, 2_000);
-    return () => window.clearInterval(timer);
+    return () => { active = false; window.clearInterval(timer); };
   }, [onMessage]);
 
   const restart = useCallback(() => {
-    void invoke<AppServerStatus>("app_server_restart").then(setStatus)
-      .catch((error) => onMessage(String(error), "error"));
+    if (restarting.current) return;
+    restarting.current = true;
+    const current = ++generation.current;
+    setStatus(previous => previous && ({ ...previous, runtimeInitializing: true, runtimeInitializationError: null }));
+    void invoke<AppServerStatus>("app_server_restart").then(next => {
+      if (generation.current === current) setStatus(next);
+    }).catch(error => {
+      if (generation.current !== current) return;
+      setStatus(previous => previous && ({ ...previous, runtimeInitializing: false, runtimeInitializationError: String(error) }));
+      onMessage(String(error), "error");
+    }).finally(() => { restarting.current = false; });
   }, [onMessage]);
 
   return { status, restart };

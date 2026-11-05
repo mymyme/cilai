@@ -21,6 +21,18 @@ pub(super) fn read(
     service: &codex_threads::CodexThreadService,
 ) -> Result<(ledger::Baseline, PersistedAiState), String> {
     let (baseline, mut state) = ledger::Baseline::read(ledger)?;
+    let catalog_started = std::time::Instant::now();
+    let mut scoped_sources = BTreeMap::new();
+    let mut scoped_service =
+        |scope: &Value| -> Result<Arc<codex_threads::CodexThreadService>, String> {
+            let candidate = service.for_runtime_scope(scope)?;
+            Ok(Arc::clone(
+                scoped_sources
+                    .entry(candidate.home().to_path_buf())
+                    .or_insert(candidate),
+            ))
+        };
+
     let mut services = BTreeMap::new();
     let mut bindings = Vec::new();
     for native in array(ledger, "native")? {
@@ -29,10 +41,7 @@ pub(super) fn read(
         let thread = text(binding, "nativeThreadId")?;
         bindings.push(thread);
         if !binding["runtimeScope"].is_null() {
-            services.insert(
-                thread.to_owned(),
-                service.for_runtime_scope(&binding["runtimeScope"])?,
-            );
+            services.insert(thread.to_owned(), scoped_service(&binding["runtimeScope"])?);
         }
         for operation in array(journal, "operations")? {
             if operation["state"] != "acknowledged"
@@ -48,7 +57,7 @@ pub(super) fn read(
                 continue;
             };
             if !scope.is_null() {
-                let current = service.for_runtime_scope(scope)?;
+                let current = scoped_service(scope)?;
                 if services.get(thread).is_some_and(
                     |previous: &Arc<codex_threads::CodexThreadService>| {
                         previous.home() != current.home()
@@ -60,23 +69,61 @@ pub(super) fn read(
             }
         }
     }
-    let mut catalog = BTreeMap::new();
+    let references = array(ledger, "runRefs")?
+        .iter()
+        .chain(array(ledger, "messageRefs")?);
+    let turn_sources = references
+        .clone()
+        .map(|reference| {
+            let thread = text(reference, "nativeThreadId")?;
+            Ok(services.get(thread).map_or(service, Arc::as_ref).home())
+        })
+        .collect::<Result<std::collections::BTreeSet<_>, String>>()?;
+    let mut groups = BTreeMap::new();
     for thread in bindings {
         let source = services.get(thread).map_or(service, Arc::as_ref);
-        let current = source.catalog_for_threads([thread])?;
-        catalog.insert(
-            thread.to_owned(),
-            current
+        groups
+            .entry(source.home())
+            .or_insert_with(|| (source, Vec::new()))
+            .1
+            .push(thread);
+    }
+    let mut catalog = BTreeMap::new();
+    let group_count = groups.len();
+    for (source, threads) in groups.into_values() {
+        let current = if turn_sources.contains(source.home()) {
+            source.catalog_for_history(threads.iter().copied())?
+        } else {
+            source.catalog_for_threads(threads.iter().copied())?
+        };
+        for thread in threads {
+            let record = current
                 .get(thread)
                 .cloned()
-                .ok_or("native_history_thread_missing")?,
+                .ok_or("native_history_thread_missing")?;
+            if catalog.insert(thread.to_owned(), record).is_some() {
+                return Err("native_history_thread_binding_duplicate".into());
+            }
+        }
+    }
+    if std::env::var("CILAI_PERSONAL_STARTUP_TIMING").as_deref() == Ok("1") {
+        eprintln!(
+            "personal_startup_timing stage=history_catalog ms={} status=ready",
+            catalog_started.elapsed().as_millis()
         );
     }
+    #[cfg(test)]
+    if std::env::var("CILAI_PERSONAL_HISTORY_MEASURE").as_deref() == Ok("1") {
+        eprintln!(
+            "history catalog: {} threads, {} runtime roots, {} ms",
+            catalog.len(),
+            group_count,
+            catalog_started.elapsed().as_millis()
+        );
+    }
+    let _ = group_count;
     let mut turns = BTreeMap::new();
-    for reference in array(ledger, "runRefs")?
-        .iter()
-        .chain(array(ledger, "messageRefs")?)
-    {
+    for reference in references {
         let thread = text(reference, "nativeThreadId")?;
         if !turns.contains_key(thread) {
             turns.insert(

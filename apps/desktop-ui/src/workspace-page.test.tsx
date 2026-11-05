@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { WorkspaceFileItem, WorkspaceSummary } from "./generated/protocol";
 import { fileNameFromRelativePath, WorkspacePage, WorkspaceSwitcher } from "./workspace-page";
+
+import { FileMarkdownTestWorker } from "./file-markdown-test-worker";
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("./host", () => ({
@@ -9,7 +11,8 @@ vi.mock("./host", () => ({
 }));
 vi.mock("./app-server-rpc", async (importOriginal) => ({ ...await importOriginal<typeof import("./app-server-rpc")>(), rpc: async (method: string, params: object) => method === "file/hydrate" ? { state: "ready" } : invoke("app_server_request", { method, params }) }));
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+beforeEach(() => vi.stubGlobal("Worker", FileMarkdownTestWorker));
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 /**
  * 文件树和工作区切换器是从千行的应用外壳里整体搬出来的，搬之前它们一行覆盖都没有：

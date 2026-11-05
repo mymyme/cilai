@@ -1,9 +1,12 @@
-use contexthub_application::{ProjectPortfolioItemRecord, ProjectPortfolioPhaseRecord, UnitOfWork};
+use contexthub_application::{
+    ProjectPortfolioItemRecord, ProjectPortfolioPhaseRecord, UnitOfWork, WorkspaceRecord,
+    WorkspaceRepository,
+};
 use contexthub_domain::WorkspaceId;
-use contexthub_persistence_sqlite::{PersistenceError, SqlitePersistence};
+use contexthub_persistence_sqlite::{PersistenceError, PersistenceErrorKind, SqlitePersistence};
 use contexthub_protocol::{
     ProjectPortfolioItem, ProjectPortfolioListParams, ProjectPortfolioListResult,
-    ProjectPortfolioPhaseItem,
+    ProjectPortfolioPhaseItem, WorkspaceSummary,
 };
 
 /// 按工作区批量读取跨项目总览投影，一次事务内完成，避免调用方逐项目往返。
@@ -21,16 +24,82 @@ pub fn list_portfolio(
         .cloned()
         .map(WorkspaceId::new)
         .collect::<Vec<_>>();
-    persistence
-        .transact(|repositories| {
-            contexthub_application::get_project_portfolio(
-                repositories,
-                &contexthub_application::ProjectPortfolioQuery { workspace_ids },
-            )
-        })
-        .map(|records| ProjectPortfolioListResult {
+    persistence.transact(|repositories| {
+        let records = contexthub_application::get_project_portfolio(
+            repositories,
+            &contexthub_application::ProjectPortfolioQuery { workspace_ids },
+        )?;
+        let mut seen = std::collections::HashSet::new();
+        let ids = records
+            .iter()
+            .flat_map(|record| {
+                record
+                    .workspace_ids
+                    .iter()
+                    .chain(record.workspace_id.iter())
+            })
+            .filter(|id| seen.insert(id.as_str()));
+        let workspaces = registered_workspaces(repositories, ids)?;
+        Ok(ProjectPortfolioListResult {
             items: records.into_iter().map(portfolio_item).collect(),
+            workspaces,
         })
+    })
+}
+
+pub(crate) fn registered_workspaces<'a>(
+    repositories: &mut impl WorkspaceRepository<Error = PersistenceError>,
+    ids: impl Iterator<Item = &'a WorkspaceId>,
+) -> Result<Vec<WorkspaceSummary>, PersistenceError> {
+    ids.map(|id| {
+        let workspace = repositories.workspace(id)?.ok_or_else(|| {
+            PersistenceError::with_reason(
+                PersistenceErrorKind::Database,
+                "project_workspace_registration_missing",
+                "project references a missing workspace registration",
+            )
+        })?;
+        let binding = repositories.platform_binding(id)?;
+        Ok(workspace_summary(workspace, binding))
+    })
+    .collect()
+}
+
+pub(crate) fn workspace_summary(
+    workspace: WorkspaceRecord,
+    binding: Option<contexthub_application::WorkspacePlatformBindingRecord>,
+) -> WorkspaceSummary {
+    WorkspaceSummary {
+        workspace_id: workspace.workspace_id.as_str().to_owned(),
+        workspace_kind: workspace.workspace_kind.as_str().to_owned(),
+        display_name: workspace.display_name,
+        local_root: workspace.local_root,
+        local_status: workspace.local_status.as_str().to_owned(),
+        state_revision: workspace.state_revision,
+        platform_bound: binding
+            .as_ref()
+            .is_some_and(|value| value.binding_state.as_str() == "bound"),
+        platform_revision: binding
+            .as_ref()
+            .and_then(|value| value.platform_snapshot_revision.clone()),
+        team_space_id: binding
+            .as_ref()
+            .and_then(|value| value.team_space_id.clone()),
+        managed_root: binding
+            .as_ref()
+            .and_then(|value| value.managed_root.clone()),
+        device_id: binding.as_ref().and_then(|value| value.device_id.clone()),
+        baseline_revision: binding
+            .as_ref()
+            .and_then(|value| value.baseline_revision.clone()),
+        change_cursor: binding
+            .as_ref()
+            .and_then(|value| value.change_cursor.clone()),
+        permission_role: binding
+            .as_ref()
+            .and_then(|value| value.permission_role.clone()),
+        permission_revision: binding.and_then(|value| value.permission_revision),
+    }
 }
 
 fn portfolio_item(record: ProjectPortfolioItemRecord) -> ProjectPortfolioItem {

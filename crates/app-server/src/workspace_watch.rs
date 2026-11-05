@@ -19,6 +19,7 @@ const QUIET_PERIOD: Duration = Duration::from_secs(2);
 /// 同一个工作区两次索引更新之间的下限，合并持续写入产生的变化；
 /// 没有这个下限，一次持续写入（比如 git checkout）会让扫描排成一列首尾相接地跑。
 const MIN_RESCAN_INTERVAL: Duration = Duration::from_secs(15);
+const MAX_PENDING_AGE: Duration = Duration::from_secs(30);
 
 /// 只收到"可能有变化"这类推测信号时的补扫下限。
 ///
@@ -39,9 +40,7 @@ const MAX_SCANS_PER_TICK: usize = 1;
 struct Watched {
     _watcher: WorkspaceWatcher,
     local_root: String,
-    dirty_since: Option<Instant>,
-    /// 这次变脏是确实有文件动了，还是只是推测。决定用哪个间隔。
-    dirty_is_concrete: bool,
+    pending: PendingChanges,
     last_scan: Option<Instant>,
     /// 用户明确要求现在就建（刚添加文件夹、点了重新扫描）。跳过防抖与间隔下限。
     requested: bool,
@@ -92,11 +91,16 @@ pub fn spawn_until_shutdown(
             }
 
             // 把这一轮攒下的信号全部收走再决定扫谁：一次保存可能抛出十几个事件。
-            while let Ok((workspace_id, signal)) = signals_rx.try_recv() {
+            for _ in 0..signals_rx.len() {
+                let Ok((workspace_id, signal)) = signals_rx.try_recv() else {
+                    break;
+                };
                 if let Some(entry) = watched.get_mut(&workspace_id) {
-                    entry.dirty_since = Some(Instant::now());
-                    // 一旦收到确凿的变化，这一轮就按确凿处理，不被后续的推测信号降级。
-                    entry.dirty_is_concrete |= matches!(classify(&signal), SignalKind::Concrete);
+                    let kind = classify(&signal);
+                    if kind == SignalKind::Ignorable {
+                        continue;
+                    }
+                    entry.pending.record(kind, Instant::now());
                     match signal {
                         WorkspaceWatchSignal::Change(hint) => {
                             entry.paths.insert(hint.path.as_str().to_owned());
@@ -163,9 +167,7 @@ fn reconcile(
                     // 刚订阅上就先当作脏的：没盯着的这段时间里发生了什么，谁也不知道。
                     // 不补这一次，上次退出后到这次启动前的改动会一直不进索引——
                     // 界面于是长期显示一份早已不成立的文件树。
-                    dirty_since: Some(Instant::now()),
-                    // 补这一次是确定要做的：没盯着的那段时间里发生了什么谁也不知道。
-                    dirty_is_concrete: true,
+                    pending: PendingChanges::initial(Instant::now()),
                     last_scan: None,
                     requested: false,
                     paths: HashSet::new(),
@@ -216,27 +218,51 @@ fn classify_hint(kind: WorkspaceChangeHintKind) -> SignalKind {
     }
 }
 
-/// 现在该不该扫这个工作区。
-///
-/// 两个条件缺一不可：变化已经停了一段时间（编辑器保存会连着抛好几个事件），
-/// 且距上次索引更新够久，避免持续写入让任务首尾相接。
-fn should_rescan(
-    dirty_for: Option<Duration>,
-    dirty_is_concrete: bool,
-    since_last_scan: Option<Duration>,
-) -> bool {
-    let Some(dirty_for) = dirty_for else {
-        return false;
-    };
-    if dirty_for < QUIET_PERIOD {
-        return false;
+#[derive(Default)]
+struct PendingChanges {
+    first: Option<Instant>,
+    last_change: Option<Instant>,
+    concrete: bool,
+}
+
+impl PendingChanges {
+    fn initial(now: Instant) -> Self {
+        let mut pending = Self::default();
+        pending.record(SignalKind::Concrete, now);
+        pending
     }
-    let floor = if dirty_is_concrete {
-        MIN_RESCAN_INTERVAL
-    } else {
-        SPECULATIVE_RESCAN_INTERVAL
-    };
-    since_last_scan.is_none_or(|elapsed| elapsed >= floor)
+
+    fn record(&mut self, kind: SignalKind, now: Instant) {
+        if kind == SignalKind::Ignorable {
+            return;
+        }
+        self.first.get_or_insert(now);
+        if kind == SignalKind::Concrete || !self.concrete {
+            self.last_change = Some(now);
+        }
+        self.concrete |= kind == SignalKind::Concrete;
+    }
+
+    fn ready(&self, now: Instant, last_scan: Option<Instant>) -> bool {
+        let Some(first) = self.first else {
+            return false;
+        };
+        let floor = if self.concrete {
+            MIN_RESCAN_INTERVAL
+        } else {
+            SPECULATIVE_RESCAN_INTERVAL
+        };
+        let maximum = if self.concrete {
+            MAX_PENDING_AGE
+        } else {
+            SPECULATIVE_RESCAN_INTERVAL
+        };
+        let settled = self
+            .last_change
+            .is_some_and(|last| now.duration_since(last) >= QUIET_PERIOD);
+        (settled || now.duration_since(first) >= maximum)
+            && last_scan.is_none_or(|last| now.duration_since(last) >= floor)
+    }
 }
 
 /// 扫描那些"已经安静下来"或被明确要求的工作区。
@@ -245,21 +271,15 @@ fn rescan_settled(
     board: &WorkspaceIndexBoard,
     watched: &mut HashMap<String, Watched>,
 ) {
-    let ready: Vec<String> = watched
+    let now = Instant::now();
+    let mut ready: Vec<_> = watched
         .iter()
-        .filter(|(_, entry)| {
-            entry.requested
-                || should_rescan(
-                    entry.dirty_since.map(|since| since.elapsed()),
-                    entry.dirty_is_concrete,
-                    entry.last_scan.map(|at| at.elapsed()),
-                )
-        })
-        .map(|(id, _)| id.clone())
-        .take(MAX_SCANS_PER_TICK)
+        .filter(|(_, entry)| entry.requested || entry.pending.ready(now, entry.last_scan))
+        .map(|(id, entry)| (id.clone(), !entry.requested, entry.pending.first))
         .collect();
+    ready.sort_by_key(|(_, automatic, first)| (*automatic, *first));
 
-    for workspace_id in ready {
+    for (workspace_id, _, _) in ready.into_iter().take(MAX_SCANS_PER_TICK) {
         let Ok(now) = crate::unix_epoch_millis() else {
             continue;
         };
@@ -275,7 +295,7 @@ fn rescan_settled(
 
         if let Some(entry) = watched.get_mut(&workspace_id) {
             entry.last_scan = Some(Instant::now());
-            entry.dirty_is_concrete = false;
+
             entry.requested = false;
             if completed {
                 entry.paths.clear();
@@ -284,7 +304,7 @@ fn rescan_settled(
             // 扫失败也把 dirty 清掉：它多半是目录暂时读不到，留着会让这一个工作区
             // 每隔 MIN_RESCAN_INTERVAL 重试一次直到进程结束。下一次真实变化会重新置脏。
             // 失败原因留在索引进度里，界面据此提示并提供重试。
-            entry.dirty_since = None;
+            entry.pending = PendingChanges::default();
         }
     }
 }
@@ -303,7 +323,7 @@ fn rescan(
         let mut services = services
             .lock()
             .map_err(|_| crate::ServiceError::new("workspace_index_unavailable"))?;
-        services.prepare_watched_rescan(workspace_id)
+        services.prepare_watched_rescan(workspace_id, paths)
     }
     .inspect_err(|error| log_service_failure(workspace_id, paths, "prepare", error, started))?;
     // 扫描与提交共用同一份指令：观测里的 id 由 snapshot_id 拼出来。
@@ -397,15 +417,10 @@ fn log_service_failure(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        MIN_RESCAN_INTERVAL, QUIET_PERIOD, SPECULATIVE_RESCAN_INTERVAL, SignalKind, classify_hint,
-        should_rescan,
-    };
-    use contexthub_workspace_fs::WorkspaceChangeHintKind;
-    use std::time::Duration;
+    use super::*;
 
     #[test]
-    fn 内容变化要重扫() {
+    fn concrete_changes_and_metadata_keep_their_signal_classes() {
         for kind in [
             WorkspaceChangeHintKind::Create,
             WorkspaceChangeHintKind::Modify,
@@ -413,78 +428,77 @@ mod tests {
             WorkspaceChangeHintKind::RenameFrom,
             WorkspaceChangeHintKind::RenameTo,
         ] {
-            assert_eq!(classify_hint(kind), SignalKind::Concrete, "{kind:?}");
+            assert_eq!(classify_hint(kind), SignalKind::Concrete);
         }
-    }
-
-    #[test]
-    fn 元数据变化不重扫否则扫描会喂给自己() {
-        // 扫描要读遍所有文件，macOS 因此更新 lastuseddate 扩展属性，FSEvents 报成
-        // 元数据变化。把它当成变化就会形成闭环，实测一小时把库从 166 MB 撑到 1.9 GB。
         assert_eq!(
             classify_hint(WorkspaceChangeHintKind::Metadata),
             SignalKind::Ignorable
         );
+        assert_eq!(
+            classify_hint(WorkspaceChangeHintKind::Other),
+            SignalKind::Speculative
+        );
     }
 
     #[test]
-    fn 刚订阅上就该补扫一次() {
-        // 没盯着的那段时间里发生的变化，只能靠这一次补扫发现。
-        assert!(should_rescan(Some(QUIET_PERIOD), true, None));
+    fn ordinary_changes_wait_for_quiet_and_rescan_interval() {
+        let now = Instant::now();
+        let pending = PendingChanges::initial(now);
+        assert!(!pending.ready(now + QUIET_PERIOD / 2, None));
+        assert!(pending.ready(now + QUIET_PERIOD, None));
+        assert!(!pending.ready(now + QUIET_PERIOD, Some(now)));
+        assert!(pending.ready(now + MIN_RESCAN_INTERVAL, Some(now)));
+        assert!(!PendingChanges::default().ready(now + Duration::from_hours(1), Some(now)));
     }
 
     #[test]
-    fn 没有变化时不扫() {
-        assert!(!should_rescan(None, true, None));
-    }
-
-    #[test]
-    fn 变化还没停下来时不扫() {
-        // 编辑器保存常常是写临时文件再改名，中间连着抛好几个事件。
-        assert!(!should_rescan(Some(QUIET_PERIOD / 2), true, None));
-    }
-
-    #[test]
-    fn 安静下来之后才扫() {
-        assert!(should_rescan(Some(QUIET_PERIOD), true, None));
-    }
-
-    #[test]
-    fn 距上次扫描太近时先等着() {
-        // 没有这个下限，一次持续写入会让全量扫描首尾相接地排队跑。
-        assert!(!should_rescan(
-            Some(QUIET_PERIOD),
-            true,
-            Some(MIN_RESCAN_INTERVAL / 2)
+    fn continuous_writes_have_a_maximum_wait_without_bypassing_rescan_floor() {
+        let now = Instant::now();
+        let mut pending = PendingChanges::default();
+        for seconds in 0..=30 {
+            let at = now + Duration::from_secs(seconds);
+            pending.record(SignalKind::Concrete, at);
+            assert_eq!(pending.ready(at, Some(now)), seconds == 30);
+        }
+        assert!(!pending.ready(
+            now + MAX_PENDING_AGE,
+            (now + MAX_PENDING_AGE).checked_sub(Duration::from_secs(1))
         ));
     }
 
     #[test]
-    fn 间隔够了就继续扫() {
-        assert!(should_rescan(
-            Some(QUIET_PERIOD),
-            true,
-            Some(MIN_RESCAN_INTERVAL)
-        ));
+    fn speculative_noise_does_not_postpone_a_settled_concrete_change() {
+        let now = Instant::now();
+        let mut pending = PendingChanges::initial(now);
+        for millis in [500, 1000, 1500, 2000] {
+            pending.record(SignalKind::Speculative, now + Duration::from_millis(millis));
+        }
+        assert!(pending.ready(now + QUIET_PERIOD, None));
+        assert!(pending.concrete);
     }
 
     #[test]
-    fn 长时间没动过的工作区不会因为间隔到了就凭空扫一次() {
-        assert!(!should_rescan(None, true, Some(Duration::from_hours(1))));
+    fn continuous_speculation_stays_sparse_but_cannot_starve_forever() {
+        let now = Instant::now();
+        let mut pending = PendingChanges::default();
+        for seconds in 0..=600 {
+            let at = now + Duration::from_secs(seconds);
+            pending.record(SignalKind::Speculative, at);
+            assert_eq!(pending.ready(at, Some(now)), seconds == 600);
+        }
+        pending = PendingChanges::default();
+        pending.record(SignalKind::Ignorable, now);
+        assert!(!pending.ready(now + SPECULATIVE_RESCAN_INTERVAL, Some(now)));
     }
 
     #[test]
-    fn 推测信号按很稀疏的下限补扫() {
-        // iCloud 目录几乎不间断产生这类信号，按普通间隔跟着扫等于一直在扫。
-        assert!(!should_rescan(
-            Some(QUIET_PERIOD),
-            false,
-            Some(MIN_RESCAN_INTERVAL)
-        ));
-        assert!(should_rescan(
-            Some(QUIET_PERIOD),
-            false,
-            Some(SPECULATIVE_RESCAN_INTERVAL)
-        ));
+    fn events_after_a_scan_start_a_new_pending_window() {
+        let now = Instant::now();
+        let mut pending = PendingChanges::default();
+        let next = now + Duration::from_secs(1);
+        pending.record(SignalKind::Concrete, next);
+        assert_eq!(pending.first, Some(next));
+        assert!(!pending.ready(next + QUIET_PERIOD, Some(now)));
+        assert!(pending.ready(now + MIN_RESCAN_INTERVAL, Some(now)));
     }
 }

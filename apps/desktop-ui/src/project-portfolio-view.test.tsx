@@ -6,6 +6,11 @@ vi.mock("./app-server-rpc", () => ({ rpc }));
 
 const { ProjectPortfolioPage } = await import("./project-portfolio");
 
+const workspaces = [
+        { workspaceId: "workspace-1", workspaceKind: "local", displayName: "测试工作区", localRoot: "/tmp/workspace-1", localStatus: "ready", stateRevision: 1, platformBound: false, platformRevision: null, teamSpaceId: null, managedRoot: null, deviceId: null, baselineRevision: null, changeCursor: null, permissionRole: null, permissionRevision: null },
+        { workspaceId: "workspace-2", workspaceKind: "local", displayName: "辅助工作区", localRoot: "/tmp/workspace-2", localStatus: "ready", stateRevision: 1, platformBound: false, platformRevision: null, teamSpaceId: null, managedRoot: null, deviceId: null, baselineRevision: null, changeCursor: null, permissionRole: null, permissionRevision: null },
+      ];
+
 afterEach(() => {
   cleanup();
   rpc.mockReset();
@@ -14,7 +19,7 @@ afterEach(() => {
 describe("项目总览表格", () => {
   test("后台更新保留已显示表格和创建表单，完成后更新内容", async () => {
     const item = { projectId: "project-1", displayName: "测试项目", goal: "目标", status: "active", workspaceId: null, workspaceIds: [], stateRevision: 0, updatedAt: 1, activePhases: [], nextPhaseName: null, taskTotal: 0, taskCompleted: 0, deliverableAccepted: 0, deliverableTotal: 0, blockerCount: 0, decisionCount: 0, incidentCount: 0 };
-    rpc.mockResolvedValueOnce({ items: [item] });
+    rpc.mockResolvedValueOnce({ items: [item], workspaces: [] });
     const props = { createIntent: 0, deleteProjectId: null, eventSequence: 0, onAddWorkspace: vi.fn(), onEditProject: vi.fn(), onMessage: vi.fn(), onOpenProgress: vi.fn(), workspaces: [] };
     const view = render(<ProjectPortfolioPage {...props}/>);
     const table = await screen.findByRole("table");
@@ -26,7 +31,7 @@ describe("项目总览表格", () => {
     expect(screen.getByRole("table")).toBe(table);
     expect(screen.queryByText("正在读取各项目推进事实…")).toBeNull();
     expect((screen.getByLabelText("项目名称") as HTMLInputElement).value).toBe("正在填写");
-    await act(async () => finish({ items: [{ ...item, displayName: "项目新名称" }] }));
+    await act(async () => finish({ items: [{ ...item, displayName: "项目新名称" }], workspaces: [] }));
     expect(screen.getByRole("table")).toBe(table);
     expect(screen.getByRole("button", { name: "项目新名称" })).toBeTruthy();
     expect((screen.getByLabelText("项目名称") as HTMLInputElement).value).toBe("正在填写");
@@ -34,6 +39,7 @@ describe("项目总览表格", () => {
 
   test("以带表头的表格展示项目，并保留进入、编辑和删除入口", async () => {
     rpc.mockResolvedValue({
+      workspaces,
       items: [{
         projectId: "project-1",
         displayName: "测试项目",
@@ -67,10 +73,7 @@ describe("项目总览表格", () => {
       onEditProject={onEditProject}
       onMessage={vi.fn()}
       onOpenProgress={onOpenProgress}
-      workspaces={[
-        { workspaceId: "workspace-1", workspaceKind: "local", displayName: "测试工作区", localRoot: "/tmp/workspace-1", localStatus: "ready", stateRevision: 1, platformBound: false, platformRevision: null, teamSpaceId: null, managedRoot: null, deviceId: null, baselineRevision: null, changeCursor: null, permissionRole: null, permissionRevision: null },
-        { workspaceId: "workspace-2", workspaceKind: "local", displayName: "辅助工作区", localRoot: "/tmp/workspace-2", localStatus: "ready", stateRevision: 1, platformBound: false, platformRevision: null, teamSpaceId: null, managedRoot: null, deviceId: null, baselineRevision: null, changeCursor: null, permissionRole: null, permissionRevision: null },
-      ]}/>
+      workspaces={workspaces}/>
     );
 
     const table = await screen.findByRole("table");

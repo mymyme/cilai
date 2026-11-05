@@ -27,6 +27,7 @@ use contexthub_workbench_runtime::{
 use ai_runtime::AiRuntimeManager;
 use supervisor::{AppServerPhase, AppServerStatus, AppServerSupervisor};
 
+mod command_executor;
 mod headless_data;
 mod host_commands_generated;
 mod macos_disk_access;
@@ -51,6 +52,10 @@ mod workspace_permissions;
 #[derive(serde::Deserialize)]
 #[serde(untagged)]
 enum Incoming {
+    Shutdown {
+        #[serde(rename = "hostShutdown")]
+        host_shutdown: bool,
+    },
     HostResponse {
         #[serde(rename = "hostResponse")]
         host_response: u64,
@@ -416,7 +421,26 @@ fn initialize_ai_runtime(data: &std::path::Path) -> Result<(), String> {
     result
 }
 
+static RUNTIME_INITIALIZING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+struct RuntimeInitialization;
+
+impl RuntimeInitialization {
+    fn begin() -> Self {
+        RUNTIME_INITIALIZING.store(true, std::sync::atomic::Ordering::Release);
+        Self
+    }
+}
+
+impl Drop for RuntimeInitialization {
+    fn drop(&mut self) {
+        RUNTIME_INITIALIZING.store(false, std::sync::atomic::Ordering::Release);
+    }
+}
+
 fn app_runtime_status() -> Result<serde_json::Value, String> {
+    let initializing = RUNTIME_INITIALIZING.load(std::sync::atomic::Ordering::Acquire);
     let status = supervisor().status();
     let data_state = personal_data::state();
     let initialization_error = runtime_initialization_error()
@@ -425,7 +449,8 @@ fn app_runtime_status() -> Result<serde_json::Value, String> {
         .clone();
     let profile = current_profile().ok();
     let automation = automation_runtime_summary(
-        status.phase == AppServerPhase::Running
+        !initializing
+            && status.phase == AppServerPhase::Running
             && initialization_error.is_none()
             && data_state == "idle",
         profile.as_ref(),
@@ -433,7 +458,12 @@ fn app_runtime_status() -> Result<serde_json::Value, String> {
     );
     let mut value = encode(status)?;
     value["personalDataState"] = encode(data_state)?;
-    value["runtimeInitializationError"] = encode(initialization_error)?;
+    value["runtimeInitializing"] = encode(initializing)?;
+    value["runtimeInitializationError"] = encode(if initializing {
+        None
+    } else {
+        initialization_error
+    })?;
     value["profileId"] = encode(profile.map(|profile| profile.id))?;
     value["automationSummary"] = encode(automation)?;
     Ok(value)
@@ -771,9 +801,12 @@ fn handle_inner(command: &str, args: &serde_json::Value) -> Result<serde_json::V
         )),
         "app_server_status" => app_runtime_status(),
         "app_server_restart" => {
-            personal_page_ai::revoke_all()?;
-            supervisor().restart()?;
-            initialize_ai_runtime(&current_profile()?.data_dir)?;
+            {
+                let _initialization = RuntimeInitialization::begin();
+                personal_page_ai::revoke_all()?;
+                supervisor().restart()?;
+                initialize_ai_runtime(&current_profile()?.data_dir)?;
+            }
             app_runtime_status()
         }
         // AI 运行时：单调用转发，参数与返回结构与现有壳一致
@@ -1168,13 +1201,33 @@ fn handle_inner(command: &str, args: &serde_json::Value) -> Result<serde_json::V
             }))
         }
 
+        "ai_message_receipt" => {
+            let expected: String = arg(args, "profile_id")?;
+            if !active_profile()
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .as_ref()
+                .is_some_and(|profile| profile.id == expected)
+            {
+                return Err("ai_message_receipt_scope_mismatch".into());
+            }
+            let message: String = arg(args, "client_message_id")?;
+            let conversation: Option<String> = arg(args, "conversation_id")?;
+            ai_manager().message_receipt(&message, conversation.as_deref())
+        }
         "ai_runtime_query" => encode(ai_manager().query(&arg(args, "request")?)?),
         "ai_runtime_snapshot" => {
-            if arg::<Option<bool>>(args, "refresh_native_catalog")?.unwrap_or(true) {
-                encode(ai_manager().snapshot()?)
-            } else {
-                encode(ai_manager().live_snapshot())
-            }
+            let refresh = arg::<Option<bool>>(args, "refresh_native_catalog")?.unwrap_or(true);
+            let conversation: Option<String> = arg(args, "conversation_id")?;
+            encode(ai_manager().workbench_snapshot(refresh, conversation.as_deref())?)
+        }
+        "ai_conversation_history_page" => {
+            let conversation: String = arg(args, "conversation_id")?;
+            encode(ai_manager().workbench_history_page(
+                &conversation,
+                arg(args, "archived")?,
+                arg::<Option<_>>(args, "cursor")?.as_ref(),
+            )?)
         }
         "desktop_update_preflight" => {
             let mut blockers = ai_manager().tenant_switch_blockers();
@@ -1191,7 +1244,11 @@ fn handle_inner(command: &str, args: &serde_json::Value) -> Result<serde_json::V
         )?),
         "ai_runtime_activity_snapshot" => {
             let run_ids: Vec<String> = arg(args, "run_ids")?;
-            encode(ai_manager().activity_snapshot(&run_ids)?)
+            encode(ai_manager().activity_snapshot(&run_ids, &arg(args, "event_cursors")?)?)
+        }
+        "ai_runtime_approval_snapshot" => {
+            let run_ids: Vec<String> = arg(args, "run_ids")?;
+            encode(ai_manager().activity_approvals(&run_ids)?)
         }
 
         // 工作区：路径校验后调用平台能力
@@ -1307,11 +1364,30 @@ fn write_response(id: u64, result: Result<serde_json::Value, String>) -> Result<
     write_line(&encoded)
 }
 
+fn timed_startup<T>(stage: &str, run: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    let started = Instant::now();
+    let result = run();
+    if std::env::var_os("CILAI_PERSONAL_STARTUP_TIMING").as_deref()
+        == Some(std::ffi::OsStr::new("1"))
+    {
+        let status = if result.is_ok() { "ready" } else { "failed" };
+        eprintln!(
+            "personal_startup_timing stage={stage} ms={} status={status}",
+            started.elapsed().as_millis()
+        );
+    }
+    result
+}
+
 fn initialize_host_services() {
-    let initial = local_profile().and_then(|profile| {
+    let initial = timed_startup("profile", || {
+        let profile = local_profile()?;
         set_active_profile(profile.clone())?;
-        start_app_server(&profile.data_dir)?;
-        initialize_ai_runtime(&profile.data_dir)
+        Ok(profile)
+    })
+    .and_then(|profile| {
+        timed_startup("service", || start_app_server(&profile.data_dir))?;
+        timed_startup("history", || initialize_ai_runtime(&profile.data_dir))
     });
     if let Err(error) = initial {
         if supervisor().status().phase == AppServerPhase::Stopped
@@ -1407,12 +1483,12 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(1);
     }
-    initialize_host_services();
-
     // 读取独立成线程：反向调用发生在命令处理过程中，若仍由本线程读取，等回执时
     // 没有人在读管道，必然自锁。回执直接交给等待者，命令投递到队列由本线程处理。
-    let (commands, incoming) = std::sync::mpsc::channel::<QueuedRequest>();
+    let initializing = RuntimeInitialization::begin();
+    let (commands, incoming) = std::sync::mpsc::sync_channel::<QueuedRequest>(64);
     std::thread::spawn(move || {
+        let mut commands = Some(commands);
         let stdin = std::io::stdin();
         for line in stdin.lock().lines() {
             let Ok(line) = line else { break };
@@ -1428,7 +1504,27 @@ fn main() {
                     host_response,
                     error.map_or_else(|| Ok(result.unwrap_or(serde_json::Value::Null)), Err),
                 ),
+                Ok(Incoming::Shutdown {
+                    host_shutdown: true,
+                }) => {
+                    commands.take();
+                }
+                Ok(Incoming::Shutdown {
+                    host_shutdown: false,
+                }) => {
+                    eprintln!("无效的宿主退出请求");
+                }
                 Ok(Incoming::Command(request)) => {
+                    let Some(commands) = &commands else {
+                        let _ = write_response(request.id, Err("host_shutting_down".into()));
+                        continue;
+                    };
+                    if request.command == "app_server_status"
+                        && RUNTIME_INITIALIZING.load(std::sync::atomic::Ordering::Acquire)
+                    {
+                        let _ = write_response(request.id, app_runtime_status());
+                        continue;
+                    }
                     let unified_search_id = if unified_search_params(&request).is_some() {
                         Some(supervisor().begin_unified_search())
                     } else {
@@ -1437,18 +1533,23 @@ fn main() {
                         }
                         None
                     };
-                    if commands
-                        .send(QueuedRequest {
-                            request,
-                            unified_search_id,
-                            received_at: std::time::Instant::now(),
-                        })
-                        .is_err()
-                    {
-                        if unified_search_id.is_some() {
-                            supervisor().cancel_unified_search();
+                    let queued = QueuedRequest {
+                        request,
+                        unified_search_id,
+                        received_at: std::time::Instant::now(),
+                    };
+                    match commands.try_send(queued) {
+                        Ok(()) => {}
+                        Err(std::sync::mpsc::TrySendError::Full(queued)) => {
+                            if unified_search_id.is_some() {
+                                supervisor().cancel_unified_search();
+                            }
+                            let _ = write_response(
+                                queued.request.id,
+                                Err("host_command_capacity_exceeded".into()),
+                            );
                         }
-                        break;
+                        Err(std::sync::mpsc::TrySendError::Disconnected(_)) => break,
                     }
                 }
                 // 无法解析的行没有编号可回，只能记到标准错误：回一条编号为零的响应，
@@ -1458,10 +1559,12 @@ fn main() {
         }
     });
 
+    initialize_host_services();
+    drop(initializing);
     let catalog_publisher = start_model_catalog_publisher();
-    dispatch_commands(&incoming);
+    let dispatch = dispatch_commands(&incoming);
     catalog_publisher.abort();
-    if let Err(reason) = finish_host_shutdown() {
+    if let Err(reason) = finish_host_shutdown().and(dispatch) {
         eprintln!("{reason}");
         std::process::exit(1);
     }
@@ -1518,12 +1621,18 @@ fn start_model_catalog_publisher() -> tokio::task::JoinHandle<()> {
 }
 
 /// 逐条受理命令：发送类命令交给独立线程，其余按到达顺序执行。
-fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) {
+fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) -> Result<(), String> {
+    use command_executor::CommandExecutor;
+    let files = CommandExecutor::new("host-files", 4, 32).map_err(|error| error.to_string())?;
+    let commands =
+        CommandExecutor::new("host-commands", 4, 32).map_err(|error| error.to_string())?;
     let in_flight = Arc::new(InFlight::default());
     let mut next_follow_up = Instant::now() + FOLLOW_UP_INTERVAL;
     loop {
         let queued = match receive_with_follow_up(incoming, &mut next_follow_up, || {
-            dispatch_follow_up(&in_flight);
+            if files.is_idle() && commands.is_idle() {
+                dispatch_follow_up(&in_flight);
+            }
         }) {
             Ok(queued) => queued,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
@@ -1537,11 +1646,25 @@ fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) {
             continue;
         }
         if queued.unified_search_id.is_none() && runs_in_parallel(&request.command, &request.args) {
-            dispatch_in_parallel(request, queued.received_at, &in_flight);
+            let file_method = matches!(
+                request.command.as_str(),
+                "preview_open"
+                    | "text_resource_read"
+                    | "workspace_pdf_page_count"
+                    | "workspace_pdf_read_bytes"
+                    | "workspace_render_pdf_page"
+            ) || (request.command == "app_server_request"
+                && request.args["method"]
+                    .as_str()
+                    .is_some_and(waits_for_local_files));
+            let executor = if file_method { &files } else { &commands };
+            dispatch_in_parallel(request, queued.received_at, executor);
             continue;
         }
         if command_changes_local_context(&request.command) {
             // 切换数据上下文前等并行中的命令做完，它们是在旧上下文里受理的
+            files.completion_fence().wait();
+            commands.completion_fence().wait();
             in_flight.wait_idle();
         }
         let handling_started = std::time::Instant::now();
@@ -1587,7 +1710,10 @@ fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) {
         }
     }
     // 壳关闭输入即退出；并行中的发送各自持有事务，等它们写完回执再结束进程
+    files.wait_idle();
+    commands.wait_idle();
     in_flight.wait_idle();
+    Ok(())
 }
 
 const FOLLOW_UP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
@@ -1787,10 +1913,10 @@ fn submit_message(id: u64, args: &serde_json::Value, new_conversation: bool) {
 fn dispatch_in_parallel(
     request: Request,
     received_at: std::time::Instant,
-    in_flight: &Arc<InFlight>,
+    executor: &command_executor::CommandExecutor,
 ) {
     let id = request.id;
-    let spawned = spawn_in_flight(in_flight, format!("host-{}", request.command), move || {
+    let submitted = executor.submit(None, move || {
         if matches!(
             request.command.as_str(),
             "ai_message_submit" | "ai_conversation_submit"
@@ -1818,13 +1944,14 @@ fn dispatch_in_parallel(
             }
         }
     });
-    if let Err(error) = spawned
-        && let Err(write_error) = write_response(id, Err(format!("命令线程无法启动：{error}")))
+    if let Err(error) = submitted
+        && let Err(write_error) = write_response(id, Err(error.into()))
     {
         eprintln!("并行命令回执写出失败：{write_error}");
     }
 }
 
+#[cfg(test)]
 fn spawn_in_flight(
     in_flight: &Arc<InFlight>,
     name: String,

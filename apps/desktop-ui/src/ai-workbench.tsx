@@ -31,6 +31,7 @@ type ApplicationContextSelection
 } from "./ai-runtime";
 import { unclassifiedConversationContext } from "./ai-workbench-context";
 import "./ai-workbench.css";
+import { readAiMessageReceipt } from "./ai-message-receipt";
 import type { MessageSink } from "./app-message";
 import { rpc,sha256 } from "./app-server-rpc";
 import { ArtifactVisual } from "./artifact-preview";
@@ -305,6 +306,7 @@ type PendingOutgoingMessage = {
   attachments: AiMessageAttachment[];
   referencedMaterials?: AiMaterialReference[];
   createdAt: number;
+  unconfirmed?: boolean;
   recovery?: {
     create: PendingConversationCreate | null;
     attachments: DraftAttachment[];
@@ -471,7 +473,7 @@ export function AiWorkbenchPage(props: Props) {
   const workspaceRef = useRef(props.workspace);
   workspaceRef.current = props.workspace;
   const [selectedConversationId, setSelectedConversationId] = useConversationSessionState<string | null>("selectedConversationId", readLastViewedConversationId);
-  const { snapshot, setSnapshot, snapshotLoaded, snapshotError, refresh } = useAiRuntimeSnapshot({ workspaceId: props.workspace?.workspaceId, runtimeRevision, onMessage: props.onMessage, setSelectedConversationId });
+  const { snapshot, setSnapshot, snapshotLoaded, snapshotError, refresh, loadOlder, olderLoading, olderError } = useAiRuntimeSnapshot({ workspaceId: props.workspace?.workspaceId, runtimeRevision, onMessage: props.onMessage, selectedConversationId, setSelectedConversationId });
   const catalog = useModelCatalog(snapshotLoaded);
   useEffect(() => {
     if (!pageActive) return;
@@ -673,8 +675,6 @@ export function AiWorkbenchPage(props: Props) {
   useLayoutEffect(() => {
     const node = draftBox.current;
     if (!(node instanceof HTMLTextAreaElement)) return;
-    node.style.height = "auto";
-    node.style.height = `${node.scrollHeight + 1}px`;
     const output = messageList.current;
     if (output && followingLatestOutputRef.current) output.scrollTop = output.scrollHeight;
   }, [draft]);
@@ -740,6 +740,9 @@ export function AiWorkbenchPage(props: Props) {
    */
   const viewedConversationId = pendingCreate ? null : selectedConversationId;
   const messages = viewedConversationId ? messagesByConversation.get(viewedConversationId) ?? [] : [];
+  const historyReady = !viewedConversationId || snapshot.historyWindow === undefined
+    || snapshot.historyWindow?.conversationId === viewedConversationId;
+  const earlierHistory = historyReady && Boolean(snapshot.historyWindow?.previousCursor);
   useEffect(() => {
     setPendingOutgoing((current) => {
       const remaining = current.filter((item) => !snapshot.messages.some((message) => message.role === "user" && message.messageId === item.pendingId && (!item.conversationId || message.conversationId === item.conversationId)));
@@ -1274,7 +1277,7 @@ export function AiWorkbenchPage(props: Props) {
     return { content, applicationContext: null };
   };
   useEffect(() => {
-    if (!snapshotLoaded || !catalog.loaded || initializedSelection === draftKey || modelConnectionSelectionRequired) return;
+    if (!snapshotLoaded || !historyReady || !catalog.loaded || initializedSelection === draftKey || modelConnectionSelectionRequired) return;
     setInitializedSelection(draftKey);
     const latestRun = snapshot.runs
       .filter((run) => run.conversationId === conversation?.conversationId)
@@ -1310,7 +1313,7 @@ export function AiWorkbenchPage(props: Props) {
     setStarterPermissionMode(selection.modelId
       ? rememberedApprovalMode
       : latestRun?.sandboxMode === "workspace-write" ? "workspace-write" : "read-only");
-  }, [draftKey, snapshotLoaded, catalog.loaded, props.profileId]);
+  }, [draftKey, snapshotLoaded, historyReady, catalog.loaded, props.profileId]);
 
   const rememberExecutionSelection = (selection: ExecutionSelection) => {
     try {
@@ -1540,7 +1543,7 @@ export function AiWorkbenchPage(props: Props) {
       delete next[activeDraftKey];
       return next;
     });
-    setPendingOutgoing((current) => [...current, {
+    const outgoing: PendingOutgoingMessage = {
       pendingId,
       draftKey: activeDraftKey,
       conversationId: targetConversationId,
@@ -1549,7 +1552,8 @@ export function AiWorkbenchPage(props: Props) {
       referencedMaterials: draftMaterials,
       createdAt: submittedAt,
       recovery: { create: pendingCreate, attachments: draftAttachments, referencedMaterials: draftMaterials, applicationContext, selectedSkillId: selectedSkillId ?? null, agentId: starterAgentId, modelOverride: starterModelOverride, ...(modelSelection ? { modelSelection } : {}), ...(historyConsent ? { historyConsent } : {}), reasoningEffort: effectiveStarterReasoningEffort, planning: false, permissionMode: effectiveStarterPermissionMode, file: starterFile },
-    }]);
+    };
+    setPendingOutgoing((current) => [...current, outgoing]);
     setDraftAttachments([]);
     setDraftMaterials([]);
     let failure: unknown = null;
@@ -1658,26 +1662,23 @@ export function AiWorkbenchPage(props: Props) {
     } catch (error) {
       failure = error;
     } finally {
-      /*
-       * 成功时不再等整份快照：运行已并入本地快照，回复轮询会带回这条用户消息，
-       * 本地条目随即与之配对撤掉。只有失败才需要重取快照，判断消息是否已被记下。
-       */
       if (failure) {
-        const latest = await refresh();
         props.onMessage(aiErrorMessage(failure), "error");
-        /*
-         * 草稿只在服务端没记下这条消息时才退回输入框。运行启动失败时消息早已写入，
-         * 退回草稿会引着用户再发一遍，服务端就多一条一模一样的。
-         */
-        const recorded = Boolean(latest?.messages.some((message) => message.role === "user" && message.messageId === pendingId));
-        if (!recorded) {
+        const receipt = await readAiMessageReceipt(props.profileId, pendingId, null).catch(() => null);
+        if (!receipt) {
+          preserveUnconfirmedSend({ ...outgoing, content: submittedContent });
+        } else if (receipt.status === "preparing") {
+          if (receipt.conversationId) adoptSubmission(pendingId, receipt.conversationId);
+          void refresh(false);
+        } else if (receipt.status !== "recorded") {
           setDrafts((current) => ({ ...current, [activeDraftKey]: originalContent }));
           setDraftAttachments((current) => [...draftAttachments, ...current]);
           setDraftMaterialGroups((current) => ({ ...current, [activeDraftKey]: [...draftMaterials, ...(current[activeDraftKey] ?? [])] }));
         } else {
           draftAttachments.forEach((item) => URL.revokeObjectURL(item.previewUrl));
         }
-        setPendingOutgoing((current) => current.filter((item) => item.pendingId !== pendingId));
+        if (receipt?.status !== "preparing") setPendingOutgoing((current) => current.filter((item) => item.pendingId !== pendingId));
+        if (receipt?.status === "recorded") void refresh(false);
       }
       finishSending(activeDraftKey);
       if (accepted) void refresh(false);
@@ -1708,7 +1709,7 @@ export function AiWorkbenchPage(props: Props) {
     let submittedContent = originalContent;
     let submittedApplicationContext = applicationContext;
     let invocationResolved = false;
-    setPendingOutgoing((current) => [...current, {
+    const outgoing: PendingOutgoingMessage = {
       pendingId,
       draftKey: activeDraftKey,
       conversationId: conversation.conversationId,
@@ -1717,7 +1718,8 @@ export function AiWorkbenchPage(props: Props) {
       referencedMaterials: draftMaterials,
       createdAt: submittedAt,
       recovery: { create: pendingCreate, attachments: draftAttachments, referencedMaterials: draftMaterials, applicationContext, selectedSkillId: selectedSkillId ?? null, agentId: starterAgentId, modelOverride: starterModelOverride, ...(modelSelection ? { modelSelection } : {}), ...(historyConsent ? { historyConsent } : {}), reasoningEffort: effectiveStarterReasoningEffort, planning: false, permissionMode: effectiveStarterPermissionMode, file: starterFile },
-    }]);
+    };
+    setPendingOutgoing((current) => [...current, outgoing]);
     setDraftAttachments([]);
     setDraftMaterials([]);
     try {
@@ -1767,18 +1769,13 @@ export function AiWorkbenchPage(props: Props) {
       });
     } catch (error) {
       props.onMessage(aiErrorMessage(error), "error");
-      /*
-       * 失败后必须重取一次快照。运行启动失败时，用户消息在此之前就已写入服务端，
-       * 只有运行被标成失败；不刷新的话这条消息就卡在服务端看不见，直到下一次发送
-       * 成功才连同新消息一起冒出来——界面上看起来就是一次发出去两三条。
-       *
-       * 草稿是否退回也由这次快照决定：已经记下的不退回，否则用户照着输入框里
-       * 残留的内容再发一遍，服务端就多一条一模一样的消息。
-       */
-      const latest = await refresh();
-      const recorded = Boolean(latest?.messages.some((message) => message.conversationId === conversation.conversationId
-        && message.role === "user" && message.messageId === pendingId));
-      if (!recorded) {
+      const receipt = await readAiMessageReceipt(props.profileId, pendingId, conversation.conversationId).catch(() => null);
+      if (!receipt) {
+        preserveUnconfirmedSend({ ...outgoing, content: submittedContent });
+      } else if (receipt.status === "preparing") {
+        if (receipt.conversationId) adoptSubmission(pendingId, receipt.conversationId);
+        void refresh(false);
+      } else if (receipt.status !== "recorded") {
         if (!draftsRef.current[activeDraftKey]) {
           setDraft(originalContent);
           setDraftAttachments((current) => [...draftAttachments, ...current]);
@@ -1806,8 +1803,27 @@ export function AiWorkbenchPage(props: Props) {
         draftAttachments.forEach((item) => URL.revokeObjectURL(item.previewUrl));
         setDraftAttachments((current) => current.filter((item) => !draftAttachments.some((sent) => sent.attachment.attachmentId === item.attachment.attachmentId)));
       }
-      setPendingOutgoing((current) => current.filter((item) => item.pendingId !== pendingId));
+      if (receipt?.status !== "preparing") setPendingOutgoing((current) => current.filter((item) => item.pendingId !== pendingId));
+      if (receipt?.status === "recorded") void refresh(false);
     } finally { finishSending(activeDraftKey); }
+  };
+
+  const preserveUnconfirmedSend = (item: PendingOutgoingMessage) => {
+    setRecoveredOutgoing(previous => previous.some(entry => entry.pendingId === item.pendingId)
+      ? previous : [...previous, { ...item, unconfirmed: true }]);
+  };
+
+  const reconcileOutgoing = async (item: PendingOutgoingMessage) => {
+    try {
+      const receipt = await readAiMessageReceipt(props.profileId, item.pendingId, item.conversationId);
+      if (receipt.status === "preparing") { props.onMessage("原发送仍在准备。"); return; }
+      if (receipt.status === "recorded") {
+        setRecoveredOutgoing(current => current.filter(entry => entry.pendingId !== item.pendingId));
+        void refresh(false);
+        return;
+      }
+      restoreOutgoing(item);
+    } catch { props.onMessage("仍无法核对原发送结果。", "error"); }
   };
 
   const restoreOutgoing = (item: PendingOutgoingMessage) => {
@@ -2239,7 +2255,20 @@ export function AiWorkbenchPage(props: Props) {
   // 新建对话提交后到对话建成之间锁住输入；对话进行中不锁，员工可以边等边写下一句。
   const composerLocked = historyTransfer.busy || (!conversationStarted && busy);
   const infoPanelContext = conversationInfoContext ?? pendingCreate?.context ?? null;
-  const submitComposer = () => conversationStarted ? send() : startConversation();
+  const submitComposer = () => {
+    if (!historyReady) return;
+    return conversationStarted ? send() : startConversation();
+  };
+  const expandHistory = async () => {
+    const root = messageList.current;
+    if (root) historyScrollRestore.current = { height: root.scrollHeight, top: root.scrollTop };
+    markMessageListUserScroll();
+    if (visibleMessages.length > renderedMessageCount || earlierHistory && await loadOlder()) {
+      setRenderedMessageCount(count => count + 100);
+    } else {
+      historyScrollRestore.current = null;
+    }
+  };
   const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && slashInvocationQuery !== null) { event.preventDefault(); setDraft(""); return; }
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
@@ -2304,7 +2333,8 @@ export function AiWorkbenchPage(props: Props) {
             </div>
             {visible.map((item) => {
               const itemMessages = messagesByConversation.get(item.conversationId) ?? [];
-              const topic = conversationTopic(item, itemMessages);
+              const preview = snapshot.catalogPreviews?.[item.conversationId];
+              const topic = conversationTopic(item, itemMessages, preview?.firstPrompt);
               return <div
               className={`ai-conversation-item${item.conversationId === selectedConversationId && !pendingCreate ? " selected" : ""}`}
               key={item.conversationId}
@@ -2318,7 +2348,7 @@ export function AiWorkbenchPage(props: Props) {
                   { label: "归档会话", onSelect: () => void archiveConversation(item.conversationId) },
                 ]));
               }}>
-                <button aria-current={item.conversationId === selectedConversationId && !pendingCreate ? "true" : undefined} className="ai-conversation-open" onClick={() => openConversation(item.conversationId)} title={topic} type="button"><span className="ai-conversation-copy"><strong>{topic}</strong><small>{conversationSummary(item, itemMessages, Object.values(skillInstallations), snapshot.runs)}</small></span><span className="ai-conversation-meta"><time>{timelineMoment(item.updatedAt)}</time>{runningConversationIds.has(item.conversationId) ? <span className="ai-running-mark"/> : null}</span></button>
+                <button aria-current={item.conversationId === selectedConversationId && !pendingCreate ? "true" : undefined} className="ai-conversation-open" onClick={() => openConversation(item.conversationId)} title={topic} type="button"><span className="ai-conversation-copy"><strong>{topic}</strong><small>{conversationSummary(item, itemMessages.length ? itemMessages : preview ? [preview.latest] : [], Object.values(skillInstallations), snapshot.runs)}</small></span><span className="ai-conversation-meta"><time>{timelineMoment(item.updatedAt)}</time>{runningConversationIds.has(item.conversationId) ? <span className="ai-running-mark"/> : null}</span></button>
                 <button aria-label={`归档会话：${topic}`} className="ai-conversation-archive" aria-busy={archivingIds.has(item.conversationId)} disabled={actionBusy || sendingDraftKeys.has(`conversation:${item.conversationId}`) || archivingIds.has(item.conversationId)} onClick={() => void archiveConversation(item.conversationId)} title={archivingIds.has(item.conversationId) ? "正在归档…" : "归档会话"} type="button">{archivingIds.has(item.conversationId) ? <span aria-label="正在归档" className="ai-archive-pending"/> : <ArchiveIcon/>}</button>
               </div>;
             })}
@@ -2348,7 +2378,7 @@ export function AiWorkbenchPage(props: Props) {
         <div className={`ai-conversation-shell${conversationInfoOpen ? " info-open" : ""}${conversationInfoOpen && conversationInfoDocked ? " info-docked" : " info-popover"}`}>
           <div className="ai-conversation-main">
         {failedOutgoing.map((item) => <div className="ai-recovered-send" data-failed="true" key={item.pendingId} role="alert"><div><strong>发送失败</strong><span>{aiErrorMessage(submissionsById.get(item.pendingId)?.reason ?? "")}</span><span>{item.content || item.attachments.map((attachment) => attachment.fileName).join("、")}</span></div><button type="button" onClick={() => void copyMessage(item.content)}>复制</button><button type="button" disabled={busy} onClick={() => restoreOutgoing(item)}>恢复草稿</button><button type="button" aria-label="移除发送失败记录" onClick={() => discardFailedOutgoing(item)}><CloseIcon/></button></div>)}
-        {recoveredOutgoing.map((item) => <div className="ai-recovered-send" key={item.pendingId} role="status"><div><strong>上次发送未确认</strong><span>{item.content || item.attachments.map((attachment) => attachment.fileName).join("、")}</span></div><button type="button" onClick={() => void copyMessage(item.content)}>复制</button><button type="button" disabled={busy} onClick={() => restoreOutgoing(item)}>恢复草稿</button><button type="button" aria-label="移除恢复记录" onClick={() => setRecoveredOutgoing((current) => current.filter((entry) => entry.pendingId !== item.pendingId))}><CloseIcon/></button></div>)}
+        {recoveredOutgoing.map((item) => <div className="ai-recovered-send" key={item.pendingId} role="status"><div><strong>上次发送未确认</strong><span>{item.content || item.attachments.map((attachment) => attachment.fileName).join("、")}</span></div><button type="button" onClick={() => void copyMessage(item.content)}>复制</button><button type="button" disabled={busy} onClick={() => item.unconfirmed ? void reconcileOutgoing(item) : restoreOutgoing(item)}>{item.unconfirmed ? "核对发送" : "恢复草稿"}</button><button type="button" aria-label="移除恢复记录" onClick={() => setRecoveredOutgoing((current) => current.filter((entry) => entry.pendingId !== item.pendingId))}><CloseIcon/></button></div>)}
         <div className="ai-message-scroll-shell">
         <ConversationNavigator activeMessageId={activeNavigatorMessageId} messages={navigatorMessages} onJump={jumpToMessage}/>
         <div
@@ -2359,9 +2389,12 @@ export function AiWorkbenchPage(props: Props) {
           onTouchStart={markMessageListUserScroll}
           onWheel={markMessageListUserScroll}
           ref={messageList}>
-          {threadVisible ? <>
+          {!historyReady && !threadVisible ? <div className="ai-list-empty" role={snapshotError ? "alert" : "status"}>
+            {snapshotError ? <><span>{snapshotError}</span><button type="button" onClick={() => void refresh(false)}>重试</button></> : "正在读取消息…"}
+          </div> : threadVisible ? <>
           {handoff ? <aside aria-label="转交来源" className="ai-handoff-source">来源：{handoff.applicationName}</aside> : null}
-          {visibleMessages.length > renderedMessageCount ? <button className="ai-history-more" type="button" onClick={() => { const root = messageList.current; if (root) historyScrollRestore.current = {height:root.scrollHeight,top:root.scrollTop}; markMessageListUserScroll(); setRenderedMessageCount((count) => count + 100); }}>加载更早消息</button> : null}
+          {visibleMessages.length > renderedMessageCount || earlierHistory ? <button className="ai-history-more" disabled={olderLoading} type="button" onClick={() => void expandHistory()}>{olderLoading ? "正在读取…" : olderError ? "重试读取更早消息" : "加载更早消息"}</button> : null}
+          {olderError ? <p role="alert">{olderError}</p> : null}
           {renderedMessages.map((message, renderedIndex) => {
             const messageIndex = visibleMessages.length - renderedMessages.length + renderedIndex;
             const messageRun = message.runId ? snapshot.runs.find((run) => run.runId === message.runId) : null;
@@ -2545,7 +2578,7 @@ export function AiWorkbenchPage(props: Props) {
                 draftReady={Boolean(draft.trim())}
                 hasAttachments={Boolean(draftAttachments.length || draftMaterials.length)}
                 pendingApproval={Boolean(pendingApproval)}
-                runtimeReady={selectedRuntimeReady && !starterReasoningSelectionInvalid && !starterPermissionSelectionInvalid}
+                runtimeReady={historyReady && selectedRuntimeReady && !starterReasoningSelectionInvalid && !starterPermissionSelectionInvalid}
                 onQueue={() => void queueFollowUp()}
                 onStop={() => void stopActiveRun()}/> : <button aria-label="开始对话" className="ai-send-button" disabled={(!conversation && !pendingCreate) || !starterAgentId || !starterRuntimeReady || starterReasoningSelectionInvalid || starterPermissionSelectionInvalid || (!draft.trim() && !draftAttachments.length && !draftMaterials.length) || busy} title={!snapshotLoaded ? "正在加载对话…" : !conversation && !pendingCreate ? "请先新建对话" : !starterAgentId ? "请选择模型" : starterPermissionSelectionInvalid ? "请选择审批模式" : starterReasoningSelectionInvalid ? "请重新选择思考深度" : !starterRuntimeReady ? starterModel && props.hostPlatform === "windows" ? "请先完成 Windows 安全沙箱配置" : "所选模型当前不可用" : "开始对话"} type="submit"><EnterIcon/></button>}
             </div>

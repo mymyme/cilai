@@ -6,6 +6,7 @@ Cilai Personal Workbench provides a local desktop interface around the official 
 flowchart TD
     UI[React desktop UI] --> Shell[Electron Shell and preload allowlist]
     Shell --> Host[Rust Host and workbench runtime]
+    Shell --> Layout[Sandboxed HTML and Word layout]
     Host --> Server[Local App Server]
     Server --> Data[SQLite and local workspace files]
     Host --> Codex[Official Codex CLI App Server]
@@ -27,7 +28,7 @@ flowchart TD
 
 The pinned official App Server distribution is prepared from [the runtime manifest](../third_party/openai-codex.release.json). Workbench-side adaptation uses the public protocol; the project does not modify upstream Codex algorithms or build the retained historical snapshot for normal execution. Dedicated Codex homes isolate credentials, native threads, and memory from existing installations.
 
-Model directories, credentials, inference, streaming, and tools have distinct validation states. A passing model-list request is not treated as inference authorization. Changing a connection does not silently change a model, provider, protocol, or local data ownership. Cross-connection continuation must respect native-thread and history-sharing boundaries.
+Model directories, credentials, inference, streaming, and tools have distinct validation states. The official runtime catalog is projected from the selected connection into the modalities its protocol can represent; text, image input and video frame delivery are checked separately before model admission. A passing model-list request is not treated as inference authorization. Changing a connection does not silently change a model, provider, protocol, or local data ownership. Cross-connection continuation must respect native-thread and history-sharing boundaries.
 
 ## Permissions and data
 
@@ -39,9 +40,13 @@ Model, network, and MCP credentials use separate namespaces in the workbench's l
 
 Project views own state for one project and workspace. Read generations and mutation revisions prevent late responses from replacing newer state; responses from a closed view cannot update a different project. Draft execution choices retain both the model and its connection. Older drafts without a recorded connection require an explicit selection.
 
+Startup recovery groups verified native bindings by runtime home, reads each catalog once per home, and still retrieves full native turns for referenced history. The archive path and model runtime home remain authoritative.
+
 The runtime retains proposed session values while a ledger write has an unknown outcome. It confirms the original idempotent command before accepting later persistence work; only a confirmed rejection restores the previous values. Native thread metadata synchronization selects changed or uncached conversations and batches catalog reads by runtime scope. UI snapshots project the permitted fields directly without first copying discarded tool context and logs.
 
 The host checks queued follow-up work on a periodic deadline even while commands continue arriving. Conversation occupancy and maintenance checks still govern admission. Personal page actions share one timing contract between Electron and Rust: a 60-second execution budget plus 10 seconds for the host callback, while other callbacks retain their existing limits. A timeout remains an unconfirmed outcome and never authorizes repeating an action.
+
+Host admission has a bounded ingress and separate bounded pools for file work and other parallel commands. Context changes wait for previously accepted work before replacing the active scope. Electron closes admission before graceful shutdown, retains the reverse-call response channel for accepted work, and waits for the owned child to exit. Late output from a retired child cannot address the next child. Startup reports service and runtime readiness separately; diagnostics record only named timing stages, bounded sizes, stable error classes and process-local failure fingerprints.
 
 The selected data environment crosses the shell-to-host boundary only as a validated explicit startup value. Inherited environment variables cannot select another data environment or reintroduce enterprise configuration.
 
@@ -56,6 +61,8 @@ Workspace observation builds a content-versioned text index outside the business
 The private profile database stores shared content versions and an FTS5 trigram index. Identical content is indexed once, pending text has a bounded batch budget, and search joins the index to currently materialized workspace files by SHA-256. Renames retain current paths; replaced or deleted files cannot match an obsolete content version after observation commits. Existing files are backfilled during the normal initial workspace rescan. Literal two-character searches remain supported; FTS5 cannot accelerate such short substrings. This cache is profile-local and never supplies a separate file-access authority.
 
 ## Local MCP isolation
+
+Browser writes capture a single-use target in the desktop shell before requesting approval. The target binds the local profile, conversation, tab, content instance, document revision, address and applicable node or focus. Navigation, tab changes, manual takeover and profile changes invalidate stale targets. The shell checks the target again at approval and immediately before sending input. Site grants remain scoped to the current profile and conversation. Browser waits accept structured read-only conditions, with execution confined to shell-owned DOM queries and a bounded deadline.
 
 Arbitrary local MCP commands on Windows, macOS child-process permission and local-command proxying remain explicitly unavailable where the required isolation cannot be enforced. A Job Object or a process group alone is not a filesystem/network sandbox. The implementation requirements and independent native acceptance criteria are recorded in [MCP sandbox boundaries](MCP_SANDBOX.md).
 
@@ -78,7 +85,9 @@ The model catalog owner keeps the catalog, check time, generation, revision, err
 
 The run-state owner updates streamed output, event merging, context usage and the bounded log tail. The persisted aggregate records a steered message, conversation time and run event together. The manager retains the existing mutex, native-thread bindings, admission, persistence and scheduler wake-up. These owners do not create another database, lock or commit path.
 
-Purpose queries select borrowed records under one current-profile lock and then project their permitted fields. Automation and incident readers receive run summaries, with the full retry chain retained for incident attribution. Project reads are project-scoped; work reads select relevant user inputs and bounded result previews. Archive lists contain metadata, while conversation and run details are separate reads. A query does not refresh the native catalog or execute a model, rule or tool. Invalid targets fail explicitly rather than expanding to all history.
+Purpose queries select borrowed records under one current-profile lock and then project their permitted fields. Automation readers receive run summaries. Incident reads return a bounded candidate page and the relevant same-conversation retry ancestry; the client discards a page if its profile or server instance has changed. Project reads are project-scoped; work reads select relevant user inputs and bounded result previews. Archive lists contain metadata, while conversation and run details are separate reads. A query does not refresh the native catalog or execute a model, rule or tool. Invalid targets fail explicitly rather than expanding to all history.
+
+The main conversation view reads directory metadata and bounded first/latest message previews, plus the latest history page only for the selected conversation. Earlier pages use a message anchor owned by the runtime session, conversation and archive state. The active page carries the runs and approval records related to its messages; active runs also remain discoverable outside the selected conversation. The archive uses the same history reader without execution details. Activity polling sends only the event suffix when the supplied prefix digest still matches and sends a new event list after an edit. Active-run approvals are read independently and applied only to their requested run range. Exact send receipts are independent of both the catalog and the loaded history page.
 
 Send preparation freezes the model execution lease, preflight evidence and authorized review/memory scopes before admission. A separate locked preparation object must borrow the manager's still-held mutex guard to check current uploads, retry input, regeneration history, model modalities, skill snapshots and task candidates. Its owned result carries the run policy and execution materials; it cannot authorize new capabilities or publish a message or run. Existing execution-lease checks still apply before launch.
 
@@ -90,6 +99,14 @@ The manager still coordinates application execution, harness registration and qu
 ## Frontend state and preview owners
 
 The project data hook owns scoped project reads, request generations and confirmed-mutation revisions. The project view owns interaction state, while overview, attention and plan components receive explicit data and actions. The conversation snapshot hook owns refresh serialization, callers waiting for a fresh result, archive revisions and activity polling. Display formatting, attachments and run-process/detail views have separate modules. These boundaries preserve one owner for each asynchronous state transition rather than adding a second state store.
+
+Project associations are read from their persisted workspace registrations. A temporarily inaccessible directory remains attached and identifiable; opening the directory still requires the current local file access path. File-watch batches distinguish confirmed change events from speculative noise, and the oldest pending eligible workspace has priority after explicit requests.
+
+Plain text preview requests the first chunk and reads other pages or the full copy on demand. Markdown and HTML retain whole-source semantics. Text, diff and binary preview tickets belong to the current connection and are released when the view closes or loses its request scope. Binary preview validates the workspace path and observed file revision, transfers fixed-size chunks from a bounded snapshot, and checks the content digest before display. The UI can stop issuing new reads without claiming an already executing operation has stopped.
+
+Word layout and HTML preparation run in a dedicated Electron content session with a fixed bundled asset origin, narrow per-job IPC, and no application preload, external network or permissions. Only static output returns to the main interface and is displayed in a scriptless frame. The existing Office package worker continues to validate Office inputs. The local package smoke test runs both layout formats through the actual isolated process.
+
+Personal app tab storage contains only the current profile's application IDs and selected tab. Restored entries recheck the installation through the personal application opening path. A restored tab waits for the user's open action before mounting its page and reconnecting the existing App Bridge. Invalidated scopes cannot apply delayed responses.
 
 File preview loads when a file is opened. Shared source/error labels are separate from renderers, so reading a label or mounting the workspace shell does not load Markdown or Office rendering. Production chunks separate React and Markdown code from frequently changed application entry code; Mermaid and document engines remain demand-loaded. Large indivisible upstream layout modules remain visible in build warnings.
 

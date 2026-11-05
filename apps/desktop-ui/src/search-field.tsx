@@ -23,7 +23,8 @@ export function SearchField(props: {
       onChange={(event) => props.onChange(event.currentTarget.value)}
       placeholder={props.placeholder}
       ref={props.inputRef}
-      type="search"
+      role="searchbox"
+      type="text"
       value={props.value}/>
     {canClear ? <button aria-label={props.clearLabel ?? `清除${props.ariaLabel}`} className="search-field-clear" onClick={() => props.onChange("")} type="button"><CloseIcon/></button> : props.trailing}
   </div>;

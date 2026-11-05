@@ -46,11 +46,24 @@ pub(super) fn is_parallel_command(value: &str) -> bool {
             | "personal_page_ai_resolve_internal"
             | "personal_page_ai_revoke_all_internal"
             | "personal_storage_execute"
+            | "preview_open"
+            | "text_resource_read"
+            | "workspace_pdf_page_count"
+            | "workspace_pdf_read_bytes"
+            | "workspace_render_pdf_page"
     )
 }
 
 pub(super) fn is_parallel_app_server_method(value: &str) -> bool {
-    matches!(value, "workspace/listDirectory")
+    matches!(
+        value,
+        "file/hydrate"
+            | "preview/readBinary"
+            | "preview/readBinaryChunk"
+            | "preview/releaseBinary"
+            | "textResource/release"
+            | "workspace/listDirectory"
+    )
 }
 
 pub(super) fn requires_exclusive_data(value: &str) -> bool {

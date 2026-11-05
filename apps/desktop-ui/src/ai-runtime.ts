@@ -352,6 +352,42 @@ export interface AiRunEventDetail {
   truncated: boolean;
 }
 
+export interface AiHistoryCursor {
+  sessionId: string;
+  conversationId: string;
+  beforeMessageId: string;
+  archived: boolean;
+}
+
+export interface AiHistoryWindow {
+  sessionId: string;
+  conversationId: string;
+  previousCursor: AiHistoryCursor | null;
+}
+
+export interface AiHistoryPage extends AiHistoryWindow {
+  messages: AiConversationMessage[];
+  runs: AiAgentRun[];
+  permissionRequests: AiPermissionRequest[];
+}
+
+export interface AiCatalogPreview {
+  firstPrompt: string | null;
+  latest: Pick<AiConversationMessage, "messageId" | "role" | "content">;
+}
+
+export async function loadAiHistoryPage(conversationId: string, archived: boolean, cursor: AiHistoryCursor | null): Promise<AiHistoryPage> {
+  const page = await invoke<AiHistoryPage>("ai_conversation_history_page", { conversationId, archived, cursor });
+  if (page.conversationId !== conversationId || !page.sessionId
+      || cursor && page.sessionId !== cursor.sessionId
+      || page.messages.some(message => message.conversationId !== conversationId)
+      || page.previousCursor && (page.previousCursor.conversationId !== conversationId || page.previousCursor.sessionId !== page.sessionId || page.previousCursor.archived !== archived
+        || page.previousCursor.beforeMessageId !== page.messages[0]?.messageId)) {
+    throw new Error("ai_history_cursor_scope_changed");
+  }
+  return page;
+}
+
 export interface AiRuntimeSnapshot {
   stateRevision: number;
   models: AiModelInfo[];
@@ -362,6 +398,9 @@ export interface AiRuntimeSnapshot {
   permissionRequests: AiPermissionRequest[];
   inboxReadItemIds: string[];
   automationRules: AiAutomationRule[];
+  runtimeSessionId?: string;
+  catalogPreviews?: Record<string, AiCatalogPreview>;
+  historyWindow?: AiHistoryWindow | null;
   /** 已受理但尚未落库的发送；失败时带原因，需由用户恢复或移除。 */
   messageSubmissions?: AiMessageSubmission[];
 }
@@ -392,14 +431,21 @@ export interface AiRuntimeQuerySnapshot {
   runDetails: AiAgentRun[];
   permissionRequests: AiPermissionRequest[];
   automationRules: AiAutomationRule[];
+  incidentCandidateRunIds: string[];
+  nextIncidentRunId: string | null;
 }
 
 export function emptyAiQuerySnapshot(scope: AiRuntimeQueryScope): AiRuntimeQuerySnapshot {
-  return { scope, stateRevision: 0, agents: [], conversations: [], messages: [], runs: [], runDetails: [], permissionRequests: [], automationRules: [] };
+  return { scope, stateRevision: 0, agents: [], conversations: [], messages: [], runs: [], runDetails: [], permissionRequests: [], automationRules: [], incidentCandidateRunIds: [], nextIncidentRunId: null };
 }
 
 export function loadAiRuntimeQuery(request: AiRuntimeQuery): Promise<AiRuntimeQuerySnapshot> {
   return invoke<AiRuntimeQuerySnapshot>("ai_runtime_query", { request });
+}
+
+export interface AiRunEventCursor {
+  count: number;
+  digest: string;
 }
 
 export interface AiRuntimeActivitySnapshot {
@@ -407,8 +453,13 @@ export interface AiRuntimeActivitySnapshot {
   conversations: AiConversation[];
   messages: AiConversationMessage[];
   runs: AiAgentRun[];
-  permissionRequests: AiPermissionRequest[];
+  eventPages: Record<string, { retained: number; cursor: AiRunEventCursor }>;
   missingRunIds: string[];
+}
+
+export interface AiRuntimeApprovalSnapshot {
+  stateRevision: number;
+  permissionRequests: AiPermissionRequest[];
 }
 
 export interface AiModelCatalogStatus {
@@ -430,14 +481,16 @@ export const emptyAiSnapshot: AiRuntimeSnapshot = {
   models: [], agents: [], conversations: [], messages: [], runs: [], permissionRequests: [], inboxReadItemIds: [], automationRules: [],
 };
 
-export function loadAiSnapshot(refreshNativeCatalog = true): Promise<AiRuntimeSnapshot> {
-  return refreshNativeCatalog
-    ? invoke<AiRuntimeSnapshot>("ai_runtime_snapshot")
-    : invoke<AiRuntimeSnapshot>("ai_runtime_snapshot", { refreshNativeCatalog: false });
+export function loadAiSnapshot(refreshNativeCatalog = true, conversationId: string | null = null): Promise<AiRuntimeSnapshot> {
+  return invoke<AiRuntimeSnapshot>("ai_runtime_snapshot", { refreshNativeCatalog, conversationId });
 }
 
-export function loadAiActivitySnapshot(runIds: string[]): Promise<AiRuntimeActivitySnapshot> {
-  return invoke<AiRuntimeActivitySnapshot>("ai_runtime_activity_snapshot", { runIds });
+export function loadAiActivitySnapshot(runIds: string[], eventCursors: Record<string, AiRunEventCursor>): Promise<AiRuntimeActivitySnapshot> {
+  return invoke<AiRuntimeActivitySnapshot>("ai_runtime_activity_snapshot", { runIds, eventCursors });
+}
+
+export function loadAiApprovalSnapshot(runIds: string[]): Promise<AiRuntimeApprovalSnapshot> {
+  return invoke<AiRuntimeApprovalSnapshot>("ai_runtime_approval_snapshot", { runIds });
 }
 
 /** 对话运行状态需要重新读取时广播的事件，例如会话状态从服务端恢复之后。 */
@@ -710,6 +763,11 @@ export function aiErrorMessage(error: unknown): string {
     .replace(/^Error:\s*/, "");
   if (value.includes("model_connection_not_configured")) return "请先连接模型。草稿和附件已保留。";
   const personalErrors: Record<string, string> = {
+    ai_activity_events_invalid: "无法核对运行步骤，请重新读取。",
+    ai_history_conversation_invalid: "无法识别此对话。",
+    ai_history_conversation_changed: "对话状态已变化，请重新打开。",
+    ai_history_cursor_scope_changed: "对话读取范围已变化，请重新打开。",
+    ai_history_cursor_stale: "历史记录已变化，请重新打开对话。",
     model_credential_vault_unavailable: "无法访问工作台凭据库。",
     model_credential_vault_root_required: "工作台凭据目录未就绪。",
     model_credential_reentry_required: "请重新保存到工作台本地凭据库。",
@@ -904,6 +962,8 @@ export function aiErrorMessage(error: unknown): string {
   if (value.includes("thread_binding_invalid")) return "对话绑定的模型线程记录无效，已暂停发送。原记录已保留。";
   if (value.includes("thread_edit_prefix_unavailable")) return "这条补充消息与前文属于同一轮，目前无法单独编辑。";
   if (value.includes("history_migration_required") || value.includes("history_attachment_")) return "历史上下文尚未完整恢复，请检查客户端版本和原附件。";
+  if (value.includes("ai_model_capability_incompatible") || value.includes("codex_harness_model_catalog_invalid")) return "所选模型无法接收工作台的文本请求，请检查模型能力。";
+  if (!value.includes("model_history_incompatible") && value.includes("ai_video_input_not_supported")) return "短视频会按画面发送，请选择支持图像的模型。";
   if (value.includes("model_history_incompatible")) return "所选模型无法处理这段对话中的附件，请选择支持图像的模型。";
   if (value.includes("thread_recovery_") || value.includes("thread_owner_identity_unavailable")) return "暂时无法核对原执行状态，已保留对话，请稍后重试。";
   if (value.includes("history_item_too_large")) return "单条历史内容过大，尚未完成接续，请先处理原附件。";

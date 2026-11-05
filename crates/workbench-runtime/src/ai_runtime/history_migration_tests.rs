@@ -181,6 +181,23 @@ fn migrates_long_history_and_local_activity_then_reopens_and_searches_native_thr
             .contains("ai_legacy_storage_retired")
     );
     manager.shutdown_checked().unwrap();
+    let reader = codex_thread_service(&ai_dir, &server).unwrap();
+    let started = Instant::now();
+    let (.., restored) = history_migration::load(&server, &reader, &ai_dir).unwrap();
+    assert_eq!(reader.observed_catalog_loads(), 1);
+    assert_eq!(restored.messages, snapshot.messages);
+    assert!(
+        restored
+            .conversations
+            .iter()
+            .any(|conversation| conversation.title == "空对话" && conversation.archived)
+    );
+    eprintln!(
+        "isolated history reopen: {} threads, one catalog, {} ms",
+        restored.conversations.len(),
+        started.elapsed().as_millis()
+    );
+    reader.shutdown_checked().unwrap();
     let reopened = AiRuntimeManager::new();
     reopened.initialize(&data, &server).unwrap();
     assert_eq!(reopened.snapshot().unwrap().messages, snapshot.messages);

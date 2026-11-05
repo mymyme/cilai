@@ -50,7 +50,7 @@ export function WorkspaceSwitcher(props: { workspaces: WorkspaceSummary[]; selec
 }
 
 
-export function WorkspacePage(props: { hostPlatform: string | null; loadError: unknown; onRetryLoad: () => void; detailIntent: number; diffIntent: number; workspaces: WorkspaceSummary[]; selectedWorkspace: WorkspaceSummary | null; files: WorkspaceFileItem[]; selectedFile: WorkspaceFileItem | null; onFile: (id: string) => void; revision: number; conflicts: ConflictItem[]; createWorkspace: () => Promise<void>; connectingWorkspace: boolean; loadState: LoadState; onMessage: MessageSink; onOpenAi: () => void; onConfirmationChanged?: () => Promise<void> | void; deliverableBinding: { deliverableTitle: string; versionNo: number; accepted: boolean } | null }) {
+export function WorkspacePage(props: { serviceScope?: string | null; hostPlatform: string | null; loadError: unknown; onRetryLoad: () => void; detailIntent: number; diffIntent: number; workspaces: WorkspaceSummary[]; selectedWorkspace: WorkspaceSummary | null; files: WorkspaceFileItem[]; selectedFile: WorkspaceFileItem | null; onFile: (id: string) => void; revision: number; conflicts: ConflictItem[]; createWorkspace: () => Promise<void>; connectingWorkspace: boolean; loadState: LoadState; onMessage: MessageSink; onOpenAi: () => void; onConfirmationChanged?: () => Promise<void> | void; deliverableBinding: { deliverableTitle: string; versionNo: number; accepted: boolean } | null }) {
   const [view, setView] = useState<"preview" | "diff">("preview");
   const [previewView, setPreviewView] = useState<PreviewView>("rendered");
   const [previewViewAvailable, setPreviewViewAvailable] = useState(false);
@@ -159,8 +159,8 @@ export function WorkspacePage(props: { hostPlatform: string | null; loadError: u
         </div>
       </div>
       <div className="document-canvas">{props.selectedFile ? view === "preview"
-        ? <Suspense fallback={<div className="preview-message" role="status">正在加载预览</div>}><FilePreviewPane workspaceId={props.selectedWorkspace.workspaceId} workspaceKind={props.selectedWorkspace.workspaceKind} localRoot={props.selectedWorkspace.localRoot} hostPlatform={props.hostPlatform} file={props.selectedFile} view={previewView} onViewAvailabilityChange={setPreviewViewAvailable}/></Suspense>
-        : <FileDiffPane workspaceId={props.selectedWorkspace.workspaceId} localFileId={props.selectedFile.localFileId} leftSource="baseline" rightSource="local"/>
+        ? <Suspense fallback={<div className="preview-message" role="status">正在加载预览</div>}><FilePreviewPane workspaceId={props.selectedWorkspace.workspaceId} workspaceKind={props.selectedWorkspace.workspaceKind} localRoot={props.selectedWorkspace.localRoot} hostPlatform={props.hostPlatform} serviceScope={props.serviceScope} file={props.selectedFile} view={previewView} onViewAvailabilityChange={setPreviewViewAvailable}/></Suspense>
+        : <FileDiffPane serviceScope={props.serviceScope} fileRevision={JSON.stringify([props.selectedFile.checksumValue, props.selectedFile.baselineVersionId])} workspaceId={props.selectedWorkspace.workspaceId} localFileId={props.selectedFile.localFileId} leftSource="baseline" rightSource="local"/>
         : null}</div>
     </section>
     {confirmationDialogOpen && props.selectedFile?.checksumAlgorithm && props.selectedFile.checksumValue ? <FileConfirmationDialog

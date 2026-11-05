@@ -480,6 +480,14 @@ pub fn prepare_incremental_scan(
     persistence: &mut SqlitePersistence,
     workspace_id: &WorkspaceId,
 ) -> Result<IncrementalScanBasis, CaptureLocalSnapshotError> {
+    prepare_incremental_scan_scope(persistence, workspace_id, None)
+}
+
+pub(crate) fn prepare_incremental_scan_scope(
+    persistence: &mut SqlitePersistence,
+    workspace_id: &WorkspaceId,
+    paths: Option<&[String]>,
+) -> Result<IncrementalScanBasis, CaptureLocalSnapshotError> {
     let workspace = persistence
         .transact(|repositories| repositories.workspace(workspace_id))
         .map_err(CaptureLocalSnapshotError::Persistence)?
@@ -490,8 +498,18 @@ pub fn prepare_incremental_scan(
     //
     // 这也顺带避开一个坑：同一条路径常常两种记录并存（实测 19,728 条），按路径建
     // 索引时若让缺失的那份覆盖了存在的那份，每一条都会被判成变化，增量退化成全量。
+    let roots = paths.map(normalized_scan_roots).transpose()?;
     let known = persistence
-        .transact(|repositories| repositories.present_workspace_files(workspace_id))
+        .transact(|repositories| {
+            let Some(roots) = roots.as_deref() else {
+                return repositories.present_workspace_files(workspace_id);
+            };
+            let mut files = Vec::new();
+            for root in roots {
+                files.extend(repositories.present_workspace_files_in_scope(workspace_id, root)?);
+            }
+            Ok(files)
+        })
         .map_err(CaptureLocalSnapshotError::Persistence)?
         .into_iter()
         .map(|file| (file.normalized_relative_path.clone(), file))
@@ -501,6 +519,26 @@ pub fn prepare_incremental_scan(
         known,
         content_index: persistence.file_content_index()?,
     })
+}
+
+fn normalized_scan_roots(paths: &[String]) -> Result<Vec<String>, CaptureLocalSnapshotError> {
+    let mut roots = paths
+        .iter()
+        .map(|path| {
+            contexthub_domain::WorkspaceRelativePath::parse(path)
+                .map(|relative| relative.as_str().to_owned())
+                .map_err(|_| CaptureLocalSnapshotError::ObservationOutOfRange)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    roots.sort();
+    roots.dedup();
+    let all: HashSet<String> = roots.iter().cloned().collect();
+    roots.retain(|path| {
+        !path
+            .match_indices('/')
+            .any(|(index, _)| all.contains(&path[..index]))
+    });
+    Ok(roots)
 }
 
 /// 走一遍目录，挑出与记录不一致的部分。
@@ -565,15 +603,7 @@ pub(crate) fn observe_changed_paths(
     cancellation: &WorkspaceCancellationToken,
     on_progress: impl FnMut(IncrementalScanProgress),
 ) -> Result<IncrementalScanFindings, CaptureLocalSnapshotError> {
-    let mut roots = paths.to_vec();
-    roots.sort();
-    roots.dedup();
-    let all: HashSet<String> = roots.iter().cloned().collect();
-    roots.retain(|path| {
-        !path
-            .match_indices('/')
-            .any(|(index, _)| all.contains(&path[..index]))
-    });
+    let roots = normalized_scan_roots(paths)?;
     let mut entries = Vec::new();
     for path in &roots {
         let relative = contexthub_domain::WorkspaceRelativePath::parse(path)
@@ -1947,6 +1977,33 @@ mod tests {
         )
         .unwrap();
         assert!(findings.observations.is_empty());
+    }
+
+    #[test]
+    fn watch_scope_preserves_literal_subtrees_and_leaves_siblings_out() {
+        let fixture = TestFixture::new("watch-literal-scope");
+        for path in ["资料_%/子目录", "资料_%相邻"] {
+            fs::create_dir_all(fixture.workspace.join(path)).unwrap();
+        }
+        for path in ["资料_%/a.txt", "资料_%/子目录/b.txt", "资料_%相邻/c.txt"] {
+            fs::write(fixture.workspace.join(path), "用于核对目录范围").unwrap();
+        }
+        let mut db = SqlitePersistence::open(&fixture.database, "0.1.0").unwrap();
+        connect_and_snapshot(&mut db, &fixture, "w1", &fixture.workspace);
+        let scope = vec!["资料_%/a.txt".to_owned(), "资料_%".to_owned()];
+        let basis =
+            prepare_incremental_scan_scope(&mut db, &WorkspaceId::new("w1"), Some(&scope)).unwrap();
+        assert!(basis.known.contains_key("资料_%/a.txt"));
+        assert!(basis.known.contains_key("资料_%/子目录/b.txt"));
+        assert!(!basis.known.contains_key("资料_%相邻/c.txt"));
+        assert!(
+            prepare_incremental_scan_scope(
+                &mut db,
+                &WorkspaceId::new("w1"),
+                Some(&["../escape".to_owned()])
+            )
+            .is_err()
+        );
     }
 
     fn shared_content_count(database: &Path) -> i64 {

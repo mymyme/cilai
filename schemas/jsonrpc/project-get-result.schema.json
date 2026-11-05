@@ -11,11 +11,18 @@
       "items": {
         "type": "string"
       }
+    },
+    "workspaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/WorkspaceSummary"
+      }
     }
   },
   "required": [
     "project",
-    "workspaceIds"
+    "workspaceIds",
+    "workspaces"
   ],
   "$defs": {
     "ProjectSummary": {
@@ -55,6 +62,90 @@
         "status",
         "stateRevision",
         "updatedAt"
+      ]
+    },
+    "WorkspaceSummary": {
+      "type": "object",
+      "properties": {
+        "baselineRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deviceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "localRoot": {
+          "type": "string"
+        },
+        "localStatus": {
+          "type": "string"
+        },
+        "managedRoot": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissionRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissionRole": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "platformBound": {
+          "type": "boolean"
+        },
+        "platformRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stateRevision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "teamSpaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "workspaceKind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "workspaceKind",
+        "displayName",
+        "localRoot",
+        "localStatus",
+        "stateRevision",
+        "platformBound"
       ]
     }
   }

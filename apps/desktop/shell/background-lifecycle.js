@@ -6,6 +6,7 @@ function createBackgroundLifecycle({
 }) {
   let quitting = false;
   let cleaned = false;
+  let finishing = null;
   let tray = null;
 
   function showWindow() {
@@ -18,16 +19,26 @@ function createBackgroundLifecycle({
   }
 
   function finish() {
-    if (cleaned) return;
-    cleaned = true;
+    if (finishing) return finishing;
     quitting = true;
-    tray?.destroy();
-    tray = null;
-    cleanup();
+    finishing = Promise.resolve().then(cleanup).then(() => {
+      tray?.destroy();
+      tray = null;
+      cleaned = true;
+    });
+    return finishing;
   }
 
   app.on("before-quit", () => { quitting = true; });
-  app.on("will-quit", finish);
+  app.on("will-quit", (event) => {
+    if (cleaned) return;
+    event.preventDefault();
+    if (finishing) return;
+    void finish().then(() => app.quit(), error => {
+      console.error("[shutdown]", error.message);
+      app.exit(1);
+    });
+  });
   nativeUpdater.on("before-quit-for-update", () => { quitting = true; });
   if (!headless) app.on("activate", showWindow);
   app.on("window-all-closed", () => {
@@ -36,9 +47,14 @@ function createBackgroundLifecycle({
 
   return {
     showWindow,
-    exit(code) {
-      finish();
-      app.exit(code);
+    async exit(code) {
+      try {
+        await finish();
+        app.exit(code);
+      } catch (error) {
+        console.error("[shutdown]", error.message);
+        app.exit(1);
+      }
     },
     createTray() {
       if (headless || tray) return;
@@ -76,7 +92,7 @@ function createBackgroundLifecycle({
         quitting = false;
         showWindow();
       });
-      if (platform === "win32") win.on("session-end", finish);
+      if (platform === "win32") win.on("session-end", () => { void finish().catch(error => console.error("[shutdown]", error.message)); });
     },
   };
 }

@@ -80,6 +80,52 @@ if(Object.values(boundary).some(value=>value!=='undefined'))throw Error('browser
 await contents.executeJavaScript('document.body.textContent=123456;document.body.style.backgroundColor=String.fromCharCode(119,104,105,116,101)');
 const shot=await browser.screenshot('actual-tab','actual-conversation',10000);if(shot.format!=='jpeg'||Buffer.from(shot.data,'base64').length<100)throw Error('browser_screenshot_missing');
 const preferences=contents.getLastWebPreferences();if(preferences.nodeIntegration!==false||preferences.contextIsolation!==true||preferences.preload)throw Error('browser_preferences_invalid');
+const fixtureUrl = 'https://cilai-browser-approval-check.invalid/';
+const sessionProtocol = contents.session.protocol;
+sessionProtocol.handle('https', () => new Response(
+  '<body style="margin:0"><button style="width:80px;height:60px" onclick="window.clicks++">确认</button><input id="input" aria-label="自检输入" autofocus><script>window.clicks=0</script>',
+  {headers:{'content-type':'text/html; charset=utf-8'}}));
+try {
+  await browser.navigate(fixtureUrl, 'actual-conversation');
+  const { BrowserApprovals } = require(path.join(path.dirname(config.browserModule), 'browser-approval.js'));
+  const { BrowserMcpServer } = require(path.join(path.dirname(config.browserModule), 'browser-mcp.js'));
+  const approvals = new BrowserApprovals((event, payload) => {
+    if (event === 'browser-approval-request') approvals.resolve(payload.confirmationId, false);
+  });
+  const server = new BrowserMcpServer(browser, approvals);
+  const denied = await server.handle({
+    method: 'tools/call', id: 1,
+    params: { name: 'browser_click', arguments: { x: 5, y: 5 } },
+  }, 'actual-conversation');
+  const clickCount = await contents.executeJavaScript('window.clicks');
+  if (!denied.result.isError || !denied.result.content[0].text.includes('员工拒绝') || clickCount !== 0) {
+    throw Error('browser_denied_click_not_proven ' + JSON.stringify({ result: denied.result, clickCount, url: contents.getURL(), pending: browser.current('actual-conversation')?.navigationPending }));
+  }
+  const ready = await browser.waitFor({ condition: { kind: 'element', selector: '#input', state: 'present' } }, 'actual-conversation');
+  if (!ready.satisfied) throw Error('browser_read_only_wait_not_proven');
+  await contents.executeJavaScript('document.getElementById("input").focus()');
+  const focus = await browser.captureWriteTarget('actual-conversation', { textInput: true });
+  await contents.executeJavaScript('document.querySelector("button").focus()');
+  const focusRejected = await browser.type('不能写入', focus).then(() => false, e => e.message.includes('输入焦点已变化'));
+  if (!focusRejected || await contents.executeJavaScript('document.getElementById("input").value') !== '') {
+    throw Error('browser_focus_change_not_rejected');
+  }
+  const snapshot = await browser.snapshot(200, undefined, 'actual-conversation');
+  const input = snapshot.nodes.find(node => node.name === '自检输入');
+  if (!input) throw Error('browser_input_reference_unavailable');
+  approvals.notify = (event, payload) => {
+    if (event === 'browser-approval-request') approvals.resolve(payload.confirmationId, true);
+  };
+  const accepted = await server.handle({
+    method: 'tools/call', id: 2,
+    params: { name: 'browser_set_value', arguments: { ref: input.ref, value: '已批准' } },
+  }, 'actual-conversation');
+  if (accepted.result.isError || await contents.executeJavaScript('document.getElementById("input").value') !== '已批准') {
+    throw Error('browser_approved_write_not_proven ' + JSON.stringify(accepted.result));
+  }
+} finally {
+  sessionProtocol.unhandle('https');
+}
 console.log('BROWSER_BOUNDARY_PROBE '+JSON.stringify({electron:process.versions.electron,boundary,screenshotBytes:Buffer.from(shot.data,'base64').length,format:shot.format}));browser.close();window.destroy();app.quit();
 }).catch(error=>{console.error(error.message);app.exit(1)});`);
   new vm.Script(fs.readFileSync(script,'utf8'));

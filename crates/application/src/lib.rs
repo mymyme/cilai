@@ -839,6 +839,15 @@ pub trait WorkspaceRepository {
         &mut self,
         workspace_id: &WorkspaceId,
     ) -> Result<Vec<WorkspaceFileRecord>, Self::Error>;
+    /// 只返回指定路径及其目录子树内当前存在的文件记录。
+    ///
+    /// # Errors
+    /// 路径非法、工作区不存在或持久化读取失败时返回错误。
+    fn present_workspace_files_in_scope(
+        &mut self,
+        workspace_id: &WorkspaceId,
+        relative_root: &str,
+    ) -> Result<Vec<WorkspaceFileRecord>, Self::Error>;
     /// 只返回在指定快照里首次出现的文件记录。
     ///
     /// 首次索引分批提交时，每批只需为本批新增的记录初始化状态；按工作区全量读取会让

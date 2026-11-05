@@ -216,14 +216,20 @@ function readTools() {
       name: "browser_wait_for",
       // 只读：不改变页面，也不留下痕迹。审批方式选"帮我批准"时自动放行
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
-      description: "等待页面上的条件成立，避免以固定延时代替确定性等待。",
+      description: "等待元素出现或消失、元素文本包含指定内容、完整地址匹配或文档就绪。只接受结构化 condition，不接受 JavaScript expression。",
       inputSchema: {
         type: "object",
+        additionalProperties: false,
         properties: {
-          expression: { type: "string", description: "在页面中求值的表达式，为真即视为成立" },
-          timeoutMs: { type: "number", description: "最长等待毫秒数" },
+          condition: { oneOf: [
+            { type: "object", additionalProperties: false, properties: { kind: { const: "element" }, selector: { type: "string", minLength: 1, maxLength: 1000 }, state: { enum: ["present", "absent"] } }, required: ["kind", "selector", "state"] },
+            { type: "object", additionalProperties: false, properties: { kind: { const: "text" }, selector: { type: "string", minLength: 1, maxLength: 1000 }, text: { type: "string", minLength: 1, maxLength: 10000 } }, required: ["kind", "selector", "text"] },
+            { type: "object", additionalProperties: false, properties: { kind: { const: "url" }, url: { type: "string", minLength: 1, maxLength: 4000 } }, required: ["kind", "url"] },
+            { type: "object", additionalProperties: false, properties: { kind: { const: "ready" }, state: { enum: ["interactive", "complete"] } }, required: ["kind", "state"] },
+          ] },
+          timeoutMs: { type: "integer", minimum: 1, maximum: 30000, description: "最长等待毫秒数，默认 10000" },
         },
-        required: ["expression"],
+        required: ["condition"],
       },
     },
   ];
@@ -302,23 +308,6 @@ class BrowserMcpServer {
     return { jsonrpc: "2.0", id, error: { code: -32601, message: `未提供该方法：${method}` } };
   }
 
-  /** 当前页面地址，用于让员工看清这次操作发生在哪个站点。 */
-  /*
-   * 审批卡片上写的"在哪个站点"。取的是这次对话当前那个标签的地址——早先读的是运行时的
-   * 单一窗口，而运行时改成按标签组织之后那个属性就没了，于是卡片一直写着"未打开页面"，
-   * 员工看不出 AI 要在哪里点。
-   */
-  currentSite(conversationId) {
-    const tab = this.runtime.current?.(conversationId);
-    const contents = tab?.contents;
-    const url = contents && !contents.isDestroyed() ? contents.getURL() : "";
-    try {
-      return new URL(url).origin;
-    } catch {
-      return "未打开页面";
-    }
-  }
-
   /** 写操作：先确认凭据红线，再逐次请员工批准，两关都过才执行。 */
   async invokeWrite(name, args, conversationId) {
     if (name === "browser_type" || name === "browser_set_value") {
@@ -327,12 +316,20 @@ class BrowserMcpServer {
         throw new Error("凭据字段不由 AI 填写，请转人工接管");
       }
     }
-    const site = this.currentSite(conversationId);
+    const ref = name === "browser_type" ? undefined : args.ref;
+    if ((name === "browser_set_value" || ref !== undefined) && (typeof ref !== "string" || !ref)) {
+      throw new Error("操作需要有效元素句柄");
+    }
+    const point = name === "browser_click" && ref === undefined ? { x: args.x, y: args.y } : undefined;
+    const target = await this.runtime.captureWriteTarget(conversationId, {
+      ref, point, textInput: name === "browser_type",
+    });
+    const site = target.site;
     const purpose = args.purpose ?? "未说明用途";
     // 目标写清楚：句柄就报句柄，坐标就报坐标——员工要看得出 AI 到底要动哪个元素
-    const target = args.ref ? `元素 ${args.ref}` : `(${args.x}, ${args.y})`;
-    const summary = name === "browser_click" ? `在 ${site} 点击${target}：${purpose}`
-      : name === "browser_set_value" ? `在 ${site} 把${target}设为「${args.value}」：${purpose}`
+    const targetLabel = args.ref ? `元素 ${args.ref}` : `(${args.x}, ${args.y})`;
+    const summary = name === "browser_click" ? `在 ${site} 点击${targetLabel}：${purpose}`
+      : name === "browser_set_value" ? `在 ${site} 把${targetLabel}设为「${args.value}」：${purpose}`
       : `在 ${site} 输入文本：${purpose}`;
     /*
      * 凭据类字段永远单问，不受站点授权覆盖：这类风险不随"这个站点我信任"而降低。
@@ -345,6 +342,7 @@ class BrowserMcpServer {
       site,
       scope: conversationId ?? null,
       alwaysAsk,
+      validateTarget: () => this.runtime.assertWriteTarget(target),
       summary,
       arguments: name === "browser_click"
         ? { ref: args.ref, x: args.x, y: args.y, purpose: args.purpose }
@@ -354,13 +352,11 @@ class BrowserMcpServer {
           : { text: args.text, fieldHint: args.fieldHint, purpose: args.purpose },
     });
     if (!decision.approved) throw new Error(decision.reason);
-    if (name === "browser_click") {
-      return this.runtime.click({ ref: args.ref, x: args.x, y: args.y }, conversationId);
-    }
+    if (name === "browser_click") return this.runtime.click(target);
     if (name === "browser_set_value") {
-      return this.runtime.setValue(String(args.ref ?? ""), args.value, conversationId);
+      return this.runtime.setValue(args.value, target);
     }
-    return this.runtime.type(String(args.text ?? ""), conversationId);
+    return this.runtime.type(String(args.text ?? ""), target);
   }
 
   /*
@@ -422,7 +418,7 @@ class BrowserMcpServer {
         return this.runtime.networkRequests(
           { failedOnly: args.failedOnly, limit: args.limit }, args.tabId, conversationId);
       case "browser_wait_for":
-        return this.runtime.waitFor(String(args.expression ?? ""), args.timeoutMs, conversationId);
+        return this.runtime.waitFor(args, conversationId);
       default:
         throw new Error(`未提供该工具：${name}`);
     }

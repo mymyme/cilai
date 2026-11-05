@@ -4,7 +4,7 @@ const HEADLESS_SCOPE_MARKER = '启动自检范围：个人资料与本地启动�
 const AUTHENTICATED_CHECK_MARKER = '真实模型与工具验收：未执行';
 
 function runtimeStartupReady(status) {
-  return status?.phase === "running" && !status.runtimeInitializationError;
+  return status?.phase === "running" && !status.runtimeInitializing && !status.runtimeInitializationError;
 }
 
 function localProfileReady(profile) {

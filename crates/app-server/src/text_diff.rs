@@ -46,6 +46,7 @@ impl TextDiffError {
 }
 
 struct DiffEntry {
+    owner: Option<String>,
     expires_at: i64,
     left: DiffSourceRef,
     right: DiffSourceRef,
@@ -118,6 +119,7 @@ impl TextDiffTickets {
         self.entries.insert(
             diff_ticket_id.clone(),
             DiffEntry {
+                owner: None,
                 expires_at,
                 left: params.left.clone(),
                 right: params.right.clone(),
@@ -193,6 +195,22 @@ impl TextDiffTickets {
             next_cursor,
             rows,
         })
+    }
+
+    pub(super) fn claim(&mut self, ticket_id: &str, owner: &str) {
+        if let Some(ticket) = self.entries.get_mut(ticket_id) {
+            ticket.owner = Some(owner.to_owned());
+        }
+    }
+
+    pub(super) fn belongs_to(&self, ticket_id: &str, owner: &str) -> bool {
+        self.entries
+            .get(ticket_id)
+            .is_some_and(|ticket| ticket.owner.as_deref() == Some(owner))
+    }
+
+    pub(super) fn release(&mut self, ticket_id: &str) -> bool {
+        self.entries.remove(ticket_id).is_some()
     }
 
     fn evict_expired(&mut self, now: i64) {

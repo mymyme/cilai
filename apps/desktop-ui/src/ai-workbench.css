@@ -173,7 +173,7 @@
 /* 排队区的底部探到输入框下面，靠这里的层级把它盖住，两者才连得成一组 */
 .ai-composer { position: relative; z-index: 1; overflow: visible; }
 .ai-composer-input { position: relative; display: block; min-width: 0; }
-.ai-composer-input > textarea { width: 100%; min-width: 0; }
+.ai-composer-input > textarea { box-sizing: border-box; field-sizing: content; width: 100%; min-width: 0; max-width: 100%; height: auto; min-height: calc(1.55em + 25px); max-height: min(calc(15.5em + 25px), 35dvh); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* 选中应用或技能后，标签和可编辑正文进入同一个行内格式上下文。标签只占首行真实宽度，
    后续视觉换行从输入框左侧重新开始，不再继承 textarea 的整段缩进。 */
 .ai-composer-input.has-invocation { width: 100%; max-height: calc(15.5em + 25px); box-sizing: border-box; overflow-y: auto; padding: 17px 20px 8px; color: var(--text-primary); font: inherit; font-size: var(--text-base); line-height: 1.55; cursor: text; }

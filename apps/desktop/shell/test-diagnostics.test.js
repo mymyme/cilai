@@ -11,6 +11,23 @@ function fixture(t, maxBytes) {
   const options = {directory,metadata:() => ({version:"test",platform:process.platform}), maxBytes};
   return {directory,options, log:createTestDiagnostics(options)};
 }
+test("合并重复启动故障，并只记录允许的阶段、锁耗时和响应大小", t => {
+  const { directory, log } = fixture(t);
+  const failure = { phase: "failed", errorReason: "unknown PRIVATE_DIRECTORY" };
+  log.response("app_server_status", failure, null, 500);
+  log.response("app_server_status", failure, null, 650);
+  log.stderr("personal_startup_timing stage=history_catalog ms=123 status=ready\n");
+  log.stderr("personal_startup_lock stage=runtime_publish wait_ms=12 hold_ms=34\n");
+  log.stderr("personal_startup_lock stage=PRIVATE_DIRECTORY wait_ms=12 hold_ms=34\n");
+  log.response("ai_runtime_query", { result: "PRIVATE_MESSAGE" }, null, 101, 2048);
+  const raw = fs.readFileSync(path.join(directory, "events.log"), "utf8");
+  assert.equal(raw.match(/"event":"service_start"/g).length, 1);
+  assert.match(raw, /"fingerprint":"[a-f0-9]{32}"/);
+  assert.match(raw, /"stage":"history_catalog"/);
+  assert.match(raw, /"waitMs":12,"holdMs":34/);
+  assert.match(raw, /"responseBytes":2048/);
+  assert.doesNotMatch(raw, /PRIVATE_/);
+});
 test("sandbox execution preflight exports only the known code and run identity", t => {
   const {log} = fixture(t);
   const runId = "run_2442792a-b121-492f-9324-932293fca6b2";

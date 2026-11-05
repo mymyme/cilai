@@ -181,7 +181,22 @@ impl CodexThreadService {
         &self,
         threads: impl IntoIterator<Item = &'a str>,
     ) -> Result<std::collections::BTreeMap<String, Value>, String> {
-        let mut result = self.catalog_with_mode(false)?;
+        self.catalog_for_threads_with_lifetime(threads, true)
+    }
+
+    pub(crate) fn catalog_for_history<'a>(
+        &self,
+        threads: impl IntoIterator<Item = &'a str>,
+    ) -> Result<std::collections::BTreeMap<String, Value>, String> {
+        self.catalog_for_threads_with_lifetime(threads, false)
+    }
+
+    fn catalog_for_threads_with_lifetime<'a>(
+        &self,
+        threads: impl IntoIterator<Item = &'a str>,
+        release_metadata_connection: bool,
+    ) -> Result<std::collections::BTreeMap<String, Value>, String> {
+        let mut result = self.catalog_with_mode(false, false)?;
         let mut metadata = CatalogLoad {
             service: self,
             loaded: false,
@@ -195,19 +210,20 @@ impl CodexThreadService {
                 continue;
             }
             let (current, loaded) = self.catalog_thread(thread)?;
-            metadata.loaded |= loaded;
+            metadata.loaded |= loaded && release_metadata_connection;
             result.insert(thread.to_owned(), current);
         }
         Ok(result)
     }
 
     pub(crate) fn catalog(&self) -> Result<std::collections::BTreeMap<String, Value>, String> {
-        self.catalog_with_mode(true)
+        self.catalog_with_mode(true, true)
     }
 
     fn catalog_with_mode(
         &self,
         use_state_db_only: bool,
+        include_bound_records: bool,
     ) -> Result<std::collections::BTreeMap<String, Value>, String> {
         #[cfg(test)]
         self.catalog_loads
@@ -248,11 +264,12 @@ impl CodexThreadService {
             }
         }
         // 旧工作台线程使用自定义来源，上游不提供对应 list 过滤器；按业务绑定读取。
-        if (self.home.ends_with("cilai-harness")
-            || self
-                .home
-                .parent()
-                .is_some_and(|parent| parent.ends_with("cilai-harness")))
+        if include_bound_records
+            && (self.home.ends_with("cilai-harness")
+                || self
+                    .home
+                    .parent()
+                    .is_some_and(|parent| parent.ends_with("cilai-harness")))
             && let Some(server) = &self.history_server
         {
             let source = server.request_result(
@@ -294,6 +311,9 @@ impl CodexThreadService {
             &json!({"threadId":thread,"includeTurns":false}),
         )?["thread"]
             .clone();
+        if current["id"].as_str() != Some(thread) {
+            return Err("codex_thread_catalog_id_mismatch".into());
+        }
         let archived = native_archive_state_from_path(&self.home, &current)?;
         self.archive_states
             .lock()

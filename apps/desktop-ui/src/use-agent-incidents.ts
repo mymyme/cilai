@@ -32,42 +32,59 @@ const skippableReasons = new Set(["agent_run_incident_exists", "project_not_foun
 
 export function useAgentIncidentReporting(options: {
   workspaceRoot: string | null;
+  profileScope?: string | null;
   /** 补记成功后通知调用方刷新工作台计数。 */
   onReported: () => void;
   /** 补记失败且不属于可跳过情形时告知调用方。 */
   onError: (message: string) => void;
 }): void {
-  const { workspaceRoot, onReported, onError } = options;
+  const { workspaceRoot, profileScope, onReported, onError } = options;
   // 同一次运行在一个会话里只尝试一次，失败也不重试：重试要么撞幂等要么撞
   // agent_run_incident_exists，都只是白跑一趟 IPC。
-  const attempted = useRef<Set<string>>(new Set());
+  const attempted = useRef({ profileScope, ids: new Set<string>() });
   const reportedRef = useRef(onReported);
   reportedRef.current = onReported;
   const errorRef = useRef(onError);
   errorRef.current = onError;
 
   useEffect(() => {
-    if (workspaceRoot === null) return;
+    if (workspaceRoot === null || profileScope === null) return;
+    if (attempted.current.profileScope !== profileScope) attempted.current = { profileScope, ids: new Set() };
+    const attemptedIds = attempted.current.ids;
     let cancelled = false;
     let timer: number | null = null;
 
     const sweep = async () => {
       try {
-        const snapshot = await loadAiRuntimeQuery({ scope: "incidents" });
-        if (cancelled) return;
+        const seenCursors = new Set<string>();
+        let after: string | null = null;
         let reported = false;
-        for (const run of snapshot.runs) {
-          if (!incidentStatuses.includes(run.status) || attempted.current.has(run.runId)) continue;
-          attempted.current.add(run.runId);
-          try {
-            if (await reportIncident(run, snapshot)) reported = true;
-          } catch (error) {
-            // 单次补记失败不该让整轮扫描停下：后面几次运行各自独立，还有机会补记成功。
-            errorRef.current(`运行事故未能记入工作台：${describeServerError(error)}`);
-          }
+        do {
+          const snapshot: AiRuntimeQuerySnapshot = await loadAiRuntimeQuery({
+            scope: "incidents", ...(after ? { afterIncidentRunId: after } : {}),
+          });
           if (cancelled) return;
-        }
-        if (reported) reportedRef.current();
+          const eligible = new Set(snapshot.incidentCandidateRunIds);
+          for (const run of snapshot.runs) {
+            if (cancelled) return;
+            if (!eligible.has(run.runId) || !incidentStatuses.includes(run.status) || attemptedIds.has(run.runId)) continue;
+            try {
+              if (await reportIncident(run, snapshot, () => {
+                if (cancelled || attemptedIds.has(run.runId)) return false;
+                attemptedIds.add(run.runId);
+                return true;
+              })) reported = true;
+            } catch (error) {
+              if (!cancelled) errorRef.current(`运行事故未能记入工作台：${describeServerError(error)}`);
+            }
+          }
+          after = snapshot.nextIncidentRunId;
+          if (after) {
+            if (seenCursors.has(after)) throw new Error("ai_incident_cursor_invalid");
+            seenCursors.add(after);
+          }
+        } while (after && !cancelled);
+        if (!cancelled && reported) reportedRef.current();
       } catch (error) {
         // 取快照失败属于这一轮读不到数据，下次唤醒会再看一遍；真正的补记失败在上面逐次报出。
         if (!cancelled) errorRef.current(`读取运行记录失败：${describeServerError(error)}`);
@@ -78,10 +95,10 @@ export function useAgentIncidentReporting(options: {
 
     void sweep();
     return () => { cancelled = true; if (timer !== null) window.clearTimeout(timer); };
-  }, [workspaceRoot]);
+  }, [profileScope, workspaceRoot]);
 }
 
-async function reportIncident(run: AiRunSummary, snapshot: AiRuntimeQuerySnapshot): Promise<boolean> {
+async function reportIncident(run: AiRunSummary, snapshot: AiRuntimeQuerySnapshot, admit: () => boolean): Promise<boolean> {
   const conversation = snapshot.conversations.find((item) => item.conversationId === run.conversationId);
   const taskId = incidentTaskId(run, snapshot);
   // 关注事项只能挂到运行当时已确认的任务重试链。不能用对话现在的绑定
@@ -113,6 +130,7 @@ async function reportIncident(run: AiRunSummary, snapshot: AiRuntimeQuerySnapsho
   };
 
   try {
+    if (!admit()) return false;
     await rpc<AgentIncidentReportResult>("agentIncident/report", params);
     return true;
   } catch (error) {

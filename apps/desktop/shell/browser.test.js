@@ -1,6 +1,8 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { BrowserRuntime } = require("./browser");
+const { BrowserApprovals } = require("./browser-approval");
+const { BrowserMcpServer } = require("./browser-mcp");
 
 /** 内容进程的替身：只记录施加了哪些管控与调用，不起真实进程。 */
 function fakeContents() {
@@ -14,6 +16,7 @@ function fakeContents() {
     windowOpenHandler: null,
     isDestroyed() { return this.destroyed; },
     isLoading() { return false; },
+    isLoadingMainFrame() { return false; },
     getURL() { return this.url; },
     getTitle() { return this.title; },
     navigationHistory: { canGoBack: () => false, canGoForward: () => false, goBack() {}, goForward() {} },
@@ -37,8 +40,11 @@ function fakeContents() {
       emit(event, method, params) {
         for (const [name, handler] of this.listeners) if (name === event) handler({}, method, params);
       },
-      sendCommand: async (method) =>
-        method === "Runtime.evaluate" ? { result: { value: "页面正文" } } : {},
+      sendCommand: async (method) => {
+        if (method === "Runtime.evaluate") return { result: { value: "页面正文" } };
+        if (method === "DOM.getNodeForLocation") return { backendNodeId: 1 };
+        return {};
+      },
     },
   };
 }
@@ -167,15 +173,98 @@ test("站点白名单不启用时 AI 可以去任何站点，传输安全那条�
   assert.equal(runtime.state().driver, "employee");
 });
 
-test("员工接手期间 AI 的写操作被拒，两边不同时动同一个页面", async () => {
-  const { runtime } = runtimeWithUi({ allowedHosts: ["a.example.com"] });
-  await runtime.openTab(null);
+test("员工接手期间拒绝写入，交还后原批准目标仍失效", async () => {
+  const { runtime } = runtimeWithUi();
+  await runtime.navigate("https://example.com/");
+  const point = { x: 1, y: 1 };
+  const target = await runtime.captureWriteTarget(null, { point });
   runtime.setDriver("employee");
-  await assert.rejects(() => runtime.click({ x: 1, y: 1 }), /写操作已暂停/);
-  await assert.rejects(() => runtime.type("x"), /写操作已暂停/);
+  await assert.rejects(() => runtime.click(target), /写操作已暂停/);
+  await assert.rejects(() => runtime.captureWriteTarget(null, { textInput: true }), /写操作已暂停/);
   runtime.setDriver("ai");
-  await runtime.click({ x: 1, y: 1 });
+  await assert.rejects(() => runtime.click(target), /目标已变化/);
+  const current = await runtime.captureWriteTarget(null, { point });
+  await runtime.click(current);
+  await assert.rejects(() => runtime.click(current), /目标已变化/);
   assert.deepEqual(runtime.current().contents.inputs, ["mouseDown", "mouseUp"]);
+});
+
+test("同地址刷新期间的旧批准不能执行或建立站点授权", async () => {
+  const { runtime } = runtimeWithUi();
+  await runtime.navigate("https://example.com/", "conv");
+  const tab = runtime.current("conv");
+  let requested;
+  const received = new Promise(resolve => { requested = resolve; });
+  const approvals = new BrowserApprovals((event, payload) => {
+    if (event === "browser-approval-request") requested(payload);
+  });
+  const server = new BrowserMcpServer(runtime, approvals);
+  const pending = server.invokeWrite("browser_click", { x: 1, y: 1 }, "conv");
+  const request = await received;
+  tab.contents.emit("did-start-navigation", { isMainFrame: true });
+  assert.equal(approvals.resolve(request.confirmationId, true, true).grantedSite, null);
+  await assert.rejects(pending, /目标已变化/);
+  assert.equal(approvals.grantedFor({ scope: "conv", site: "https://example.com" }), false);
+  assert.deepEqual(tab.contents.inputs, []);
+});
+
+test("切换标签再返回以及坐标命中元素被替换都会拒绝原操作", async () => {
+  const { runtime } = runtimeWithUi();
+  await runtime.navigate("https://example.com/a", "conv");
+  const first = runtime.activeIdOf("conv");
+  const point = { x: 1, y: 1 };
+  const beforeSwitch = await runtime.captureWriteTarget("conv", { point });
+  await runtime.openTab("https://example.com/b", { conversationId: "conv" });
+  runtime.activateTab(first);
+  await assert.rejects(() => runtime.click(beforeSwitch), /目标已变化/);
+
+  const beforeReplacement = await runtime.captureWriteTarget("conv", { point });
+  const tab = runtime.current("conv");
+  tab.debug.sendCommand = async () => ({ backendNodeId: 2 });
+  await assert.rejects(() => runtime.click(beforeReplacement), /点击位置的目标已变化/);
+  assert.deepEqual(tab.contents.inputs, []);
+});
+
+test("写入文本前重新核对审批时的焦点，变化后不发送输入", async () => {
+  const { runtime } = runtimeWithUi();
+  await runtime.navigate("https://example.com/", "conv");
+  const { debug } = runtime.current("conv");
+  const calls = [];
+  let focusMatches = false;
+  debug.sendCommand = async (method) => {
+    calls.push(method);
+    switch (method) {
+      case "Runtime.evaluate": return { result: { objectId: "old-focus" } };
+      case "DOM.describeNode": return { node: { backendNodeId: 42 } };
+      case "DOM.resolveNode": return { object: { objectId: "focus" } };
+      case "Runtime.callFunctionOn": return { result: { value: focusMatches } };
+      default: return {};
+    }
+  };
+  const old = await runtime.captureWriteTarget("conv", { textInput: true });
+  await assert.rejects(() => runtime.type("文字", old), /输入焦点已变化/);
+  assert.ok(!calls.includes("Input.insertText"));
+  focusMatches = true;
+  const current = await runtime.captureWriteTarget("conv", { textInput: true });
+  assert.deepEqual(await runtime.type("文字", current), { typed: 2 });
+  assert.equal(calls.filter(method => method === "Input.insertText").length, 1);
+});
+
+test("等待只接受结构化条件，向页面提交无副作用的固定读取", async () => {
+  const { runtime } = runtimeWithUi();
+  await runtime.navigate("https://example.com/", "conv");
+  const { debug } = runtime.current("conv");
+  const evaluations = [];
+  debug.sendCommand = async (method, args) => {
+    if (method === "Runtime.evaluate") evaluations.push(args);
+    return { result: { value: true } };
+  };
+  await assert.rejects(() => runtime.waitFor({ expression: "document.body.remove()" }, "conv"), /等待参数无效/);
+  await assert.rejects(() => runtime.waitFor({ condition: { kind: "ready", state: "complete" }, timeoutMs: 30001 }, "conv"), /等待参数无效/);
+  assert.deepEqual(evaluations, []);
+  assert.deepEqual(await runtime.waitFor({ condition: { kind: "element", selector: 'a[title="测试"]', state: "present" } }, "conv"), { satisfied: true });
+  assert.equal(evaluations[0].expression, `!!document.querySelector(${JSON.stringify('a[title="测试"]')})`);
+  assert.equal(evaluations[0].throwOnSideEffect, true);
 });
 
 test("列出的标签包含员工自己打开的，AI 据此读取员工正在看的页面", async () => {
