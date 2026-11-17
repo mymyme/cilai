@@ -158,7 +158,7 @@ dependencies = [
 
 [[package]]
 name = "cilai-host-service"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "base64",
  "chrono",
@@ -206,7 +206,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "contexthub-app-server"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "base64",
  "chrono",
@@ -231,7 +231,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-application"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "contexthub-domain",
  "contexthub-manifest",
@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-cli"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "contexthub-local-transport",
  "contexthub-platform-adapter",
@@ -249,11 +249,11 @@ dependencies = [
 
 [[package]]
 name = "contexthub-domain"
-version = "0.1.2"
+version = "0.1.3"
 
 [[package]]
 name = "contexthub-local-transport"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "sha2",
  "tokio",
@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-manifest"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -271,11 +271,11 @@ dependencies = [
 
 [[package]]
 name = "contexthub-observability"
-version = "0.1.2"
+version = "0.1.3"
 
 [[package]]
 name = "contexthub-persistence-sqlite"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "contexthub-application",
  "contexthub-domain",
@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-platform-adapter"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "contexthub-local-transport",
  "libc",
@@ -307,7 +307,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-protocol"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "contexthub-domain",
  "schemars",
@@ -318,7 +318,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-workbench-runtime"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "base64",
  "chrono",
@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "contexthub-workspace-fs"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "contexthub-application",
  "contexthub-domain",

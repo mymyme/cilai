@@ -1,6 +1,6 @@
 # 个人助理增量本地验证 / Local verification
 
-日期：2026-11-17。当前源码已实现 [12 组功能需求](../PERSONAL_ASSISTANT_REQUIREMENTS.md)，对应 [27 条验收标准](../PERSONAL_ASSISTANT_ACCEPTANCE.md)。这些能力尚未包含在公开的 v0.1.2 下载包中。
+日期：2026-11-17。当前源码已实现 [12 组功能需求](../PERSONAL_ASSISTANT_REQUIREMENTS.md)，对应 [30 条验收标准](../PERSONAL_ASSISTANT_ACCEPTANCE.md)。这些能力由 v0.1.3 开发预览提供；原 v0.1.2 包保持原样。发布范围见[版本说明](../releases/v0.1.3.md)。
 
 ## 验证记录
 
@@ -16,7 +16,7 @@
 | npm 依赖审计 | 两个依赖树均零漏洞 | 2026-11-17 的检查快照 |
 | macOS arm64 本地包 | 构建和启动通过 | 临时签名、独立资料、八个导航入口、助理输入区持续就绪、前端错误为空、默认记忆关闭、Word/HTML 探针及正常退出 |
 
-[个人助理首屏](../screenshots/personal-assistant.png)来自这一轮本地包，使用全新独立资料，没有模型连接或真实业务记录。生产构建和真实首屏分别检查，不能仅凭导航已出现认定界面可用。
+[个人助理首屏](../screenshots/personal-assistant-v0.1.3.png)来自这一轮本地包，使用全新独立资料，没有模型连接或真实业务记录。生产构建和真实首屏分别检查，不能仅凭导航已出现认定界面可用。
 
 ## 验收边界
 

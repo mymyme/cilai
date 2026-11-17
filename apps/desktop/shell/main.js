@@ -389,7 +389,11 @@ app.whenReady().then(async () => {
     });
     try {
       await new Promise(resolve => main.webContents.once("did-finish-load", resolve));
-      await require('./personal-smoke-check').checkPersonalStartup({ window: main, service, root: headlessIsolation.root, frontendErrors });
+      const startup = await require('./personal-smoke-check').checkPersonalStartup({ window: main, service, root: headlessIsolation.root, frontendErrors });
+      if (process.env.CILAI_PERSONAL_SCREENSHOTS_DIR) {
+        await require('./personal-screenshot-check').capturePersonalScreenshots({ window: main, service,
+          root: headlessIsolation.root, startup, frontendErrors, destination: process.env.CILAI_PERSONAL_SCREENSHOTS_DIR });
+      }
       app.quit();
     } catch (error) {
       console.error('[personal-check] failed:', error.message);

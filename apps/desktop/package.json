@@ -1,8 +1,8 @@
 {
   "name": "@cilai/personal-workbench-desktop",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
-  "description": "词来个人工作台本地优先桌面客户端。",
+  "description": "以个人助理为中心，交办工作、跟进进展、汇总成果。",
   "author": "词来",
   "main": "shell/main.js",
   "scripts": {

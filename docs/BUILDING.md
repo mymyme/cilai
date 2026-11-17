@@ -4,9 +4,9 @@
 
 ## Download a preview
 
-The [v0.1.2 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.2) provides `cilai-personal-workbench-0.1.2-macos-arm64.zip` for **macOS 13.5 or later on Apple Silicon**. It bundles the official Codex CLI / App Server **0.163.0** runtime; no separate Codex installation or reuse of an existing `~/.codex` directory is needed. Windows and macOS x64 packages are not included in this release. macOS 13.5 is the minimum deployment target, not evidence of acceptance on an actual 13.5 system; that validation remains pending.
+The [v0.1.3 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.3) provides `cilai-personal-workbench-0.1.3-macos-arm64.zip` for **macOS 13.5 or later on Apple Silicon**. It bundles the official Codex CLI / App Server **0.163.0** runtime; no separate Codex installation or reuse of an existing `~/.codex` directory is needed. Windows and macOS x64 packages are not included in this release. macOS 13.5 is the minimum deployment target, not evidence of acceptance on an actual 13.5 system; that validation remains pending.
 
-This ZIP is ad-hoc signed, without a Developer ID signature or Apple notarization. macOS may block its first launch. Automatic updates remain disabled. See the [release notes](releases/v0.1.2.md) and [compatibility record](COMPATIBILITY.md) before use.
+This ZIP is ad-hoc signed, without a Developer ID signature or Apple notarization. macOS may block its first launch. Automatic updates remain disabled. See the [release notes](releases/v0.1.3.md) and [compatibility record](COMPATIBILITY.md) before use.
 
 To verify the download, save the ZIP and `SHA256SUMS` from the same release into one directory and run:
 
@@ -69,7 +69,7 @@ Output paths are relative to the dedicated parent directory:
 
 `npm run launch` performs the same build and opens the personal package. Quit a running personal testing package normally before rebuilding. The build checks its own package path; do not kill applications by a shared process name.
 
-macOS local packages use ad-hoc signing. The current distribution is `local`, with an empty update source and no automatic upload. The v0.1.2 GitHub preview is a ZIP archive of this local package, distributed separately from the updater. Formal signing, portable, and online-update entry points remain unavailable until their own distribution requirements are completed. A local build or public preview ZIP is not a Developer ID-signed or notarized release.
+macOS local packages use ad-hoc signing. The current distribution is `local`, with an empty update source and no automatic upload. The v0.1.3 GitHub preview is a ZIP archive of this local package, distributed separately from the updater. Formal signing, portable, and online-update entry points remain unavailable until their own distribution requirements are completed. A local build or public preview ZIP is not a Developer ID-signed or notarized release.
 
 ## Checks
 

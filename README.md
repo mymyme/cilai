@@ -6,7 +6,7 @@
 
 词来是基于官方 Codex CLI 的第三方桌面端，也是一个本地优先的 AI 工作台。个人助理负责协调，执行对话推进具体工作；项目、文件、工具和个人事项围绕同一目标组织。
 
-[English](README.en.md) · [下载 v0.1.2](https://github.com/mymyme/cilai/releases/tag/v0.1.2) · [构建指南](docs/BUILDING.md) · [兼容状态](docs/COMPATIBILITY.md) · [企业版官网](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
+[English](README.en.md) · [下载 v0.1.3](https://github.com/mymyme/cilai/releases/tag/v0.1.3) · [构建指南](docs/BUILDING.md) · [兼容状态](docs/COMPATIBILITY.md) · [官网](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 
 ## 个人助理
 
@@ -20,31 +20,31 @@
 
 助理使用你选择的个人模型连接。实际执行由独立工作对话承担，助理本身没有通用终端或文件写入权限。待办、备忘录和到点提醒保存在本地，提醒本身不调用模型。
 
-**个人助理已纳入当前源码，尚未包含在已发布的 v0.1.2 下载包中。** 体验这些新增能力请[从源码构建](#从源码构建)。阅读[功能需求](docs/PERSONAL_ASSISTANT_REQUIREMENTS.md)、[架构与能力边界](docs/PERSONAL_ASSISTANT.md)、[验收标准](docs/PERSONAL_ASSISTANT_ACCEPTANCE.md)和[本地验证记录](docs/verification/personal-assistant-2026-11-17.md)。
+**v0.1.3 开发预览已包含个人助理。** 可以下载体验，也可[从源码构建](#从源码构建)。阅读[功能需求](docs/PERSONAL_ASSISTANT_REQUIREMENTS.md)、[架构与能力边界](docs/PERSONAL_ASSISTANT.md)、[验收标准](docs/PERSONAL_ASSISTANT_ACCEPTANCE.md)和[本地验证记录](docs/verification/personal-assistant-2026-11-17.md)。
 
 ## 下载开发预览版
 
-**[v0.1.2 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.2)**，适用于 macOS 13.5 及以上、arm64 芯片。下载 `cilai-personal-workbench-0.1.2-macos-arm64.zip`，解压后打开应用；同页提供 `SHA256SUMS` 供核对。 macOS 13.5 是最低部署目标，尚未在 13.5 实机验收。
+**[v0.1.3 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.3)**，适用于 macOS 13.5 及以上、arm64 芯片。下载 `cilai-personal-workbench-0.1.3-macos-arm64.zip`，解压后打开应用；同页提供 `SHA256SUMS` 供核对。 macOS 13.5 是最低部署目标，尚未在 13.5 实机验收。
 
 包内已包含锁定的官方 Codex CLI / App Server **0.163.0** 运行时，无需另装 Codex 或复用现有 `~/.codex`。模型调用仍需在工作台中配置自己的授权。
 
-这是 **开发预览包**：使用 ad-hoc 签名，尚无 Developer ID 签名或 Apple 公证，macOS 可能阻止首次打开；自动更新禁用。当前不提供 Windows 或 macOS Intel 安装包。版本内容与限制见[发布说明](docs/releases/v0.1.2.md)。
+这是 **开发预览包**：使用 ad-hoc 签名，尚无 Developer ID 签名或 Apple 公证，macOS 可能阻止首次打开；自动更新禁用。当前不提供 Windows 或 macOS Intel 安装包。版本内容与限制见[发布说明](docs/releases/v0.1.3.md)。
 
 ## 界面预览
 
-**个人助理 · 当前源码**
+v0.1.3 macOS arm64 实际界面，使用全新独立演示资料。待办和备忘录为手工录入，交办草稿未发送，没有模型生成的演示结果。
 
-macOS arm64 本地测试包的实际首屏，使用全新独立资料，尚未配置模型，没有真实业务记录。
+**个人助理**
 
-![个人助理：工作输入区与跟进、待办、备忘录面板](docs/screenshots/personal-assistant.png)
+![个人助理：交办草稿与个人事项总览](docs/screenshots/personal-assistant-v0.1.3.png)
 
-**工作台与对话 · 历史预览**
+**待办与提醒**
 
-以下为 macOS 实际界面，使用已清理的临时演示资料；对话页展示尚未发送的任务草稿。
+![个人助理：待办与提醒](docs/screenshots/personal-todos-v0.1.3.png)
 
-![工作台：按状态整理演示任务与近期对话](docs/screenshots/workbench.jpg)
+**备忘录**
 
-![对话页：演示会话与未发送的任务草稿](docs/screenshots/conversation.jpg)
+![个人助理：备忘录与工作资料](docs/screenshots/personal-memos-v0.1.3.png)
 
 ## 围绕助理的工作台
 
@@ -108,7 +108,7 @@ cilai-personal/
 
 ## 当前状态
 
-项目处于 **开发预览**，已提供 v0.1.2 macOS arm64 下载包。首版仍在验收，尚无 Developer ID 签名或 Apple 公证发行。
+项目处于 **开发预览**，已提供 v0.1.3 macOS arm64 下载包。首版仍在验收，尚无 Developer ID 签名或 Apple 公证发行。
 
 | 范围 | 当前记录 |
 | --- | --- |
@@ -134,11 +134,9 @@ third_party/        官方运行时清单、通知与历史源码快照
 
 设计边界见[架构说明](docs/ARCHITECTURE.md)，依赖与归属见[第三方说明](docs/THIRD_PARTY.md)。
 
-## 企业版
+## 官网
 
-需要了解企业版，请访问 **[词来官网 · www.cilai.com.cn](https://www.cilai.com.cn)**。
-
-个人开源版聚焦本地个人工作流，独立于企业账号、云空间和企业协作系统。“个人版”描述产品功能范围，不限制企业或商业使用；第三方服务的授权与条款分别适用。
+[www.cilai.com.cn](https://www.cilai.com.cn)
 
 ## 许可证与贡献
 

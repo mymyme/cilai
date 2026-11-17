@@ -1,12 +1,12 @@
 # 兼容状态 / Compatibility
 
-Released-package baseline: **2026-11-05**. Development-source increment: **2026-11-17**, recorded separately below. The v0.1.2 source and macOS arm64 package integrate scoped conversation history, runtime and permission lifecycle changes, chunked previews, and isolated Word/HTML layout. Type checking, 1,366 frontend tests, 281 desktop-shell tests, 86 Rust host tests and focused native/runtime tests passed during implementation. Seven shell checks were conditionally skipped; these include platform and opt-in native scenarios. The packaged app passed startup in a new isolated profile, browser approval/takeover checks and PDF/Word/HTML probes. This is a developer preview: source tests, simulated fixtures, native package checks, real service calls and formal distribution remain separate validation levels. The model evidence below remains historical and was not repeated for this update.
+Updated: **2026-11-17**. The **v0.1.3 personal-assistant developer preview** includes assistant coordination, local personal records, explicit continuation, scoped tools, app-conversation reset, and the updated startup/preview flows. Source, local fixtures, package checks, real providers, and platform acceptance remain separate evidence layers.
 
 ## Platforms
 
 | Platform | Current evidence | Remaining work |
 | --- | --- | --- |
-| macOS 13.5+ arm64 | v0.1.2 preview ZIP; Electron 44.9.1; isolated startup, seven navigation entries, browser controls and PDF/Word/HTML package probes checked | Broader first-release business acceptance, native notification delivery/click, actual macOS 13.5 hardware, clean-machine build, formal signing |
+| macOS 13.5+ arm64 | v0.1.3 preview ZIP; Electron 44.10.2; isolated startup, eight navigation entries, stable assistant composer and manual-record screenshots checked | Broader first-release business acceptance, native notification delivery/click, actual macOS 13.5 hardware, clean-machine build, formal signing |
 | macOS x64 | Source and official runtime target present | Native package and business validation |
 | Windows 10 22H2 x64 and later client x64, including Windows 11 | Shared source and selected platform contracts exist | Native build, launch, security and complete business validation |
 | Linux | No desktop packaging target registered | Outside the current desktop platform scope |
@@ -55,14 +55,18 @@ On **2026-10-25**, the installed source and personal-stage Electron distribution
 
 ## Source submission and releases
 
-The [v0.1.2 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.2) provides a ZIP for **macOS 13.5 or later on Apple Silicon (arm64)**, with a `SHA256SUMS` file. No Windows or macOS Intel package is included. See the [bilingual release notes](releases/v0.1.2.md). The previous v0.1.1 and v0.1.0 archives remain available.
+The [v0.1.3 developer preview](https://github.com/mymyme/cilai/releases/tag/v0.1.3) provides a ZIP for **macOS 13.5 or later on Apple Silicon (arm64)**, with a `SHA256SUMS` file. No Windows or macOS Intel package is included. See the [bilingual release notes](releases/v0.1.3.md). The previous v0.1.2, v0.1.1 and v0.1.0 archives remain available.
 
 For v0.1.1 on **2026-10-26**, the standard personal build produced the macOS arm64 application with Electron 44.9.1, bundled notices, and an isolated no-model startup check. The release preparation passed 1338 frontend tests, 522 Node/shell/build checks with 12 conditional skips, type checking, workspace/all-target Clippy and formatting, protocol consistency, and the system-proxy route-isolation test. Both npm dependency trees reported zero audit findings. These are local source/package checks; the provider evidence above remains historical and was not repeated for this release.
 
 The package includes the pinned official Codex CLI / App Server **0.163.0** runtime and uses dedicated workbench configuration and state. It does not reuse an existing user's `~/.codex` profile. It is ad-hoc signed, without a Developer ID signature or Apple notarization; macOS may block the first launch. Online updates remain disabled.
 
-A public preview download does not mark the complete first-release scope as accepted or establish support for untested platforms and model combinations. The enterprise website is [www.cilai.com.cn](https://www.cilai.com.cn).
+A public preview download does not mark the complete first-release scope as accepted or establish support for untested platforms and model combinations. Website: [www.cilai.com.cn](https://www.cilai.com.cn).
 
-## Current development increment (2026-11-17)
+## Personal-assistant increment (v0.1.3, 2026-11-17)
 
-The source adds personal-assistant coordination, personal records/reminders, explicit continuation, scoped task tools, temporary app-session restart and a unified PDF renderer. Source dependencies are Electron 44.10.2 and rusqlite 0.41.0, with the official App Server unchanged at 0.163.0. This does not replace the published v0.1.2 package or extend the historical platform/provider acceptance above. Local source, fixture and packaging results are tracked separately; Windows native and real provider streaming require independent acceptance. See [personal assistant architecture](PERSONAL_ASSISTANT.md).
+The source adds personal-assistant coordination, personal records/reminders, explicit continuation, scoped task tools, temporary app-session restart and a unified PDF renderer. Source dependencies are Electron 44.10.2 and rusqlite 0.41.0, with the official App Server unchanged at 0.163.0. The previous v0.1.2 package remains available. This increment does not extend the historical platform/provider acceptance above. Local source, fixture and packaging results are tracked separately; Windows native and real provider streaming require independent acceptance. See [personal assistant architecture](PERSONAL_ASSISTANT.md).
+
+## Earlier package baseline (v0.1.2)
+
+Released-package baseline: **2026-11-05**. Development-source increment: **2026-11-17**, recorded separately below. The v0.1.2 source and macOS arm64 package integrate scoped conversation history, runtime and permission lifecycle changes, chunked previews, and isolated Word/HTML layout. Type checking, 1,366 frontend tests, 281 desktop-shell tests, 86 Rust host tests and focused native/runtime tests passed during implementation. Seven shell checks were conditionally skipped; these include platform and opt-in native scenarios. The packaged app passed startup in a new isolated profile, browser approval/takeover checks and PDF/Word/HTML probes. This is a developer preview: source tests, simulated fixtures, native package checks, real service calls and formal distribution remain separate validation levels. The model evidence below remains historical and was not repeated for this update.

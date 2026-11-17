@@ -6,7 +6,7 @@
 
 Cilai is a third-party desktop client built on the official Codex CLI. The personal assistant coordinates work while dedicated conversations execute it, bringing projects, files, tools, and personal records together in a local-first workspace.
 
-[简体中文](README.md) · [Download v0.1.2](https://github.com/mymyme/cilai/releases/tag/v0.1.2) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Enterprise website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
+[简体中文](README.md) · [Download v0.1.3](https://github.com/mymyme/cilai/releases/tag/v0.1.3) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
 
 ## Personal assistant
 
@@ -20,31 +20,31 @@ Start with a goal, delegate the work, and return to see how it is progressing.
 
 The assistant uses your selected model connection. Dedicated work conversations perform the execution; the coordinator has no general terminal or file-write access. Todos, memos, and reminder schedules stay local, and scheduled reminders do not call a model.
 
-**The personal assistant is implemented in the current source and is not included in the published v0.1.2 download.** [Build from source](#build-from-source) to try the new capabilities. See the [requirements](docs/PERSONAL_ASSISTANT_REQUIREMENTS.md), [architecture and boundaries](docs/PERSONAL_ASSISTANT.md), [acceptance criteria](docs/PERSONAL_ASSISTANT_ACCEPTANCE.md), and [local verification record](docs/verification/personal-assistant-2026-11-17.md).
+**The v0.1.3 developer preview includes the personal assistant.** Download the preview or [build from source](#build-from-source). See the [requirements](docs/PERSONAL_ASSISTANT_REQUIREMENTS.md), [architecture and boundaries](docs/PERSONAL_ASSISTANT.md), [acceptance criteria](docs/PERSONAL_ASSISTANT_ACCEPTANCE.md), and [local verification record](docs/verification/personal-assistant-2026-11-17.md).
 
 ## Download the developer preview
 
-**[v0.1.2 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.2)** requires macOS 13.5 or later on arm64. Download `cilai-personal-workbench-0.1.2-macos-arm64.zip`, extract it, and open the app. The release also includes `SHA256SUMS` for verification. macOS 13.5 is the minimum deployment target; acceptance on an actual 13.5 system remains pending.
+**[v0.1.3 · macOS Apple Silicon](https://github.com/mymyme/cilai/releases/tag/v0.1.3)** requires macOS 13.5 or later on arm64. Download `cilai-personal-workbench-0.1.3-macos-arm64.zip`, extract it, and open the app. The release also includes `SHA256SUMS` for verification. macOS 13.5 is the minimum deployment target; acceptance on an actual 13.5 system remains pending.
 
 The package includes the pinned official Codex CLI / App Server **0.163.0** runtime. A separate Codex installation or an existing `~/.codex` profile is not required. Configure your own model authorization inside the workbench.
 
-This is a **developer preview** with ad-hoc signing, without a Developer ID signature or Apple notarization. macOS may block the first launch. Automatic updates are disabled. Windows and Intel Mac packages are not provided in this release. See the [release notes](docs/releases/v0.1.2.md) for contents and limitations.
+This is a **developer preview** with ad-hoc signing, without a Developer ID signature or Apple notarization. macOS may block the first launch. Automatic updates are disabled. Windows and Intel Mac packages are not provided in this release. See the [release notes](docs/releases/v0.1.3.md) for contents and limitations.
 
 ## Screenshots
 
-**Personal assistant · Current source**
+Actual v0.1.3 macOS arm64 interface with a fresh isolated demo profile. Todos and memos were entered manually; the delegation draft was not sent, and no model-generated result is shown.
 
-Actual startup screen from a macOS arm64 local testing package, using a fresh isolated profile without a model connection or private business records.
+**Personal assistant**
 
-![Personal assistant with a work composer, follow-up, todos, and memos](docs/screenshots/personal-assistant.png)
+![Personal assistant with an unsent delegation draft and personal records](docs/screenshots/personal-assistant-v0.1.3.png)
 
-**Workbench and conversations · Earlier preview**
+**Todos and reminders**
 
-Actual macOS interface with temporary demo data that has since been removed. The conversation view shows an unsent task draft.
+![Personal assistant todos and reminders](docs/screenshots/personal-todos-v0.1.3.png)
 
-![Workbench with demo tasks organized by status and recent conversations](docs/screenshots/workbench.jpg)
+**Memos**
 
-![Conversation view with demo sessions and an unsent task draft](docs/screenshots/conversation.jpg)
+![Personal assistant memos and work notes](docs/screenshots/personal-memos-v0.1.3.png)
 
 ## The workbench around your assistant
 
@@ -108,7 +108,7 @@ Use `npm run launch` to build and open the personal testing package. Quit a runn
 
 ## Current status
 
-The project is a **developer preview**, with a v0.1.2 download for macOS arm64. First-release acceptance work is still in progress. A Developer ID-signed or Apple-notarized distribution is not available.
+The project is a **developer preview**, with a v0.1.3 download for macOS arm64. First-release acceptance work is still in progress. A Developer ID-signed or Apple-notarized distribution is not available.
 
 | Area | Current evidence |
 | --- | --- |
@@ -134,11 +134,9 @@ third_party/        Official runtime manifests, notices, and historical source
 
 See the [architecture](docs/ARCHITECTURE.md) and [third-party notes](docs/THIRD_PARTY.md).
 
-## Enterprise edition
+## Website
 
-Visit **[www.cilai.com.cn](https://www.cilai.com.cn)** for the enterprise edition.
-
-The personal open-source edition focuses on local workflows and operates independently of enterprise accounts, cloud spaces, and collaboration systems. “Personal” describes the feature scope; it does not restrict enterprise or commercial use. Third-party service authorizations and terms apply separately.
+[www.cilai.com.cn](https://www.cilai.com.cn)
 
 ## License and contributions
 
