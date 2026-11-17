@@ -32,19 +32,9 @@
 
 ## 界面预览
 
-v0.1.3 macOS arm64 实际界面，使用全新独立演示资料。待办和备忘录为手工录入，交办草稿未发送，没有模型生成的演示结果。
+v0.1.3 macOS arm64 实际界面，左侧主导航展开。使用全新独立演示资料，事项为手工录入，交办草稿未发送。
 
-**个人助理**
-
-![个人助理：交办草稿与个人事项总览](docs/screenshots/personal-assistant-v0.1.3.png)
-
-**待办与提醒**
-
-![个人助理：待办与提醒](docs/screenshots/personal-todos-v0.1.3.png)
-
-**备忘录**
-
-![个人助理：备忘录与工作资料](docs/screenshots/personal-memos-v0.1.3.png)
+![个人助理：展开的主导航与个人事项总览](docs/screenshots/personal-assistant-expanded-v0.1.3.png)
 
 ## 围绕助理的工作台
 

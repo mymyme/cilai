@@ -14,7 +14,7 @@ async function capturePersonalScreenshots({ window, service, root, startup, fron
   }
   fs.mkdirSync(output, { recursive: true });
   const ownerPath = path.join(output, 'capture.json');
-  const names = ['personal-assistant.png', 'personal-todos.png', 'personal-memos.png'];
+  const names = ['personal-assistant.png'];
   if (fs.readdirSync(output).length) {
     const owner = JSON.parse(fs.readFileSync(ownerPath, 'utf8'));
     if (owner.schema !== 'cilai-product-screenshots-v1' || owner.version !== require('../package.json').version
@@ -35,6 +35,9 @@ async function capturePersonalScreenshots({ window, service, root, startup, fron
   await save('memo', 'screenshot-memo-2', { title: '周会准备清单', body: '本周进展、待补信息、下一步安排。', url: null, scope: null });
   window.setContentSize(1280, 900);
   await window.webContents.executeJavaScript(`(() => {
+    const navigation = document.querySelector('.activity-nav-toggle');
+    if (!navigation) throw new Error('product_screenshot_navigation_missing');
+    if (navigation.getAttribute('aria-expanded') !== 'true') navigation.click();
     for (const kind of ['todo', 'memo']) window.dispatchEvent(new CustomEvent('cilai-personal-records-changed', {detail:{runtimeSessionId:${JSON.stringify(session.sessionId)},kind}}));
     const input=document.querySelector('.pa-page textarea[aria-label="给个人助理发消息"]');
     if (!input) throw new Error('product_screenshot_composer_missing');
@@ -46,7 +49,14 @@ async function capturePersonalScreenshots({ window, service, root, startup, fron
     const deadline = Date.now() + 15_000;
     do {
       if (frontendErrors.length) throw new Error('product_screenshot_frontend_error');
-      if (await window.webContents.executeJavaScript(`${JSON.stringify(texts)}.every(text=>document.body.innerText.includes(text))`)) {
+      if (await window.webContents.executeJavaScript(`(() => {
+        const expanded = document.querySelector('.activity-nav-toggle')?.getAttribute('aria-expanded') === 'true';
+        const labels = [...document.querySelectorAll('[aria-label="主导航"] button > span')];
+        return expanded && labels.length === 8 && labels.every(node => {
+          const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+          return rect.width > 0 && rect.height > 0 && style.visibility === 'visible' && style.opacity === '1';
+        }) && ${JSON.stringify(texts)}.every(text=>document.body.innerText.includes(text));
+      })()`)) {
         await window.webContents.executeJavaScript('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
         return;
       }
@@ -62,18 +72,10 @@ async function capturePersonalScreenshots({ window, service, root, startup, fron
     captures.push({ name, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length });
   }
   await capture(names[0], ['梳理本周重点', '项目推进约定']);
-  for (const [label, name, ready] of [['待办', names[1], ['管理待办', '梳理本周重点', '核对方案资料']], ['备忘录', names[2], ['管理备忘录', '项目推进约定', '周会准备清单']]]) {
-    await window.webContents.executeJavaScript(`(() => {
-      const button=[...document.querySelectorAll('#personal-assistant-activity .pa-activity-tabs button')].find(node=>node.textContent.trim()===${JSON.stringify(label)});
-      if (!button) throw new Error('product_screenshot_tab_missing');
-      button.click();
-    })()`);
-    await capture(name, ready);
-  }
   const snapshot = await service.call('ai_runtime_snapshot', {});
   if (snapshot.runs.length || snapshot.messages.length || frontendErrors.length) throw new Error('product_screenshot_execution_unexpected');
   const evidence = { schema: 'cilai-product-screenshots-v1', version: require('../package.json').version,
-    modelCalls: 0, draftSent: false, manualDemoRecords: 4, captures };
+    modelCalls: 0, draftSent: false, manualDemoRecords: 4, navigationExpanded: true, captures };
   fs.writeFileSync(ownerPath, JSON.stringify(evidence, null, 2));
   console.log('[product-screenshots]', JSON.stringify(evidence));
 }

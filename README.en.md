@@ -32,19 +32,9 @@ This is a **developer preview** with ad-hoc signing, without a Developer ID sign
 
 ## Screenshots
 
-Actual v0.1.3 macOS arm64 interface with a fresh isolated demo profile. Todos and memos were entered manually; the delegation draft was not sent, and no model-generated result is shown.
+Actual v0.1.3 macOS arm64 interface with the main navigation expanded. A fresh isolated demo profile contains manually entered records and an unsent delegation draft.
 
-**Personal assistant**
-
-![Personal assistant with an unsent delegation draft and personal records](docs/screenshots/personal-assistant-v0.1.3.png)
-
-**Todos and reminders**
-
-![Personal assistant todos and reminders](docs/screenshots/personal-todos-v0.1.3.png)
-
-**Memos**
-
-![Personal assistant memos and work notes](docs/screenshots/personal-memos-v0.1.3.png)
+![Personal assistant with expanded main navigation and personal records](docs/screenshots/personal-assistant-expanded-v0.1.3.png)
 
 ## The workbench around your assistant
 
