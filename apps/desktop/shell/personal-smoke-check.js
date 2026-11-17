@@ -1,24 +1,29 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-async function checkPersonalStartup({ window, service, root }) {
+async function checkPersonalStartup({ window, service, root, frontendErrors }) {
   const deadline = Date.now() + 30_000;
   let status;
   let ui;
+  let readyFrames = 0;
   do {
     status = await service.call('app_server_status', {});
     if (status.runtimeInitializationError || status.phase === 'failed') throw new Error(status.runtimeInitializationError ?? status.errorReason);
     ui = await window.webContents.executeJavaScript(`(() => ({
       navigation: [...document.querySelectorAll('[aria-label="主导航"] button')].map(node => node.getAttribute('aria-label')),
+      assistantReady: Boolean(document.querySelector('.pa-page textarea[aria-label="给个人助理发消息"]')?.getClientRects().length),
       login: Boolean(document.querySelector('.enterprise-login-page')),
       alerts: [...document.querySelectorAll('[role="alertdialog"]')].map(node => node.innerText),
       title: document.title,
+      bodyText: document.body.innerText.slice(0, 2000),
     }))()`);
-    if (status.phase === 'running' && !status.runtimeInitializing && ui.navigation.length === 7) break;
+    if (frontendErrors.length) break;
+    readyFrames = status.phase === 'running' && !status.runtimeInitializing && ui.navigation.length === 8 && ui.assistantReady ? readyFrames + 1 : 0;
+    if (readyFrames >= 3) break;
     await new Promise(resolve => setTimeout(resolve, 200));
   } while (Date.now() < deadline);
-  if (status.phase !== 'running' || status.runtimeInitializing || ui.navigation.join(',') !== '工作台,对话,项目,文件,自动化,技能,应用' || ui.login || ui.alerts.length) {
-    throw new Error(`个人启动检查失败：${JSON.stringify({ status, ui })}`);
+  if (status.phase !== 'running' || status.runtimeInitializing || ui.navigation.join(',') !== '个人助理,工作台,对话,项目,文件,自动化,技能,应用' || readyFrames < 3 || !ui.assistantReady || frontendErrors.length || ui.login || ui.alerts.length) {
+    throw new Error(`个人启动检查失败：${JSON.stringify({ status, ui, frontendErrors })}`);
   }
   const profile = await service.call('local_profile_status', {});
   if (!/^[a-f0-9]{32}$/.test(profile.profileId)) throw new Error('本地资料标识无效');
@@ -33,7 +38,7 @@ async function checkPersonalStartup({ window, service, root }) {
   const documentLayout = await require("./document-layout-check").checkDocumentLayout(window.webContents);
   const screenshot = path.join(root, 'personal-startup.png');
   fs.writeFileSync(screenshot, (await window.webContents.capturePage()).toPNG());
-  const evidence = { platform: process.platform, arch: process.arch, profile, ui, memoryEnabled: memory.enabled,
+  const evidence = { platform: process.platform, arch: process.arch, profile, ui, frontendErrors, memoryEnabled: memory.enabled,
     conversations: snapshot.conversations?.length ?? null, documentLayout, screenshot, result: 'passed',
     scope: '全新独立资料的无模型桌面启动；不包含真实模型、工具或完整首版验收' };
   fs.writeFileSync(path.join(root, 'personal-startup.json'), JSON.stringify(evidence, null, 2));

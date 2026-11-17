@@ -96,6 +96,7 @@ mod tests {
         let mut result = CodexHarnessResult {
             thread_id: "native-page-thread".into(),
             output: "private reply".into(),
+            waiting_for_input: None,
             classification_output: None,
             classification_error: None,
             file_changes: Vec::new(),

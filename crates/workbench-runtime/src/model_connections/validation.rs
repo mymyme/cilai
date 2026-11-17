@@ -542,6 +542,8 @@ fn probe_request(
         format!("只回复下面这串校验文本，不添加其他内容，不使用任何工具：{nonce}")
     };
     Ok(CodexHarnessRequest {
+        assistant_reply: None,
+        execution_nonce: None,
         turn_admission: None,
         validation_probe: true,
         execution: Some(bundle), memory_model: None,
@@ -559,6 +561,8 @@ fn probe_request(
         api_key_env: super::LOOPBACK_KEY_ENV.into(), api_key: proxy.local_token.clone(),
         context_window: snapshot.context_window_tokens, reasoning_effort: None,
         model_catalog: vec![CodexHarnessModel {
+        supports_reasoning_summary: false,
+        supports_public_reasoning: false,
             model_id: snapshot.model_id.clone(), display_name: snapshot.model_id.clone(),
             context_window: snapshot.context_window_tokens,
             supported_reasoning_efforts: snapshot.supported_reasoning_efforts.clone(),

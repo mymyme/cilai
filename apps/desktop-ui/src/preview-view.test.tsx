@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -137,85 +138,47 @@ describe("正文的预览与源码两种看法", () => {
     expect(invoke).toHaveBeenCalledWith("app_server_request", { method: "textResource/release", params: { ticketId: "paged-ticket" } });
   });
 
-  it("macOS PDF 保持由宿主安全渲染为页面并在内容区逐页查看", async () => {
-    const createObjectUrl = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf-preview");
-    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    const pdf = { ...file, localFileId: "pdf-1", relativePath: "合同.pdf" } as WorkspaceFileItem;
-    invoke.mockImplementation((command: string) => {
-      if (command === "preview_open") return Promise.resolve({ source: "local", availability: "ready", format: "pdf", relativePath: "合同.pdf", sizeBytes: 2048 });
-      if (command === "workspace_pdf_page_count") return Promise.resolve(2);
-      return Promise.resolve([137, 80, 78, 71]);
-    });
-
-    const rendered = render(pane(pdf));
-    const page = await screen.findByAltText("PDF 第 1 页");
-    expect(page.getAttribute("src")).toBe("blob:pdf-preview");
-    expect(rendered.container.querySelector(".preview-document-meta")).toBeNull();
-    expect(invoke).toHaveBeenCalledWith("workspace_pdf_page_count", { localRoot: "/workspace", relativePath: "合同.pdf" });
-    expect(invoke).toHaveBeenCalledWith("workspace_render_pdf_page", {
-      localRoot: "/workspace", maxWidth: 1600, pageNumber: 1, relativePath: "合同.pdf",
-    });
-    expect(invoke).not.toHaveBeenCalledWith("workspace_pdf_read_bytes", expect.anything());
-    expect(openPdfDocument).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
-    expect(await screen.findByText("第 2 / 2 页")).not.toBeNull();
-    rendered.unmount();
-    expect(createObjectUrl).toHaveBeenCalled();
-    const image = createObjectUrl.mock.calls[0]?.[0] as Blob;
-    expect(image.size).toBe(4);
-    expect(image.type).toBe("image/png");
-    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:pdf-preview");
-  });
-
-  it("Windows 只读取 PDF 字节并使用本地 PDF.js canvas 翻页", async () => {
-    const pdf = { ...file, localFileId: "pdf-windows", relativePath: "合同.pdf" } as WorkspaceFileItem;
+  it.each(["macos", "windows", null, "other"])("PDF 在平台 %s 使用本地校验字节和统一 PDF.js 翻页", async (platform) => {
+    const pdf = { ...file, localFileId: "pdf-unified", relativePath: "合同.pdf" } as WorkspaceFileItem;
+    const bytes = "%PDF-";
     const cancel = vi.fn();
     const destroy = vi.fn().mockResolvedValue(undefined);
     const renderPage = vi.fn(() => ({ promise: Promise.resolve(), cancel }));
-    openPdfDocument.mockReturnValue({
-      promise: Promise.resolve({ pageCount: 2, renderPage, destroy }),
-      destroy,
+    openPdfDocument.mockReturnValue({ promise: Promise.resolve({ pageCount: 2, renderPage }), destroy });
+    invoke.mockImplementation(async (command: string, args: { method?: string }) => {
+      if (command === "preview_open") return {source:"local",availability:"ready",format:"pdf",relativePath:"合同.pdf"};
+      if (args?.method === "preview/readBinary") return {ticketId:"pdf-ticket",contentRevision:createHash("sha256").update(bytes).digest("hex"),sizeBytes:bytes.length,contentType:"application/pdf"};
+      if (args?.method === "preview/readBinaryChunk") return {offset:0,contentBase64:btoa(bytes)};
+      if (args?.method === "preview/releaseBinary") return {released:true};
+      throw new Error(`unexpected command: ${command}`);
     });
-    invoke.mockImplementation((command: string) => {
-      if (command === "preview_open") return Promise.resolve({ source: "local", availability: "ready", format: "pdf", relativePath: "合同.pdf", sizeBytes: 2048 });
-      if (command === "workspace_pdf_read_bytes") return Promise.resolve(new Uint8Array([37, 80, 68, 70, 45]));
-      return Promise.reject(new Error(`unexpected command: ${command}`));
-    });
-
-    const rendered = render(pane(pdf, "rendered", () => {}, "windows"));
-    expect(await screen.findByRole("img", { name: "PDF 第 1 页" })).not.toBeNull();
-    expect(invoke).toHaveBeenCalledWith("workspace_pdf_read_bytes", {
-      localRoot: "/workspace",
-      relativePath: "合同.pdf",
-    });
-    expect(invoke).not.toHaveBeenCalledWith("workspace_pdf_page_count", expect.anything());
-    expect(invoke).not.toHaveBeenCalledWith("workspace_render_pdf_page", expect.anything());
+    const rendered = render(pane(pdf, "rendered", () => {}, platform));
+    expect(await screen.findByRole("img", {name:"PDF 第 1 页"})).toBeTruthy();
+    expect(invoke).toHaveBeenCalledWith("app_server_request",{method:"preview/readBinary",params:{workspaceId:"ws",localFileId:"pdf-unified"}});
+    expect(invoke.mock.calls.some(([command]) => String(command).startsWith("workspace_pdf_") || command === "workspace_render_pdf_page")).toBe(false);
     expect(openPdfDocument).toHaveBeenCalledWith(expect.any(ArrayBuffer));
-    expect(renderPage).toHaveBeenCalledWith(expect.any(HTMLCanvasElement), 1, 1600);
-
-    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
-    expect(await screen.findByRole("img", { name: "PDF 第 2 页" })).not.toBeNull();
-    expect(renderPage).toHaveBeenLastCalledWith(expect.any(HTMLCanvasElement), 2, 1600);
+    expect(renderPage).toHaveBeenCalledWith(expect.any(HTMLCanvasElement),1,1600);
+    fireEvent.click(screen.getByRole("button",{name:"下一页"}));
+    expect(await screen.findByRole("img",{name:"PDF 第 2 页"})).toBeTruthy();
+    expect(renderPage).toHaveBeenLastCalledWith(expect.any(HTMLCanvasElement),2,1600);
     rendered.unmount();
     expect(cancel).toHaveBeenCalled();
     expect(destroy).toHaveBeenCalled();
   });
 
-  it("平台未确认时等待，未知平台明确拒绝且不进入任何 PDF 渲染路径", async () => {
-    const pdf = { ...file, localFileId: "pdf-other", relativePath: "合同.pdf" } as WorkspaceFileItem;
-    invoke.mockImplementation((command: string) => command === "preview_open"
-      ? Promise.resolve({ source: "local", availability: "ready", format: "pdf", relativePath: "合同.pdf", sizeBytes: 2048 })
-      : Promise.reject(new Error(`unexpected command: ${command}`)));
-
-    const rendered = render(pane(pdf, "rendered", () => {}, null));
-    expect(await screen.findByText("正在确认运行平台")).not.toBeNull();
-    expect(invoke.mock.calls.some(([command]) => String(command).startsWith("workspace_pdf_"))).toBe(false);
+  it("PDF 字节校验失败明确报错，不交给解析器", async () => {
+    openPdfDocument.mockClear();
+    invoke.mockImplementation(async (command: string,args:{method?:string}) => {
+      if (command === "preview_open") return {source:"local",availability:"ready",format:"pdf",relativePath:"合同.pdf"};
+      if (args?.method === "preview/readBinary") return {ticketId:"pdf-ticket",contentRevision:"0".repeat(64),sizeBytes:3,contentType:"application/pdf"};
+      if (args?.method === "preview/readBinaryChunk") return {offset:0,contentBase64:btoa("bad")};
+      if (args?.method === "preview/releaseBinary") return {released:true};
+      throw new Error(`unexpected ${command}`);
+    });
+    render(pane({...file,relativePath:"合同.pdf"}));
+    expect(await screen.findByText("文件在读取过程中发生变化，请重新加载。")).toBeTruthy();
     expect(openPdfDocument).not.toHaveBeenCalled();
-
-    rendered.rerender(pane(pdf, "rendered", () => {}, "other"));
-    expect(await screen.findByText("当前平台不支持 PDF 预览")).not.toBeNull();
-    expect(invoke.mock.calls.some(([command]) => String(command).startsWith("workspace_pdf_"))).toBe(false);
-    expect(openPdfDocument).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("app_server_request",{method:"preview/releaseBinary",params:{ticketId:"pdf-ticket"}});
   });
 
   it("办公文件只显示系统默认应用并交给系统打开", async () => {

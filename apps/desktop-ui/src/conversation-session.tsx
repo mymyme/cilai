@@ -45,6 +45,8 @@ class ConversationSession {
       this.timer = setTimeout(() => { void this.flush().catch(() => {}); }, 120);
     }
   }
+  private adoptValue(key: string, value: unknown) { this.values.set(key, value); this.emit(key); }
+  ready() { return !this.failed && !this.disposed && Boolean(this.sessionId()); }
   private emit(key: string) { this.listeners.get(key)?.forEach((listener) => listener()); }
   subscribe(key: string, listener: () => void) {
     const listeners = this.listeners.get(key) ?? new Set();
@@ -65,8 +67,7 @@ class ConversationSession {
         this.dirtyKeys.delete(key);
         const remote = snapshot.values[key];
         if (remote !== undefined && !same(current, remote)) {
-          this.values.set(key, remote);
-          this.emit(key);
+          this.adoptValue(key, remote);
           queueChanged ||= key === "queuedFollowUps";
         }
       }
@@ -140,6 +141,7 @@ const sessions = new Set<ConversationSession>();
 export async function flushConversationSessions() { await Promise.all([...sessions].map((session) => session.flush())); }
 
 const SessionContext = createContext<ConversationSession | null>(null);
+const DispatchContext = createContext(true);
 function useSession() {
   const session = useContext(SessionContext);
   if (!session) throw new Error("conversation_session_provider_required");
@@ -197,6 +199,9 @@ export function ConversationSessionProvider(props: { hostPlatform: string | null
   }, [session, props.dispatchEnabled]);
   return <>
     {error ? <div role="alert" className="conversation-session-error"><span>{error}</span><button type="button" onClick={() => { if (session) void session.retry().then(() => setError(null)).catch(() => {}); else setAttempt((value) => value + 1); }}>重试</button></div> : null}
-    {session ? <SessionContext.Provider value={session}>{props.children}</SessionContext.Provider> : !error ? <div role="status" className="conversation-session-loading">正在恢复工作…</div> : null}
+    {session ? <SessionContext.Provider value={session}><DispatchContext.Provider value={props.dispatchEnabled !== false && !error}>{props.children}</DispatchContext.Provider></SessionContext.Provider> : !error ? <div role="status" className="conversation-session-loading">正在恢复工作…</div> : null}
   </>;
 }
+
+export function useConversationSessionReadScope() { return useSession().sessionId(); }
+export function useConversationSessionDispatchReady() { const enabled = useContext(DispatchContext); return useSession().ready() && enabled; }

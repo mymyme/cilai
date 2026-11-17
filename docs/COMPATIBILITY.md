@@ -1,6 +1,6 @@
 # 兼容状态 / Compatibility
 
-Updated: **2026-11-05**. The v0.1.2 source and macOS arm64 package integrate scoped conversation history, runtime and permission lifecycle changes, chunked previews, and isolated Word/HTML layout. Type checking, 1,366 frontend tests, 281 desktop-shell tests, 86 Rust host tests and focused native/runtime tests passed during implementation. Seven shell checks were conditionally skipped; these include platform and opt-in native scenarios. The packaged app passed startup in a new isolated profile, browser approval/takeover checks and PDF/Word/HTML probes. This is a developer preview: source tests, simulated fixtures, native package checks, real service calls and formal distribution remain separate validation levels. The model evidence below remains historical and was not repeated for this update.
+Released-package baseline: **2026-11-05**. Development-source increment: **2026-11-17**, recorded separately below. The v0.1.2 source and macOS arm64 package integrate scoped conversation history, runtime and permission lifecycle changes, chunked previews, and isolated Word/HTML layout. Type checking, 1,366 frontend tests, 281 desktop-shell tests, 86 Rust host tests and focused native/runtime tests passed during implementation. Seven shell checks were conditionally skipped; these include platform and opt-in native scenarios. The packaged app passed startup in a new isolated profile, browser approval/takeover checks and PDF/Word/HTML probes. This is a developer preview: source tests, simulated fixtures, native package checks, real service calls and formal distribution remain separate validation levels. The model evidence below remains historical and was not repeated for this update.
 
 ## Platforms
 
@@ -62,3 +62,7 @@ For v0.1.1 on **2026-10-26**, the standard personal build produced the macOS arm
 The package includes the pinned official Codex CLI / App Server **0.163.0** runtime and uses dedicated workbench configuration and state. It does not reuse an existing user's `~/.codex` profile. It is ad-hoc signed, without a Developer ID signature or Apple notarization; macOS may block the first launch. Online updates remain disabled.
 
 A public preview download does not mark the complete first-release scope as accepted or establish support for untested platforms and model combinations. The enterprise website is [www.cilai.com.cn](https://www.cilai.com.cn).
+
+## Current development increment (2026-11-17)
+
+The source adds personal-assistant coordination, personal records/reminders, explicit continuation, scoped task tools, temporary app-session restart and a unified PDF renderer. Source dependencies are Electron 44.10.2 and rusqlite 0.41.0, with the official App Server unchanged at 0.163.0. This does not replace the published v0.1.2 package or extend the historical platform/provider acceptance above. Local source, fixture and packaging results are tracked separately; Windows native and real provider streaming require independent acceptance. See [personal assistant architecture](PERSONAL_ASSISTANT.md).

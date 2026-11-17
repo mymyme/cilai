@@ -1,7 +1,7 @@
 const { randomUUID } = require("node:crypto");
 const { actionTimeoutMs: ACTION_TIMEOUT_MS } = require("./personal-page-ai-timing.json");
 
-const METHODS = new Set(["session.read", "context.publish", "context.revoke", "uiAction.register", "model.session.open", "model.session.read", "model.run.create", "model.run.get", "model.run.cancel", "conversation.handoff", "audit.list"]);
+const METHODS = new Set(["session.read", "context.publish", "context.revoke", "uiAction.register", "model.session.open", "model.session.read", "model.session.restart", "model.run.create", "model.run.get", "model.run.cancel", "conversation.handoff", "audit.list"]);
 const PUBLIC_COMMANDS = new Set(["personal_page_ai_dispatch", "personal_page_ai_resolve"]);
 const INVALID = "personal_page_request_invalid";
 function object(value, keys) {

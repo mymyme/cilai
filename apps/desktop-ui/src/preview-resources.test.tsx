@@ -55,7 +55,9 @@ test("切页保留 PDF 画面和解析资源，切回不重新读取，关闭范
   invoke.mockImplementation(async (command,args) => {
     if (args?.method === "file/hydrate") return {state:"ready"};
     if (command === "preview_open") return {source:"local",format:"pdf",availability:"ready",relativePath:"合同.pdf",contentRevision:"digest"};
-    if (command === "workspace_pdf_read_bytes") return new Uint8Array([1,2,3]);
+    if (args?.method === "preview/readBinary") return binaryDescriptor("pdf bytes");
+    if (args?.method === "preview/readBinaryChunk") return {offset:0,contentBase64:btoa("pdf bytes")};
+    if (args?.method === "preview/releaseBinary") return {released:true};
     throw new Error(`unexpected ${command}`);
   });
   const destroy = vi.fn();
@@ -68,7 +70,7 @@ test("切页保留 PDF 画面和解析资源，切回不重新读取，关闭范
   expect(destroy).not.toHaveBeenCalled();
   view.rerender(page(true));
   expect(await screen.findByRole("img",{name:"PDF 第 1 页"})).toBe(canvas);
-  expect(invoke).toHaveBeenCalledTimes(3);
+  expect(invoke).toHaveBeenCalledTimes(5);
   expect(openPdfDocument).toHaveBeenCalledTimes(1);
   view.unmount();
   expect(destroy).toHaveBeenCalledTimes(1);

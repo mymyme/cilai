@@ -1023,7 +1023,28 @@ fn catalog_observation(
         model_id: id.into(),
         display_name: entry["displayName"].as_str().unwrap_or(id).into(),
         source: source.clone(),
-        capabilities: std::collections::BTreeMap::new(),
+        capabilities: [
+            ("reasoning_summary", "supportsReasoningSummary"),
+            ("public_reasoning", "supportsPublicReasoning"),
+        ]
+        .into_iter()
+        .filter_map(|(capability, field)| {
+            entry[field].as_bool().map(|supported| {
+                (
+                    capability.to_owned(),
+                    contexthub_protocol::ModelCapabilityEvidence {
+                        state: if supported {
+                            contexthub_protocol::ModelCapabilityState::Supported
+                        } else {
+                            contexthub_protocol::ModelCapabilityState::Unsupported
+                        },
+                        source: source.clone(),
+                        evidence_id: None,
+                    },
+                )
+            })
+        })
+        .collect(),
         context_window_tokens: entry["contextWindow"]
             .as_u64()
             .or_else(|| entry["context_window"].as_u64()),

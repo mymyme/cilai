@@ -15,8 +15,8 @@ function fixture(t) {
   const output = join(root, 'target/desktop-electron-testing'); mkdirSync(output, { recursive: true });
   const screenshot = join(state.temporary, 'startup.png'), log = join(output, 'headless-check.stdout.log');
   writeFileSync(screenshot, png);
-  const value = { result: 'passed', platform: process.platform, arch: process.arch, memoryEnabled: false,
-    ui: { navigation: '工作台,对话,项目,文件,自动化,技能,应用'.split(','), login: false, alerts: [] }, screenshot };
+  const value = { result: 'passed', platform: process.platform, arch: process.arch, memoryEnabled: false, frontendErrors: [],
+    ui: { navigation: '个人助理,工作台,对话,项目,文件,自动化,技能,应用'.split(','), assistantReady: true, login: false, alerts: [] }, screenshot };
   const writeLog = () => writeFileSync(log, 'before\r\n[personal-check] ' + JSON.stringify(value) + '\r\nafter\r\n');
   writeLog();
   return { root, state, screenshot, log, value, writeLog, target: join(output, 'headless-check.png'), environment: storageEnvironment(state, {}) };
@@ -96,4 +96,18 @@ test('已归档截图被损坏时再次验证明确失败且不改日志', t => 
   const before = readFileSync(f.log, 'utf8'); writeFileSync(f.target, 'damaged');
   assert.throws(() => verifyPersonalSmoke(f.log, { environment: {} }), /不是 PNG/);
   assert.equal(readFileSync(f.log, 'utf8'), before);
+});
+
+
+test('只有导航出现而助理输入区未就绪时不能认定启动通过', t => {
+  const f = fixture(t);
+  for (const readiness of [false, undefined]) {
+    f.value.ui.assistantReady = readiness;
+    f.writeLog();
+    unchanged(f, () => verifyPersonalSmoke(f.log, { environment: f.environment }), /结果不完整/);
+  }
+  f.value.ui.assistantReady = true;
+  f.value.frontendErrors = ["startup error"];
+  f.writeLog();
+  unchanged(f, () => verifyPersonalSmoke(f.log, { environment: f.environment }), /结果不完整/);
 });

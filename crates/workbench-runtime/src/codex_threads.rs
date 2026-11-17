@@ -537,6 +537,7 @@ impl CodexThreadService {
     ) -> Result<Value, String> {
         self.request("thread/start", &json!({
             "cwd": workspace, "approvalPolicy": "never", "sandbox": "read-only", "ephemeral": false,
+            "dynamicTools":crate::codex_harness::workbench_thread_tools(),
             "config": {
                 "memories.generate_memories": preferences.enabled,
                 "memories.use_memories": false,

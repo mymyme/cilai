@@ -36,10 +36,6 @@ type PreviewState =
   | { phase: "ready-structure"; descriptor: OpenPreviewResult; model: DocumentPreviewModel }
   | { phase: "ready"; descriptor: OpenPreviewResult; content: string }
   | { phase: "ready-text-page"; descriptor: OpenPreviewResult; firstPage: ReadTextResourceResult }
-  | { phase: "ready-pdf"; descriptor: OpenPreviewResult; pageCount: number }
-  | { phase: "ready-pdf-js"; descriptor: OpenPreviewResult }
-  | { phase: "waiting-pdf-platform"; source: PreviewSource }
-  | { phase: "unsupported-pdf-platform" }
   | { phase: "unsupported"; descriptor: OpenPreviewResult; application: WorkspaceApplication | null }
   | { phase: "unavailable"; descriptor: OpenPreviewResult }
   | { phase: "error"; source: PreviewSource; reason: string };
@@ -94,7 +90,7 @@ function hasRenderedView(format: PreviewFormat): boolean {
   return format === "markdown" || format === "html";
 }
 
-function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenError, localRoot }: {
+function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenError }: {
   state: PreviewState;
   onRetry: () => void;
   view: PreviewView;
@@ -107,17 +103,11 @@ function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenE
   if (state.phase === "ready-structure") return <StructuredDocumentPreview model={state.model}/>;
   if (state.phase === "ready-binary") {
     if (state.descriptor.format === "image") return <ImagePreview bytes={state.bytes} contentType={state.contentType} name={state.descriptor.relativePath}/>;
-    if (state.descriptor.format === "pdf") return <WindowsPdfPreview descriptor={state.descriptor} localRoot="" bytes={state.bytes}/>;
+    if (state.descriptor.format === "pdf") return <PdfPreview descriptor={state.descriptor} bytes={state.bytes}/>;
     return <OfficeDocumentPreview bytes={state.bytes} format={state.descriptor.format as OfficePreviewFormat}/>;
   }
   if (state.phase === "loading") {
     return <PreviewMessage title={`正在读取${SOURCE_LABELS[state.source]}`} />;
-  }
-  if (state.phase === "waiting-pdf-platform") {
-    return <PreviewMessage title="正在确认运行平台" />;
-  }
-  if (state.phase === "unsupported-pdf-platform") {
-    return <PreviewMessage title="当前平台不支持 PDF 预览" />;
   }
   if (state.phase === "error") {
     return (
@@ -135,12 +125,6 @@ function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenE
       application={state.application}
       openError={applicationOpenError}
       onOpen={onOpenApplication}/>;
-  }
-  if (state.phase === "ready-pdf") {
-    return <PdfPreview descriptor={state.descriptor} localRoot={localRoot} pageCount={state.pageCount}/>;
-  }
-  if (state.phase === "ready-pdf-js") {
-    return <WindowsPdfPreview descriptor={state.descriptor} localRoot={localRoot}/>;
   }
   if (state.phase === "unavailable") {
     return (
@@ -164,47 +148,7 @@ function PreviewBody({ state, onRetry, view, onOpenApplication, applicationOpenE
   );
 }
 
-function PdfPreview({ descriptor, localRoot, pageCount }: { descriptor: OpenPreviewResult; localRoot: string; pageCount: number }) {
-  const active = usePageActive();
-  const [pageNumber, setPageNumber] = useState(1);
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const [renderError, setRenderError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!active) return;
-    let disposed = false;
-    let url: string | null = null;
-    setObjectUrl(null);
-    setRenderError(null);
-    void invoke<ArrayBuffer | Uint8Array | number[]>("workspace_render_pdf_page", {
-      localRoot,
-      relativePath: descriptor.relativePath,
-      pageNumber,
-      maxWidth: 1600,
-    }).then((bytes) => {
-      if (disposed) return;
-      url = URL.createObjectURL(new Blob([normalizeBinaryPayload(bytes)], { type: "image/png" }));
-      setObjectUrl(url);
-    }).catch((error: unknown) => {
-      if (!disposed) setRenderError(extractReason(error));
-    });
-    return () => {
-      disposed = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [active, descriptor.relativePath, localRoot, pageNumber]);
-  return <div className="preview-pdf-document">
-    <div className="preview-pdf-toolbar" aria-label="PDF 页面导航">
-      <button disabled={pageNumber <= 1} onClick={() => setPageNumber((page) => page - 1)} type="button">上一页</button>
-      <span>第 {pageNumber} / {pageCount} 页</span>
-      <button disabled={pageNumber >= pageCount} onClick={() => setPageNumber((page) => page + 1)} type="button">下一页</button>
-    </div>
-    {renderError ? <PreviewMessage detail={ERROR_LABELS[renderError] ?? "PDF 页面渲染失败。"} title="无法显示 PDF"/> : null}
-    {!renderError && objectUrl ? <div className="preview-pdf-page"><img alt={`PDF 第 ${pageNumber} 页`} src={objectUrl}/></div> : null}
-    {!renderError && !objectUrl ? <div className="preview-pdf-loading">正在渲染第 {pageNumber} 页…</div> : null}
-  </div>;
-}
-
-function WindowsPdfPreview({ descriptor, localRoot, bytes }: { descriptor: OpenPreviewResult; localRoot: string; bytes?: ArrayBuffer }) {
+function PdfPreview({ descriptor, bytes }: { descriptor: OpenPreviewResult; bytes: ArrayBuffer }) {
   const active = usePageActive();
   const [document, setDocument] = useState<PdfJsDocument | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -221,10 +165,7 @@ function WindowsPdfPreview({ descriptor, localRoot, bytes }: { descriptor: OpenP
     setRenderedPage(null);
     setLoadError(null);
     setRenderError(null);
-    void (bytes ? Promise.resolve(bytes) : invoke<ArrayBuffer | Uint8Array | number[]>("workspace_pdf_read_bytes", {
-      localRoot,
-      relativePath: descriptor.relativePath,
-    })).then(async (payload) => {
+    void Promise.resolve(bytes).then(async (payload) => {
       if (disposed) return;
       const { openPdfDocument } = await import("./pdfjs-renderer");
       if (disposed) return;
@@ -239,7 +180,7 @@ function WindowsPdfPreview({ descriptor, localRoot, bytes }: { descriptor: OpenP
       disposed = true;
       void loadingTask?.destroy();
     };
-  }, [bytes, descriptor.contentRevision, descriptor.relativePath, localRoot]);
+  }, [bytes, descriptor.contentRevision, descriptor.relativePath]);
 
   useEffect(() => {
     if (!active || !document) return;
@@ -380,7 +321,7 @@ function useFilePreview(params: OpenPreviewParams, localRoot: string, relativePa
       if (cancelled) return;
       if (downloaded) await rpc("workspace/indexPath", { workspaceId: params.workspaceId, relativePath });
       if (cancelled) return;
-      const next = await loadPreview(params, localRoot, relativePath, hostPlatform, controller.signal);
+      const next = await loadPreview(params, localRoot, relativePath, controller.signal);
       if (cancelled) {
         if (next.phase === "ready-text-page" && next.descriptor.ticketId) releaseTextTicket(next.descriptor.ticketId);
         return;
@@ -394,7 +335,7 @@ function useFilePreview(params: OpenPreviewParams, localRoot: string, relativePa
   return enabled && loadedKey.current !== key && !(state.phase === "hydrating" && loadingKey.current === key) ? {phase:"loading",source:params.source} : state;
 }
 
-async function loadPreview(params: OpenPreviewParams, localRoot: string, relativePath: string, hostPlatform: string | null, signal: AbortSignal): Promise<PreviewState> {
+async function loadPreview(params: OpenPreviewParams, localRoot: string, relativePath: string, signal: AbortSignal): Promise<PreviewState> {
   signal.throwIfAborted();
   const descriptor = await invoke<OpenPreviewResult>("preview_open", { params });
   if (signal.aborted && descriptor.ticketId) releaseTextTicket(descriptor.ticketId);
@@ -410,18 +351,9 @@ async function loadPreview(params: OpenPreviewParams, localRoot: string, relativ
   if (descriptor.availability === "unavailable") {
     return { phase: "unavailable", descriptor };
   }
-  if (["image", "docx", "pptx", "xlsx", "xmind"].includes(descriptor.format)) {
+  if (["image", "pdf", "docx", "pptx", "xlsx", "xmind"].includes(descriptor.format)) {
     const binary = await readBinaryPreview(params, signal);
     return { phase: "ready-binary", descriptor: { ...descriptor, contentRevision: binary.contentRevision, sizeBytes: binary.bytes.byteLength }, bytes: binary.bytes, contentType: binary.contentType };
-  }
-  if (descriptor.format === "pdf") {
-    if (hostPlatform === null) return { phase: "waiting-pdf-platform", source: params.source };
-    if (hostPlatform === "macos") {
-      const pageCount = await invoke<number>("workspace_pdf_page_count", { localRoot, relativePath });
-      return { phase: "ready-pdf", descriptor, pageCount };
-    }
-    if (hostPlatform === "windows") return { phase: "ready-pdf-js", descriptor };
-    return { phase: "unsupported-pdf-platform" };
   }
   if (!descriptor.ticketId || !descriptor.contentRevision) {
     throw new Error("preview_descriptor_invalid");

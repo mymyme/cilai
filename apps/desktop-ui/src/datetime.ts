@@ -74,6 +74,20 @@ export function clockMoment(millis: number): string {
   return CLOCK_FORMAT.format(millis);
 }
 
+export function conversationMessageMoment(millis: number, now: number = Date.now()): string {
+  const clock = clockMoment(millis);
+  if (isSameDay(millis, now)) return clock;
+  const date = new Date(millis);
+  const year = date.getFullYear() === new Date(now).getFullYear() ? "" : `${date.getFullYear()}年`;
+  return `${clock} · ${year}${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+export function nextLocalMidnight(now: number): number {
+  const date = new Date(now);
+  date.setHours(24, 0, 0, 0);
+  return date.getTime();
+}
+
 /** 逐条运行事件：相邻事件常落在同一分钟内，秒是判断先后的唯一依据。 */
 export function eventMoment(millis: number): string {
   return CLOCK_SECOND_FORMAT.format(millis);

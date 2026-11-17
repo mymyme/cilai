@@ -1,3 +1,4 @@
+import { WorkbenchLoading } from "./workbench-loading";
 import { Suspense, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PageVisibilityContext, usePageActive } from "./page-visibility";
 import "./retained-page.css";
@@ -17,7 +18,7 @@ export function RetainedPage(props: { active: boolean; children: ReactNode; sett
   if (!active && !visited) return null;
   return <PageVisibilityContext.Provider value={active}>
     <div ref={root} hidden={!active} inert={!active} className="retained-page">
-    <Suspense fallback={<div className={props.settings ? "settings-loading" : "page-loading"} role="status">正在加载…</div>}>
+    <Suspense fallback={<div className={props.settings ? "settings-loading" : "page-loading"}><WorkbenchLoading title="正在加载…" detail=""/></div>}>
       {props.children}
     </Suspense>
     </div>

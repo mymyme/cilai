@@ -1,6 +1,6 @@
 {
   "name": "@cilai/app-ui",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "词来工作台内嵌业务应用公共组件与设计规范",
@@ -15,7 +15,7 @@
     "NOTICE"
   ],
   "sideEffects": [
-    "./src/*.css"
+    "**/*.css"
   ],
   "peerDependencies": {
     "react": ">=19.0.0",

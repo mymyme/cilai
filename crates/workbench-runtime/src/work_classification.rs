@@ -157,6 +157,14 @@ pub(crate) fn reply_prefix(output: &str) -> Option<String> {
 }
 
 fn extract_reply(output: &str, partial: bool) -> Option<String> {
+    extract_field(output, "reply", partial)
+}
+
+pub(crate) fn field_prefix(output: &str, field: &str) -> Option<String> {
+    extract_field(output, field, true)
+}
+
+fn extract_field(output: &str, field: &str, partial: bool) -> Option<String> {
     let trimmed = output.trim_start();
     let source = if let Some(fenced) = trimmed.strip_prefix("```json") {
         fenced.trim_start()
@@ -178,7 +186,7 @@ fn extract_reply(output: &str, partial: bool) -> Option<String> {
             .trim_start()
             .strip_prefix(':')?
             .trim_start();
-        if name.as_str() == Some("reply") {
+        if name.as_str() == Some(field) {
             return decode_string(rest, partial);
         }
         let mut value = serde_json::Deserializer::from_str(rest).into_iter::<Value>();

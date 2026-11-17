@@ -5,6 +5,7 @@ type AiMaterialReference,
 type AiMessageAttachment
 } from "./ai-runtime";
 import type { DraftAttachment } from './ai-workbench';
+export type { DraftAttachment } from './ai-workbench';
 import "./conversation-attachments.css";
 import { fileNameFromPath } from './conversation-display';
 import { CloseIcon,FileIcon,MediaIcon } from './conversation-icons';

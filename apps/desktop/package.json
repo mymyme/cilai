@@ -28,7 +28,7 @@
     "prepackage:local": "npm --prefix ../.. run check:toolchain && node scripts/prepare-package.mjs --profile debug"
   },
   "devDependencies": {
-    "electron": "44.9.1",
+    "electron": "44.10.2",
     "electron-builder": "^26.0.12"
   },
   "productName": "词来个人工作台",

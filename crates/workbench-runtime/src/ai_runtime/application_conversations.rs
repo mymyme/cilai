@@ -18,6 +18,28 @@ impl AiRuntimeManager {
         )
     }
     /// # Errors
+    /// 原会话越界、存在未决执行或替换回执无法核实时拒绝。
+    pub fn restart_application_conversation(
+        &self,
+        session: &str,
+        application: &str,
+        replacement: &str,
+    ) -> Result<String, String> {
+        let server = lock(&self.inner)
+            .server
+            .clone()
+            .ok_or("ai_runtime_not_initialized")?;
+        let stored = Self::application_store(
+            &server,
+            "restart",
+            &json!({"sessionId":session,"applicationId":application,"replacementSessionId":replacement}),
+        )?;
+        stored["session"]["sessionId"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| "application_conversation_storage_invalid".into())
+    }
+    /// # Errors
     /// Rejects restoration into a different application or authorization generation.
     pub fn open_application_conversation(
         &self,

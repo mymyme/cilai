@@ -646,7 +646,8 @@ a.markdown-link:hover, a.markdown-link:focus-visible { color: var(--accent-stron
 .document-stage { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; padding: 0 16px 16px; background: var(--bg-canvas); }
 .document-toolbar { display: flex; min-height: 54px; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 8px 0; }
 .document-view-context, .document-toolbar-actions, .file-status-summary { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
-.document-view-context > strong { max-width: min(48vw, 720px); overflow: hidden; color: var(--text-heading); font-size: var(--text-base); text-overflow: ellipsis; white-space: nowrap; }
+.document-view-context { min-width: 0; max-width: 100%; }
+.document-view-context > strong { max-width: min(100%, 48vw, 720px); overflow: hidden; color: var(--text-heading); font-size: var(--text-base); text-overflow: ellipsis; white-space: nowrap; }
 .document-view-context button, .toolbar-action { display: inline-flex; height: 32px; flex: 0 0 auto; align-items: center; gap: 6px; white-space: nowrap; padding: 0 9px; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--text-secondary); background: transparent; cursor: pointer; font: inherit; font-size: var(--text-sm); }
 .document-view-context button:hover, .toolbar-action:hover { border-color: var(--border-input); color: var(--accent-text); background: var(--bg-surface); }
 .document-view-context button:active, .toolbar-action:active { transform: translateY(1px); }
@@ -1004,12 +1005,12 @@ a.markdown-link:hover, a.markdown-link:focus-visible { color: var(--accent-stron
    292px 宽——不只是右边一条空白，输入框被压窄后连发送按钮都被挤到了下一行。*/
 .ai-workbench { display: grid; min-width: 0; min-height: 0; flex: 1; grid-template-columns: var(--ai-conversation-rail-width) minmax(420px, 1fr); overflow: hidden; background: var(--bg-sunken); }
 .ai-workbench.conversation-rail-collapsed { grid-template-columns: minmax(420px, 1fr); }
-.ai-workbench button { border: 1px solid var(--border-input); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface); cursor: pointer; transition: border-color 160ms ease,     background 160ms ease,     transform 160ms ease; }
-.ai-workbench button:hover { border-color: var(--border-strong); background: var(--bg-surface-alt); }
-.ai-workbench button:active { transform: translateY(1px); }
-.ai-workbench button:focus-visible, .ai-workbench select:focus-visible, .ai-workbench .ch-select:focus-visible, .ai-workbench input:focus-visible, .ai-workbench textarea:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-.ai-workbench button:disabled { cursor: not-allowed; opacity: 0.48; }
-.ai-workbench svg, .phase-header-actions svg, .business-task-card footer svg { width: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.ai-composer button, .ai-workbench button { border: 1px solid var(--border-input); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface); cursor: pointer; transition: border-color 160ms ease,     background 160ms ease,     transform 160ms ease; }
+:is(.ai-workbench, .ai-composer) button:hover { border-color: var(--border-strong); background: var(--bg-surface-alt); }
+:is(.ai-workbench, .ai-composer) button:active { transform: translateY(1px); }
+:is(.ai-workbench, .ai-composer) button:focus-visible, .ai-workbench select:focus-visible, .ai-workbench .ch-select:focus-visible, .ai-workbench input:focus-visible, .ai-workbench textarea:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+:is(.ai-workbench, .ai-composer) button:disabled { cursor: not-allowed; opacity: 0.48; }
+:is(.ai-workbench, .ai-composer) svg, .phase-header-actions svg, .business-task-card footer svg { width: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
 .ai-conversation-rail { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; border-right: 1px solid var(--border-default); background: var(--bg-surface-alt); }
 .ai-conversation-rail[hidden] { display: none; }
 .ai-conversation-resizer { position: absolute; z-index: 3; top: 0; right: -5px; bottom: 0; width: 10px; cursor: col-resize; touch-action: none; outline: none; }
@@ -1168,10 +1169,6 @@ button.ai-attachment-thumbnail:active { transform: scale(0.98); }
 }
 /*提示比按钮长，允许整行换行的话按钮会掉到下一行的左边。改成不换行、由提示自己折行，
    发送按钮任何窗口宽度下都待在右下角。*/
-/*上下文与动作都收在输入框内。参考稿的做法：输入区下面一行左边是"给这次请求添点
-   什么"，右边是发送。此前上下文单独占了对话区顶上一整条横带，还重复了侧栏分组
-   已经交代过的项目归属。*/
-/*底部动作行始终保持单行；空间不足时由模型名称优先省略，附件、权限和发送入口不换行。*/
 .ai-composer footer { display: flex; min-width: 0; flex-wrap: nowrap; align-items: center; gap: 7px; padding: 4px 12px 12px 14px; }
 .ai-composer-actions { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; white-space: nowrap; }
 .ai-composer-actions > button[type="submit"] { display: grid; width: 32px; height: 32px; flex: 0 0 auto; padding: 0; border-color: var(--accent-border); border-radius: var(--radius-pill); color: var(--text-inverse); background: var(--accent); place-items: center; }
@@ -1511,3 +1508,10 @@ button.ai-attachment-thumbnail:active { transform: scale(0.98); }
 .preview-markdown-document { min-width: 0; }
 .preview-text-page-buttons, .preview-text-copy { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .preview-markdown-oversize { padding: 16px; border: 1px solid var(--border-default); }
+
+.workbench-page-notice { max-width: min(440px, calc(100vw - 32px)); }
+.workbench-dialog-notice { z-index: 1500; }
+.workbench-operation-error { color: var(--danger-text); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.my-work-followups { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 24px 16px; }
+.my-work-item { flex: 1 1 240px; padding: 12px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); }
+.my-work-item p { color: var(--text-secondary); }

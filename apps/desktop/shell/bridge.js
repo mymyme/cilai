@@ -129,6 +129,7 @@ const namespaceStorage = createPersonalNamespaceStorage({ app, browser,
   getVerifiedProfileId: () => verifiedPersonalProfileId, service, closeApplications: closeApplicationContainers });
 
 const implemented = {
+  ai_pa_open_memo_link: ({ args }) => require("./personal-memo-link").openSavedMemoLink({ service, args, openExternal: url => require("electron").shell.openExternal(url) }),
   personal_notification_preferences_get: ({ args }) => {
     if (!personalNotifications) throw new Error("personal_notification_unavailable");
     return personalNotifications.preferences("personal_notification_preferences_get", args);

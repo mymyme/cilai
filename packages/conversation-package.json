@@ -1,13 +1,18 @@
 {
   "name": "@cilai/app-ui",
-  "version": "1.1.0",
-  "archive": "cilai-app-ui-1.1.0.tgz",
-  "sha256": "a5efb462fdf1b75a5654aa6477b946b3565c1716feebe70e53ca927101043c16",
+  "version": "1.2.0",
+  "archive": "cilai-app-ui-1.2.0.tgz",
+  "sha256": "06ca01aee99905aee9e4fcde5ff339270790b3d3f3b5055c72d16a1ea4104243",
   "sources": {
-    "package.json": "8dfb489d136e6699e203911babc53044fac72f950d8bfb56fd993d2287b950a7",
+    "package.json": "9b29798495bbdfe9968de3fb8b8240d57e65107e7987a612499b722ee7ed7a1a",
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "5d5df523ba75de228558fdf449f045f917f57e5f735ebb957d0691ecf9886c82",
-    "src/conversation/index.tsx": "74b5f483292a3b35c0669f2779bc42ae51099bd0ef0e77b4a8c70a0de1fbe874",
-    "src/page-notice/index.tsx": "dd93d74b2546ea4bfbd8a4e91901da20f212a28a221c04db8b3cdbe73973f67e"
+    "src/conversation/index.tsx": "6e39754284a37de3e1e3b0246dcc17506d1c87f6dc24edf33465e7886c7ea098",
+    "src/page-notice/application.tsx": "36728a8fe35b0184dad9e16e501c3aba8664723cfa5a52ccfc0b9b7ff05decd0",
+    "src/page-notice/closed-states.ts": "c784ea56d8a4e4d5ad8ae7f8f1b19e8981a757f4cad920c9b8bb1a18f4810232",
+    "src/page-notice/index.tsx": "271fb87b03a84eee7b3042a650f2ba7c3912b39a66fbdebd696a876026cd5b42",
+    "src/page-notice/stack.css": "f2b5d98ce93f6ce09eae89745f586d523ac4a5b4bc9ff76f4387d00461923f55",
+    "src/page-notice/stack.tsx": "05b537a7c382066fdfe3107dc5d45ae8492a1531b164931e9dacb83994fb6b76",
+    "src/page-notice/text.ts": "16c2b904a1e14970febb2efa6a2fc10acc784eea43190bbb036feafe56df5b27"
   }
 }

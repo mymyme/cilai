@@ -34,6 +34,9 @@ struct ProxyState {
     start_admission: Option<crate::application_tool_adapter::ScopeValidator>,
     scope_id: String,
     active: bool,
+    result_contract: Option<bool>,
+    assistant_reply: Option<Arc<crate::codex_harness::AssistantReply>>,
+    progress: Option<crate::codex_harness::ProgressCallback>,
     memory: Option<NativeMemoryGrant>,
     page_tool_names: Option<Vec<String>>,
     retired: Arc<AtomicBool>,
@@ -65,6 +68,27 @@ pub(crate) struct ModelSessionProxy {
 }
 
 impl ModelSessionProxy {
+    pub(crate) fn configure_conversation_contract(
+        &self,
+        scope: &str,
+        result: Option<bool>,
+        assistant: Option<Arc<crate::codex_harness::AssistantReply>>,
+        progress: crate::codex_harness::ProgressCallback,
+    ) -> Result<(), String> {
+        let mut binding = self
+            .binding
+            .lock()
+            .map_err(|_| "model_session_proxy_binding_unavailable")?;
+        if binding.retired.load(Ordering::Acquire) || !binding.active || binding.scope_id != scope {
+            return Err("model_session_proxy_scope_changed".into());
+        }
+        let mut next = (**binding).clone();
+        next.result_contract = result;
+        next.assistant_reply = assistant;
+        next.progress = Some(progress);
+        *binding = Arc::new(next);
+        Ok(())
+    }
     pub(crate) fn set_start_admission(
         &self,
         admission: Option<crate::application_tool_adapter::ScopeValidator>,
@@ -119,6 +143,9 @@ impl ModelSessionProxy {
         scope_id.clone_into(&mut next.scope_id);
         next.start_admission = None;
         next.active = true;
+        next.result_contract = None;
+        next.assistant_reply = None;
+        next.progress = None;
         next.application_tools = AdapterSlot::default();
         let tools = next.application_tools.clone();
         *binding = Arc::new(next);
@@ -172,6 +199,8 @@ impl ModelSessionProxy {
             .map_err(|_| "model_session_proxy_binding_unavailable")?;
         let mut idle = (**binding).clone();
         idle.active = false;
+        idle.assistant_reply = None;
+        idle.progress = None;
         *binding = Arc::new(idle);
         Ok(())
     }
@@ -322,6 +351,9 @@ fn run_proxy_thread(
                     start_admission: None,
                     scope_id,
                     active: true,
+                    result_contract: None,
+                    assistant_reply: None,
+                    progress: None,
                     memory: None,
                     page_tool_names: None,
                     retired: Arc::new(AtomicBool::new(false)),
@@ -763,6 +795,12 @@ async fn forward_request_inner(
             Err(code) => return error_response(StatusCode::BAD_REQUEST, code),
         };
     }
+    if model_request && matches!(purpose, "foreground" | "automation") {
+        body = match project_conversation_request(state, &body) {
+            Ok(projected) => Bytes::from(projected),
+            Err(code) => return error_response(StatusCode::BAD_REQUEST, code),
+        };
+    }
     if memory_request {
         let grant = state.memory.as_ref().expect("authorized native memory");
         let model = serde_json::from_slice::<Value>(&body)
@@ -854,6 +892,17 @@ async fn forward_request_inner(
             builder = builder.header(name.as_str(), value);
         }
     }
+    let visible = VisibleReply {
+        reply: (normalize_sse && !memory_request && state.result_contract.is_some())
+            .then(crate::workbench_result::ReplyStream::default),
+        public: (normalize_sse && !memory_request && state.result_contract.is_some()).then(|| {
+            crate::workbench_result::ReplyStream::for_tool(
+                crate::public_reasoning::TOOL,
+                crate::public_reasoning::FIELD,
+            )
+        }),
+        progress: (!memory_request).then(|| state.progress.clone()).flatten(),
+    };
     let stream = stream::unfold(
         Some((
             response,
@@ -861,9 +910,11 @@ async fn forward_request_inner(
             normalize_sse.then(Vec::new),
             request_lifecycle,
             usage,
+            visible,
         )),
         |state| async move {
-            let (mut response, mut timing, mut pending, mut lifecycle, mut usage) = state?;
+            let (mut response, mut timing, mut pending, mut lifecycle, mut usage, mut visible) =
+                state?;
             let chunk = tokio::select! {
                 chunk=response.chunk()=>chunk,
                 ()=lifecycle.revoked()=> {
@@ -878,16 +929,19 @@ async fn forward_request_inner(
                     }
                     timing.chunk(&chunk);
                     let chunk = if let Some(pending) = pending.as_mut() {
-                        match normalize_sse_chunk(pending, &chunk, false) {
+                        match normalize_sse_chunk(pending, &chunk, false, &mut |event| {
+                            visible.observe(event);
+                        }) {
                             Ok(bytes) => bytes,
                             Err(error) => return Some((Err(error), None)),
                         }
                     } else {
                         chunk
                     };
+                    visible.publish();
                     Some((
                         Ok::<_, std::io::Error>(Frame::data(chunk)),
-                        Some((response, timing, pending, lifecycle, usage)),
+                        Some((response, timing, pending, lifecycle, usage, visible)),
                     ))
                 }
                 Ok(None) => {
@@ -897,7 +951,10 @@ async fn forward_request_inner(
                     timing.mark("stream_complete");
                     pending.filter(|bytes| !bytes.is_empty()).map(|mut bytes| {
                         (
-                            normalize_sse_chunk(&mut bytes, &[], true).map(Frame::data),
+                            normalize_sse_chunk(&mut bytes, &[], true, &mut |event| {
+                                visible.observe(event);
+                            })
+                            .map(Frame::data),
                             None,
                         )
                     })
@@ -976,6 +1033,7 @@ fn normalize_sse_chunk(
     pending: &mut Vec<u8>,
     chunk: &[u8],
     finish: bool,
+    observe: &mut dyn FnMut(&Value),
 ) -> std::io::Result<Bytes> {
     pending.extend_from_slice(chunk);
     if pending.len() > 2 * 1024 * 1024 {
@@ -1002,6 +1060,9 @@ fn normalize_sse_chunk(
         if data.trim_ascii() == b"[DONE]" {
             output.extend(line);
             continue;
+        }
+        if let Ok(event) = &parsed {
+            observe(event);
         }
         let event = match parsed {
             Ok(event) if event["type"] == "response.failed" => {
@@ -1167,6 +1228,9 @@ pub(crate) fn local_tools_test_proxy(
         start_admission: None,
         scope_id: "local-tools-protocol-fixture".into(),
         active: true,
+        result_contract: None,
+        assistant_reply: None,
+        progress: None,
         memory: None,
         page_tool_names: None,
         retired: Arc::new(AtomicBool::new(false)),
@@ -1383,6 +1447,9 @@ mod tests {
             start_admission: None,
             scope_id: "first-turn".into(),
             active: true,
+            result_contract: None,
+            assistant_reply: None,
+            progress: None,
             memory: None,
             page_tool_names: None,
             retired: Arc::new(AtomicBool::new(false)),
@@ -1785,6 +1852,9 @@ mod tests {
                 start_admission: None,
                 scope_id: "pending-tools".into(),
                 active: true,
+                result_contract: None,
+                assistant_reply: None,
+                progress: None,
                 memory: None,
                 page_tool_names: None,
                 retired: Arc::new(AtomicBool::new(false)),
@@ -1933,6 +2003,9 @@ mod tests {
             start_admission: None,
             scope_id: "test-run".to_owned(),
             active: true,
+            result_contract: None,
+            assistant_reply: None,
+            progress: None,
             memory: None,
             page_tool_names: None,
             retired: Arc::new(AtomicBool::new(false)),
@@ -2082,7 +2155,7 @@ mod personal_policy_tests {
         let mut pending = Vec::new();
         let mut result = Vec::new();
         for byte in text.bytes().chain(error.bytes()) {
-            result.extend(normalize_sse_chunk(&mut pending, &[byte], false).unwrap());
+            result.extend(normalize_sse_chunk(&mut pending, &[byte], false, &mut |_| {}).unwrap());
         }
         assert!(result.starts_with(text.as_bytes()));
         let result = String::from_utf8(result).unwrap();
@@ -2098,7 +2171,8 @@ mod personal_policy_tests {
             "data: {\"type\":\"response.failed\",\"message\":\"private-fixture\",\"response\":{\"output\":\"private-fixture\",\"error\":{\"message\":\"private-fixture\"}}}\n\n",
             "data: Authorization: private-fixture\n\n",
         ] {
-            let normalized = normalize_sse_chunk(&mut Vec::new(), raw.as_bytes(), true).unwrap();
+            let normalized =
+                normalize_sse_chunk(&mut Vec::new(), raw.as_bytes(), true, &mut |_| {}).unwrap();
             let normalized = String::from_utf8(normalized.to_vec()).unwrap();
             assert!(!normalized.contains("private-fixture"));
             assert!(normalized.contains("model_upstream_error"));
@@ -2169,6 +2243,9 @@ mod personal_error_transport_tests {
                 start_admission: None,
                 scope_id: "isolated-error-fixture".into(),
                 active: true,
+                result_contract: None,
+                assistant_reply: None,
+                progress: None,
                 memory: None,
                 page_tool_names: None,
                 retired: Arc::new(AtomicBool::new(false)),
@@ -2220,5 +2297,270 @@ mod personal_error_transport_tests {
             server.await.unwrap();
         });
         upstream.join().unwrap();
+    }
+}
+
+fn project_workbench_result_tools(request: &mut Value, allowed: bool) -> bool {
+    fn project_tools(container: &mut Value, allowed: bool) -> bool {
+        let Some(tools) = container.get_mut("tools").and_then(Value::as_array_mut) else {
+            return false;
+        };
+        let mut changed = false;
+        tools.retain_mut(|tool| {
+            if tool["type"] != "function" || tool["name"] != crate::workbench_result::RESULT_TOOL {
+                return true;
+            }
+            if allowed {
+                changed |= crate::workbench_result::project_model_tool(tool);
+            } else {
+                changed = true;
+            }
+            allowed
+        });
+        changed
+    }
+
+    let mut changed = project_tools(request, allowed);
+    if let Some(input) = request.get_mut("input").and_then(Value::as_array_mut) {
+        input.retain_mut(|item| {
+            if !matches!(
+                item["type"].as_str(),
+                Some("additional_tools" | "tool_search_output")
+            ) || !project_tools(item, allowed)
+            {
+                return true;
+            }
+            changed = true;
+            item["type"] != "additional_tools"
+                || item["tools"]
+                    .as_array()
+                    .is_some_and(|tools| !tools.is_empty())
+        });
+    }
+    changed
+}
+
+fn project_assistant_summary(
+    body: &[u8],
+    summary: &crate::codex_harness::AssistantSummary,
+) -> Result<Vec<u8>, &'static str> {
+    let mut request: Value =
+        serde_json::from_slice(body).map_err(|_| "MODEL_SESSION_PROXY_BODY_INVALID")?;
+    let request = request
+        .as_object_mut()
+        .ok_or("MODEL_SESSION_PROXY_BODY_INVALID")?;
+    request.remove("previous_response_id");
+    request.remove("conversation");
+    request.remove("parallel_tool_calls");
+    request.remove("instructions");
+    request.insert("text".into(), json!({"format":{"type":"text"}}));
+    request.insert("tools".into(), json!([]));
+    request.insert("tool_choice".into(), json!("none"));
+    request.insert("input".into(), json!([
+        {"type":"message","role":"developer","content":[{"type":"input_text","text":summary.instructions}]},
+        {"type":"message","role":"user","content":[{"type":"input_text","text":summary.input}]}
+    ]));
+    let limit = request
+        .get("max_output_tokens")
+        .and_then(Value::as_u64)
+        .unwrap_or(3072)
+        .min(3072);
+    request.insert("max_output_tokens".into(), json!(limit));
+    let body = serde_json::to_vec(request).map_err(|_| "MODEL_SESSION_PROXY_BODY_INVALID")?;
+    if summary.requested.swap(true, Ordering::AcqRel) {
+        return Err("PERSONAL_ASSISTANT_SUMMARY_REQUEST_LIMIT");
+    }
+    Ok(body)
+}
+
+fn project_assistant_request(
+    body: &[u8],
+    request_scope: &str,
+    reply: &crate::codex_harness::AssistantReply,
+) -> Result<Option<Vec<u8>>, ()> {
+    let reply_only = reply.reply_only.load(Ordering::Acquire);
+    let require_action = !reply.ready.load(Ordering::Acquire);
+    let mut request: Value = serde_json::from_slice(body).map_err(|_| ())?;
+    let Some(tools) = request["tools"].as_array_mut() else {
+        return Ok(None);
+    };
+    let Some(tool) = tools
+        .iter_mut()
+        .find(|tool| tool["type"] == "function" && tool["name"] == "cilai_personal_assistant")
+    else {
+        return Ok(None);
+    };
+    tool["parameters"]["properties"]
+        .as_object_mut()
+        .ok_or(())?
+        .insert(
+            "requestId".to_owned(),
+            serde_json::json!({"type":"string","enum":[request_scope]}),
+        );
+    if let Some(actions) = tool["parameters"]["properties"]["action"]["enum"].as_array_mut() {
+        actions.retain(|item| item != "report" && item != "assess");
+    }
+    if let Some(properties) = tool["parameters"]["properties"].as_object_mut() {
+        for key in ["reportId", "state", "question", "impact"] {
+            properties.remove(key);
+        }
+    }
+    let required = tool["parameters"]["required"].as_array_mut().ok_or(())?;
+    if !required.iter().any(|key| key == "requestId") {
+        required.push(serde_json::json!("requestId"));
+    }
+    for tool in tools.iter_mut().filter(|tool| {
+        tool["type"] == "function"
+            && tool["name"]
+                .as_str()
+                .is_some_and(crate::ai_runtime::personal_records::is_record_tool)
+    }) {
+        tool["parameters"]["properties"]
+            .as_object_mut()
+            .ok_or(())?
+            .insert(
+                "requestId".to_owned(),
+                json!({"type":"string","enum":[request_scope]}),
+            );
+    }
+    let input = request["input"].as_array_mut().ok_or(())?;
+    let mut projected = project_assistant_history(input)?;
+    if reply_only {
+        projected.push(json!({"type":"message","role":"developer","content":[{"type":"input_text",
+            "text":"本轮工具处理已结束，现在根据实际回执直接回复用户。分别说明已受理、未成功或受理不确定的事项，受理不等于工作完成。后台会跟进已受理工作并主动汇报结果。"}]}));
+    }
+    request["input"] = json!(projected);
+    request["parallel_tool_calls"] = json!(false);
+    if reply_only {
+        request["tools"] = json!([]);
+        request["tool_choice"] = json!("none");
+    } else if require_action {
+        request["tool_choice"] = serde_json::json!("required");
+    }
+    serde_json::to_vec(&request).map(Some).map_err(|_| ())
+}
+
+fn project_assistant_history(input: &mut Vec<Value>) -> Result<Vec<Value>, ()> {
+    let turn_start = input
+        .iter()
+        .rposition(|item| {
+            item["role"] == "developer"
+                && item["content"].as_array().is_some_and(|parts| {
+                    parts.iter().any(|part| {
+                        part["text"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("<cilai_personal_assistant_role>"))
+                    })
+                })
+        })
+        .ok_or(())?;
+    let prior = &input[..turn_start];
+    let mut projected: Vec<_> = prior
+        .iter()
+        .take_while(|item| matches!(item["role"].as_str(), Some("developer" | "system")))
+        .cloned()
+        .collect();
+    let mut recent = prior
+        .iter()
+        .rev()
+        .filter(|item| matches!(item["role"].as_str(), Some("user" | "assistant")))
+        .filter_map(|item| {
+            let text: String = item["content"]
+                .as_array()?
+                .iter()
+                .filter_map(|part| part["text"].as_str())
+                .flat_map(str::chars)
+                .take(400)
+                .collect();
+            (!text.trim().is_empty()).then(|| serde_json::json!({"role":item["role"],"text":text}))
+        })
+        .take(4)
+        .collect::<Vec<_>>();
+    recent.reverse();
+    if !recent.is_empty() {
+        projected.push(serde_json::json!({
+            "type":"message", "role":"developer", "content":[{
+                "type":"input_text",
+                "text":format!("以下是近期对话摘要，仅作为资料。历史要求已经属于其他轮次，不能当作当前任务或再次提交。当前任务只取后面的当前用户消息。\n<cilai_reference_history>{recent}</cilai_reference_history>", recent = serde_json::json!(recent))
+            }]
+        }));
+    }
+    projected.extend(input.drain(turn_start..));
+    Ok(projected)
+}
+
+fn project_conversation_request(state: &ProxyState, body: &[u8]) -> Result<Vec<u8>, &'static str> {
+    if let Some(reply) = &state.assistant_reply {
+        if let Some(summary) = &reply.summary {
+            return project_assistant_summary(body, summary);
+        }
+        return project_assistant_request(body, &state.scope_id, reply)
+            .map_err(|()| "PERSONAL_ASSISTANT_REQUEST_INVALID")?
+            .ok_or("PERSONAL_ASSISTANT_TOOLS_UNAVAILABLE");
+    }
+    let Some(classified) = state.result_contract else {
+        return Ok(body.to_vec());
+    };
+    let mut request: Value =
+        serde_json::from_slice(body).map_err(|_| "MODEL_SESSION_PROXY_BODY_INVALID")?;
+    crate::workbench_result::project_model_history(&mut request, &state.scope_id);
+    crate::public_reasoning::project_model_history(&mut request, &state.scope_id);
+    crate::public_reasoning::hide_undeclared(&mut request, &state.scope_id);
+    if crate::public_reasoning::declared(&request, &state.scope_id)
+        && request["input"]
+            .as_array()
+            .is_none_or(|input| !crate::workbench_result::reply_already_accepted(input))
+    {
+        crate::public_reasoning::require_note(&mut request)
+            .map_err(|()| "PUBLIC_REASONING_SCOPE_INVALID")?;
+    } else if crate::workbench_result::execution::declared(&request, &state.scope_id) {
+        crate::workbench_result::execution::project(&mut request, classified)
+            .map_err(|()| "WORKBENCH_RESULT_SCOPE_INVALID")?;
+    } else {
+        project_workbench_result_tools(&mut request, classified);
+    }
+    serde_json::to_vec(&request).map_err(|_| "MODEL_SESSION_PROXY_BODY_INVALID")
+}
+
+struct VisibleReply {
+    reply: Option<crate::workbench_result::ReplyStream>,
+    public: Option<crate::workbench_result::ReplyStream>,
+    progress: Option<crate::codex_harness::ProgressCallback>,
+}
+impl VisibleReply {
+    fn observe(&mut self, event: &Value) {
+        if let Some(reply) = &mut self.reply {
+            reply.observe(event);
+        }
+        if let Some(public) = &mut self.public {
+            public.observe(event);
+        }
+    }
+    fn publish(&mut self) {
+        let Some(progress) = &self.progress else {
+            return;
+        };
+        if let Some(text) = self
+            .reply
+            .as_mut()
+            .and_then(crate::workbench_result::ReplyStream::take_preview)
+        {
+            let mut event = crate::codex_harness::CodexHarnessEvent::status(
+                "workbench.reply.delta",
+                "reply",
+                "started",
+                "正在生成回复…",
+            );
+            event.streamed_output = Some(text);
+            progress(event);
+        }
+        if let Some(public) = &mut self.public
+            && let Some(text) = public.take_preview()
+            && let Some(event) = public
+                .call_id()
+                .and_then(|id| crate::public_reasoning::event(id, &text, false))
+        {
+            progress(event);
+        }
     }
 }

@@ -133,6 +133,7 @@ impl PersonalPageAiManager {
             contexts: BTreeMap::new(),
             actions: HashSet::new(),
             model_sessions: HashMap::new(),
+            model_session_restarts: HashMap::new(),
             runs: HashSet::new(),
             requests: HashMap::new(),
         }));

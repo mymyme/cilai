@@ -14,6 +14,7 @@ pub(super) fn audit_method(method: &str) -> Option<PersonalPageAuditMethod> {
         "uiAction.register" => PersonalPageAuditMethod::UiActionsRegister,
         "model.session.open" => PersonalPageAuditMethod::ModelSessionCreate,
         "model.session.read" => PersonalPageAuditMethod::ModelSessionRead,
+        "model.session.restart" => PersonalPageAuditMethod::ModelSessionRestart,
         "model.run.create" => PersonalPageAuditMethod::ModelRunCreate,
         "model.run.get" => PersonalPageAuditMethod::ModelRunRead,
         "model.run.cancel" => PersonalPageAuditMethod::ModelRunCancel,
@@ -48,6 +49,7 @@ impl PersonalPageAiManager {
             "uiAction.register" => self.register_actions(doc, &request.params),
             "model.session.open" => self.open_model_session(document, doc, &request.params),
             "model.session.read" => self.read_model_session(doc, &request.params),
+            "model.session.restart" => self.restart_model_session(document, doc, &request.params),
             "model.run.create" => self.create_run(document, doc, &request.params, ui_action),
             "model.run.get" => self.read_run(doc, &request.params),
             "model.run.cancel" => self.cancel_run(doc, &request.params),
@@ -216,6 +218,7 @@ impl PersonalPageAiManager {
         scope.requests.clear();
         scope.runs.clear();
         scope.model_sessions.clear();
+        scope.model_session_restarts.clear();
         drop(scope);
         lock(&self.documents).insert(document.into(), DocumentEntry::Retired(receipt.clone()));
         Ok(receipt)

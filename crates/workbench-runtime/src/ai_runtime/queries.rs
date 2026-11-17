@@ -191,6 +191,13 @@ fn select<'a>(
     let conversations = state
         .conversations
         .iter()
+        .filter(|conversation| {
+            !super::personal_assistant::is_conversation(conversation)
+                || matches!(
+                    request.scope,
+                    AiRuntimeQueryScope::Conversation | AiRuntimeQueryScope::Run
+                )
+        })
         .filter(|conversation| match request.scope {
             AiRuntimeQueryScope::Project | AiRuntimeQueryScope::Work => {
                 conversation.context.project_id == request.project_id

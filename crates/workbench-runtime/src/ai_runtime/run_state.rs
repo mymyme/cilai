@@ -10,6 +10,14 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct AgentRun {
     #[serde(default)]
+    pub continuation_of_run_id: Option<String>,
+    #[serde(default)]
+    pub waiting_for_input: Option<crate::workbench_result::WorkInputRequest>,
+    #[serde(default)]
+    pub response_to_work_run_id: Option<String>,
+    #[serde(default)]
+    pub selected_skill_id: Option<String>,
+    #[serde(default)]
     pub planning: bool,
     pub run_id: String,
     pub conversation_id: String,

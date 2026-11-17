@@ -357,9 +357,41 @@ fn response(
     Err("个人能力协议消息超过限制。".into())
 }
 
+pub(crate) fn restrict_conversation_tools(catalog: &mut Value) -> Result<(), String> {
+    let tools = catalog["tools"]
+        .as_array_mut()
+        .ok_or("personal_tool_catalog_invalid")?;
+    for tool in tools.iter() {
+        if tool
+            .get("executionScope")
+            .is_some_and(|scope| scope != "conversation" && scope != "task")
+        {
+            return Err("personal_tool_execution_scope_invalid".into());
+        }
+    }
+    tools.retain(|tool| tool["executionScope"] != "task");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn conversation_tool_scope_rejects_unknown_and_removes_task_tools_before_name_resolution() {
+        let mut catalog = json!({"tools":[{"name":"ordinary","executionScope":"conversation"},{"name":"formal","executionScope":"task"}]});
+        restrict_conversation_tools(&mut catalog).unwrap();
+        assert_eq!(
+            catalog["tools"],
+            json!([{"name":"ordinary","executionScope":"conversation"}])
+        );
+        assert!(
+            restrict_conversation_tools(
+                &mut json!({"tools":[{"name":"bad","executionScope":"everything"}]})
+            )
+            .is_err()
+        );
+        assert!(restrict_conversation_tools(&mut json!({})).is_err());
+    }
     #[test]
     fn mcp_protocol_reads_catalog_calls_tools_and_terminates_invalid_or_silent_servers() {
         let root = std::env::temp_dir().join(format!("cilai-mcp-{}", uuid::Uuid::new_v4()));

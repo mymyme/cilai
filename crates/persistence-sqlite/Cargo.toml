@@ -13,7 +13,7 @@ contexthub-domain = { path = "../domain", version = "=0.1.2" }
 contexthub-protocol = { path = "../protocol", version = "=0.1.2" }
 contexthub-manifest = { path = "../manifest", version = "=0.1.2" }
 contexthub-platform-adapter = { path = "../platform-adapter", version = "=0.1.2" }
-rusqlite = { version = "=0.39.0", features = ["bundled"] }
+rusqlite = { version = "=0.41.0", features = ["bundled"] }
 sha2 = "=0.10.9"
 serde_json = "=1.0.151"
 uuid = { version = "=1.24.0", features = ["v4"] }

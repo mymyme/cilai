@@ -8,6 +8,10 @@ use std::path::Path;
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
+    #[serde(default)]
+    pub(super) supports_reasoning_summary: bool,
+    #[serde(default)]
+    pub(super) supports_public_reasoning: bool,
     pub(super) connection_id: Option<String>,
     pub(super) connection_name: Option<String>,
     pub(super) config_revision: Option<u32>,

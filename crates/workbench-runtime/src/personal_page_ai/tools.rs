@@ -123,7 +123,7 @@ impl PersonalPageAiManager {
         )?;
         self.validate(doc, None)?;
         if action == "list" {
-            let tools=declarations.map(|tool|{
+            let tools=declarations.filter(|tool| !catalog["tools"].as_array().is_some_and(|items| items.iter().any(|item| item["name"] == tool.name && item["executionScope"] == "task"))).map(|tool|{
                 check_catalog(&catalog,tool)?;
                 Ok(json!({"name":tool.name,"description":tool.description,"inputSchema":tool.input_schema}))
             }).collect::<Result<Vec<_>,String>>()?;
@@ -263,6 +263,15 @@ impl PersonalPageAiManager {
 }
 
 fn check_catalog(catalog: &Value, tool: &PersonalPageTool) -> Result<(), String> {
+    let mut checked = catalog.clone();
+    crate::personal_runtime::restrict_conversation_tools(&mut checked)?;
+    if catalog["tools"].as_array().is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| item["name"] == tool.name && item["executionScope"] == "task")
+    }) {
+        return Err("personal_tool_task_scope_required".into());
+    }
     if !catalog["tools"].as_array().is_some_and(|tools| {
         tools
             .iter()
@@ -297,5 +306,26 @@ fn tool_scope(
         .into(),
         timeout_ms: Some(30_000),
         confirmation_view: Some(json!({"reviewMode":"personalPageArguments","inputSchema":schema})),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn page_tool_call_rechecks_scope_and_schema_even_for_a_guessed_declared_name() {
+        let tool: PersonalPageTool = serde_json::from_value(json!({"name":"work","title":"工作","description":"工作","inputSchema":{"type":"object"}})).unwrap();
+        let mut catalog = json!({"tools":[{"name":"work","inputSchema":{"type":"object"},"executionScope":"conversation"}]});
+        assert!(check_catalog(&catalog, &tool).is_ok());
+        catalog["tools"][0]["executionScope"] = json!("task");
+        assert_eq!(
+            check_catalog(&catalog, &tool).unwrap_err(),
+            "personal_tool_task_scope_required"
+        );
+        catalog["tools"][0]["executionScope"] = json!("unknown");
+        assert_eq!(
+            check_catalog(&catalog, &tool).unwrap_err(),
+            "personal_tool_execution_scope_invalid"
+        );
     }
 }

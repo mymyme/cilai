@@ -1,3 +1,10 @@
+export function workspaceAbsolutePath(workspaceRoot: string, relativePath: string, hostPlatform: string | null = null): string {
+  const windows = hostPlatform === "windows" || (hostPlatform === null && /^(?:[a-z]:[\\/]|[\\/]{2})/i.test(workspaceRoot));
+  if (!windows) return `${workspaceRoot.replace(/\/+$/, "")}/${relativePath}`;
+  const root = workspaceRoot.replaceAll("/", "\\").replace(/\\+$/, "");
+  return `${root}\\${relativePath.replaceAll("/", "\\")}`;
+}
+
 /** Resolve a displayed file reference without granting access outside its workspace. */
 export function workspaceRelativePath(href: string, workspaceRoot: string): string | null {
   let path = normalizeWindowsFilePath(href.trim());

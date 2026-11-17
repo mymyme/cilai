@@ -294,3 +294,44 @@ impl PersonalPageAiManager {
         writer.complete(result)
     }
 }
+
+impl PersonalPageAiManager {
+    pub(super) fn restart_model_session(
+        &self,
+        document: &str,
+        doc: &DocumentHandle,
+        params: &Value,
+    ) -> Result<Value, String> {
+        let p: SessionId = parse(params)?;
+        let (application, revision) = {
+            let scope = lock(doc);
+            if !scope.binding.page_ai.model
+                || (scope.model_sessions.get(&p.model_session_id) != Some(&scope.revision)
+                    && scope.model_session_restarts.get(&p.model_session_id)
+                        != Some(&scope.revision))
+            {
+                return Err("personal_page_model_session_required".into());
+            }
+            (scope.binding.application_id.clone(), scope.revision)
+        };
+        self.validate(doc, Some(revision))?;
+        let replacement = self.ai.restart_application_conversation(
+            &p.model_session_id,
+            &application,
+            &format!("personal_page_{}", uuid::Uuid::new_v4().simple()),
+        )?;
+        self.validate(doc, Some(revision))?;
+        let conversation = self
+            .ai
+            .read_application_conversation(&replacement, &application)?;
+        let mut scope = lock(doc);
+        scope.model_sessions.remove(&p.model_session_id);
+        scope
+            .model_session_restarts
+            .insert(p.model_session_id, revision);
+        scope.model_sessions.insert(replacement.clone(), revision);
+        Ok(
+            json!({"modelSessionId":replacement,"pageRevision":revision,"conversation":conversation,"documentId":document}),
+        )
+    }
+}

@@ -591,6 +591,18 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("../../../migrations/0077_add_file_text_search.sql"),
         rebuilds_foreign_key_parent: false,
     },
+    Migration {
+        version: 78,
+        name: "add_personal_thread_tools",
+        sql: include_str!("../../../migrations/0078_add_personal_thread_tools.sql"),
+        rebuilds_foreign_key_parent: false,
+    },
+    Migration {
+        version: 79,
+        name: "add_personal_application_restart",
+        sql: include_str!("../../../migrations/0079_add_personal_application_restart.sql"),
+        rebuilds_foreign_key_parent: false,
+    },
 ];
 
 #[derive(Clone, Copy)]

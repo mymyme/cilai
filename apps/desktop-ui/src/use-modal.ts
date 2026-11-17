@@ -16,6 +16,7 @@ export function useModal<T extends HTMLElement>(options: {
   /** 忙碌时（例如正在保存）不接受 Escape，避免半途中断已经发出的请求。 */
   busy?: boolean;
   active?: boolean;
+  noticeLayer?: string;
 }): React.RefObject<T | null> {
   const pageActive = usePageActive();
   const pageActiveRef = useRef(pageActive);
@@ -39,6 +40,19 @@ export function useModal<T extends HTMLElement>(options: {
       const container = containerRef.current;
       if (container === null) return;
       const stops = focusableWithin(container);
+      const noticeLayer = optionsRef.current.noticeLayer;
+      const notice = noticeLayer ? document.getElementsByClassName(noticeLayer)[0] : undefined;
+      if (notice instanceof HTMLElement) {
+        const noticeStops = focusableWithin(notice).filter((element) => !element.closest("[inert]"));
+        const all = [...stops, ...noticeStops];
+        if (all.length) {
+          const current = all.indexOf(document.activeElement as HTMLElement);
+          const next = event.shiftKey ? (current <= 0 ? all.length - 1 : current - 1) : (current + 1) % all.length;
+          event.preventDefault();
+          all[next].focus();
+          return;
+        }
+      }
       if (stops.length === 0) {
         // 弹窗里没有任何可聚焦元素时，焦点不该溜到背后的页面上。
         event.preventDefault();

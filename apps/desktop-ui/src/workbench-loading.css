@@ -1,0 +1,43 @@
+/* 在主界面模块到达前也由 HTML 加载，启动反馈不依赖 React 或宿主服务。 */
+body:has(.workbench-bootstrap) { margin: 0; }
+.workbench-bootstrap {
+  display: grid;
+  min-height: 100vh;
+  padding: 38px 24px 24px;
+  box-sizing: border-box;
+  place-items: center;
+  color: var(--text-primary, #2e3947);
+  background: var(--bg-canvas, #eceff3);
+}
+.workbench-loading {
+  display: flex;
+  flex: 1;
+  min-height: 240px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 24px;
+  box-sizing: border-box;
+  color: var(--text-primary, #2e3947);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  text-align: center;
+}
+.workbench-loading-mark { width: 64px; height: 64px; margin-bottom: 24px; }
+.workbench-loading h2 { margin: 0; color: var(--text-heading, #131a26); font-size: 21px; font-weight: 600; line-height: 1.45; }
+.workbench-loading p { max-width: 420px; margin: 8px 0 0; color: var(--text-secondary, #566170); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.workbench-loading-spinner { width: 24px; height: 24px; margin-top: 24px; border: 2px solid var(--border-default, #d0d7df); border-top-color: var(--accent, #4773c7); border-radius: 50%; animation: workbench-startup-spin 850ms linear infinite; }
+.workbench-loading button { margin-top: 24px; padding: 8px 20px; border: 1px solid var(--border-default, #d0d7df); border-radius: 8px; color: var(--text-primary, #2e3947); background: var(--bg-surface, #fff); font: inherit; cursor: pointer; }
+:root[data-theme="dark"] .workbench-bootstrap { color: var(--text-primary, #cfd6df); background: var(--bg-canvas, #0e1116); }
+:root[data-theme="dark"] .workbench-loading { color: var(--text-primary, #cfd6df); }
+:root[data-theme="dark"] .workbench-loading h2 { color: var(--text-heading, #f2f5f9); }
+:root[data-theme="dark"] .workbench-loading p { color: var(--text-secondary, #a0abb9); }
+:root[data-theme="dark"] .workbench-loading button { border-color: var(--border-default, #343c48); color: var(--text-primary, #cfd6df); background: var(--bg-surface, #222833); }
+:root[data-theme="dark"] .workbench-loading-spinner { border-color: var(--border-default, #343c48); border-top-color: var(--accent, #4c7ad6); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .workbench-bootstrap { color: #cfd6df; background: #0e1116; }
+  :root:not([data-theme]) .workbench-loading h2 { color: #f2f5f9; }
+  :root:not([data-theme]) .workbench-loading p { color: #a0abb9; }
+  :root:not([data-theme]) .workbench-loading-spinner { border-color: #343c48; border-top-color: #4c7ad6; }
+}
+@keyframes workbench-startup-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .workbench-loading-spinner { animation: none; } }

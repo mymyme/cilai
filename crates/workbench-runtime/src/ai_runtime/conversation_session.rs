@@ -256,7 +256,11 @@ fn apply_changes(
     let mut result = values.clone();
     let mut seen = HashSet::new();
     for change in changes {
-        if !KEYS.contains(&change.key.as_str()) || !seen.insert(change.key.clone()) {
+        if super::personal_records::owns_key(&change.key)
+            || change.key == super::personal_assistant::STATE_KEY
+            || !KEYS.contains(&change.key.as_str())
+            || !seen.insert(change.key.clone())
+        {
             return Err("conversation_session_key_invalid".to_owned());
         }
         let current = values.get(&change.key).unwrap_or(&Value::Null);
@@ -381,7 +385,7 @@ impl AiRuntimeManager {
             .persisted
             .conversations
             .iter()
-            .filter(|item| !item.archived)
+            .filter(|item| !item.archived && !super::personal_assistant::is_conversation(item))
             .collect();
         conversations.sort_by(|left, right| {
             right

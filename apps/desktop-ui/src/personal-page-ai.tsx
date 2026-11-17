@@ -38,7 +38,7 @@ export function usePersonalPageAi({ frame, channel, url, active, enabled }: Opti
         if (current) frame.current?.contentWindow?.postMessage({ type: "cilai-personal-ai-result", channel, id: message.id, result, error: reason }, "*");
       };
       if (!isActive.current || pendingRequests.current.has(message.id) || pendingRequests.current.size >= 8) { respond(undefined, "应用当前不能处理请求"); return; }
-      if (!["session.read", "context.publish", "context.revoke", "uiAction.register", "model.session.open", "model.session.read", "model.run.create", "model.run.get", "model.run.cancel", "conversation.handoff", "audit.list"].includes(message.method)) { respond(undefined, "页面不支持此请求"); return; }
+      if (!["session.read", "context.publish", "context.revoke", "uiAction.register", "model.session.open", "model.session.read", "model.session.restart", "model.run.create", "model.run.get", "model.run.cancel", "conversation.handoff", "audit.list"].includes(message.method)) { respond(undefined, "页面不支持此请求"); return; }
       pendingRequests.current.add(message.id);
       void pageCall(message.method, message.params, message.id).then(result => {
         if (!current) return;

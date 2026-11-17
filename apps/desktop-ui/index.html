@@ -5,10 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <title>词来个人工作台</title>
+    <link rel="stylesheet" href="/src/workbench-loading.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="root"><main class="workbench-bootstrap">
+      <section aria-busy="true" aria-label="正在启动" class="workbench-loading" data-workbench-bootstrap role="status">
+        <img alt="" aria-hidden="true" class="workbench-loading-mark" src="../../assets/cilai-symbol-primary.svg" />
+        <h2>正在启动</h2>
+        <p>正在准备词来工作台…</p>
+        <span aria-hidden="true" class="workbench-loading-spinner"></span>
+      </section>
+    </main></div>
+    <script type="module" src="/src/startup-entry.ts"></script>
   </body>
 </html>
 

@@ -89,3 +89,9 @@ description: 把用户要解决的业务问题转成受管能力创建项目，�
 - 主对话通过工具搜索中的“个人能力”入口发现已安装工具；先列出能力及其工具，再使用当前包摘要调用。停用、卸载和版本变化会使旧调用失效。
 - Web+MCP 可调用 window.cilaiPersonal.selectFile() 打开系统文件选择器，再将返回对象作为 callTool(name, arguments, selectedFile) 的第三个参数。只有该次工具收到文件内容。window.cilaiPersonal.writeFile(selectedFile, content) 必须经过系统再次确认。开发预览不访问外部文件。
 - 导入、导出和升级仅处理个人安装包。导出不包含凭据或审批状态；升级新增权限需要重新确认，安装和数据转换失败时保留此前可用的数据。
+
+## 页面临时对话
+
+- 已声明页面 AI 模型权限的页面使用 window.cilaiPersonalAi.model.session.open() 开启临时对话。问答操作区提供简洁的“清空”入口，使用共享 ConversationClearButton 或相同 SVG 图标。
+- 用户主动清空时调用 window.cilaiPersonalAi.model.session.restart(modelSessionId)，收到成功回执后采用返回的新 modelSessionId 并清空页面问答显示；失败时保留原显示和标识。不能重发旧问题，不触碰业务数据或工作台主对话。
+- 主对话及页面问答不能调用 executionScope 为 task 的工具。工具只有在正式任务范围内才能使用，不以猜测名称绕过目录限制。

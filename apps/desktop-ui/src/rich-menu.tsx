@@ -54,7 +54,9 @@ export function RichMenu(props: {
     return () => cancelAnimationFrame(frame);
   }, [positioned]);
 
-  useEffect(() => props.onOpenChange?.(open), [open, props.onOpenChange]);
+  const onOpenChangeRef = useRef(props.onOpenChange);
+  onOpenChangeRef.current = props.onOpenChange;
+  useEffect(() => onOpenChangeRef.current?.(open), [open]);
 
   useEffect(() => {
     if (positioned && props.keyboardNavigation) menuRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)')?.focus();

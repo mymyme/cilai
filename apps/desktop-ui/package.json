@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cilai/app-ui": "file:../../packages/cilai-app-ui-1.1.0.tgz",
+    "@cilai/app-ui": "file:../../packages/cilai-app-ui-1.2.0.tgz",
     "@xmldom/xmldom": "0.9.12",
     "docx-preview": "0.4.1",
     "fast-formula-parser": "1.0.19",

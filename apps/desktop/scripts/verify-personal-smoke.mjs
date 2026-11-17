@@ -71,8 +71,8 @@ export function verifyPersonalSmoke(file, { environment = process.env, exitCode 
   if (matches.length !== 1) throw new Error('个人启动检查未完成或结果不唯一');
   const value = JSON.parse(lines[matches[0]].slice(prefix.length));
   if (value.result !== 'passed' || value.platform !== process.platform || value.arch !== process.arch
-    || value.memoryEnabled !== false || value.ui?.navigation?.join(',') !== '工作台,对话,项目,文件,自动化,技能,应用'
-    || value.ui.login || value.ui.alerts?.length || typeof value.screenshot !== 'string' || !isAbsolute(value.screenshot)) throw new Error('个人启动检查结果不完整');
+    || value.memoryEnabled !== false || value.ui?.navigation?.join(',') !== '个人助理,工作台,对话,项目,文件,自动化,技能,应用'
+    || !Array.isArray(value.frontendErrors) || value.frontendErrors.length || value.ui.assistantReady !== true || value.ui.login || value.ui.alerts?.length || typeof value.screenshot !== 'string' || !isAbsolute(value.screenshot)) throw new Error('个人启动检查结果不完整');
   plainFile(value.screenshot);
   const screenshot = realpathSync(value.screenshot), bytes = readFileSync(screenshot);
   validatePng(bytes);
@@ -111,6 +111,6 @@ export function verifyPersonalSmoke(file, { environment = process.env, exitCode 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     verifyPersonalSmoke(process.argv[2]);
-    console.log('个人版无模型启动与七个主入口检查通过；完整首版能力另行验收');
+    console.log('个人版无模型启动与八个主入口检查通过；完整首版能力另行验收');
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

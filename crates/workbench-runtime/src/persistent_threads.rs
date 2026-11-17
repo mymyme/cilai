@@ -18,12 +18,21 @@ pub(crate) struct ThreadJournal {
 }
 
 #[derive(Clone)]
+pub(crate) struct ToolConfigUpgrade {
+    pub source_generation: i64,
+    pub source_binding_revision: i64,
+    pub history_digest: String,
+}
+
+#[derive(Clone)]
 pub(crate) struct PersistentThread {
     pub journal: ThreadJournal,
     pub native_thread_id: Option<String>,
     pub fork_before_turn_id: Option<String>,
     pub workbench_history_fork: bool,
     pub cross_runtime_fork: bool,
+    pub tool_config_upgrade: Option<ToolConfigUpgrade>,
+    pub tool_config_version: i64,
     pub workbench_history: Vec<Value>,
     pub name: String,
     pub history: Vec<Value>,

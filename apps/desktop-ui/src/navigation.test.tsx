@@ -193,6 +193,7 @@ beforeEach(() => {
     if (command === "host_platform") return Promise.resolve(hostPlatform);
     if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
     if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
     if (["model_connection_list", "model_connection_change_list", "model_credential_cleanup_list", "model_purpose_list"].includes(command)) return Promise.resolve([]);
     if (command === "local_user_profile") return Promise.resolve({ displayName: "测试用户", username: "tester", accountMode: "本地账户" });
     if (command === "enterprise_capability_catalog") return Promise.resolve({ items: [] });
@@ -213,7 +214,8 @@ afterEach(() => {
   cleanup();
 });
 
-async function renderApp() {
+async function renderApp(initialPage: string | null = "mywork") {
+  if (initialPage && !window.localStorage.getItem(projectDetailStorageKey) && !window.localStorage.getItem("cilai.workbench.last-page")) window.localStorage.setItem("cilai.workbench.last-page", initialPage);
   const { App } = await import("./main");
   return render(<App/>);
 }
@@ -498,6 +500,7 @@ describe("读不出来与这里是空的", () => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
       if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
       if (command === "app_server_request") {
         const method = args?.method ?? "";
         calledMethods.push(method);
@@ -538,6 +541,7 @@ describe("读不出来与这里是空的", () => {
       if (command === "host_platform") return Promise.resolve(hostPlatform);
       if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
       if (command === "local_user_profile") return Promise.resolve({ displayName: "测试用户", username: "tester", accountMode: "本地账户" });
       if (command === "enterprise_capability_catalog") return Promise.resolve({ items: [] });
       if (command === "application_catalog_list") return Promise.resolve({ catalogRevision: "catalog-1", items: [], localStates: [] });
@@ -581,6 +585,7 @@ describe("提示分档", () => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
       if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
       if (command === "app_server_request") {
         const method = args?.method ?? "";
         calledMethods.push(method);
@@ -715,8 +720,8 @@ describe("应用重启恢复项目与阶段上下文", () => {
 
     await renderApp();
 
-    await screen.findByRole("heading", { name: "工作台" });
-    await waitFor(() => expect(window.localStorage.getItem("cilai.workbench.last-page")).toBe("mywork"));
+    await screen.findByRole("heading", { name: "个人助理" });
+    await waitFor(() => expect(window.localStorage.getItem("cilai.workbench.last-page")).toBe("assistant"));
     expect(screen.queryByRole("heading", { name: "变更历史" })).toBeNull();
   });
 
@@ -736,6 +741,7 @@ describe("应用重启恢复项目与阶段上下文", () => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
       if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
       if (command === "app_server_request") {
         const method = args?.method ?? "";
         calledMethods.push(method);
@@ -756,7 +762,7 @@ describe("一级菜单选中态", () => {
   // Management pages opened from the personal menu do not invent a primary-navigation owner.
   // 「运行」已不在一级导航：它只在有运行时才有内容，失败会作为关注事项汇入工作台，
   // 需要看原始运行记录时从工作台的事故条目进去。
-  const pagesReachableFromNav = ["工作台", "对话", "项目", "文件", "自动化", "技能", "应用"];
+  const pagesReachableFromNav = ["个人助理", "工作台", "对话", "项目", "文件", "自动化", "技能", "应用"];
 
   test("主导航以应用名称开头并按固定顺序展示菜单", async () => {
     const { container } = await renderApp();
@@ -976,6 +982,7 @@ describe("项目上下文的保留与退出", () => {
       if (command === "app_server_status") return Promise.resolve(appServerStatus());
       if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
       if (command === "app_server_request") {
         const method = args?.method ?? "";
         calledMethods.push(method);
@@ -1039,6 +1046,7 @@ describe("文件页选择恢复", () => {
       if (command === "host_platform") return Promise.resolve(hostPlatform);
       if (command === "ai_runtime_query") return Promise.resolve(runtimeQueryFixture(emptyAiSnapshot, args));
       if (command === "ai_runtime_snapshot") return Promise.resolve(emptyAiSnapshot);
+    if (command === "ai_personal_assistant_view") return Promise.resolve({runtimeSessionId: "navigation-session", work: [], messages: [], followups: [], tracking: [], conversations: [], run: null, before: null});
       if (command === "local_user_profile") return Promise.resolve({ displayName: "测试用户", username: "tester", accountMode: "本地账户" });
       if (command === "enterprise_capability_catalog") return Promise.resolve({ items: [] });
       if (command === "application_catalog_list") return Promise.resolve({ catalogRevision: "catalog-1", items: [], localStates: [] });
@@ -1219,4 +1227,14 @@ test("归档成功提示查看定位详情，跨页撤销后会话恢复", async
   expect(state.conversations[0].archived).toBe(false);
   expect(screen.queryByRole("heading", { name: "归档交互测试" })).toBeNull();
   expect(screen.getByText("已撤销归档")).toBeTruthy();
+});
+
+
+test("首次启动进入个人助理，工作看板可从助理和主导航打开", async () => {
+  window.localStorage.removeItem("cilai.workbench.last-page");
+  await renderApp(null);
+  expect(await screen.findByRole("heading",{name:"个人助理"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"个人助理"}).getAttribute("aria-current")).toBe("page");
+  fireEvent.click(await screen.findByRole("button",{name:"工作看板"}));
+  expect(await screen.findByRole("heading",{name:"工作台"})).toBeTruthy();
 });

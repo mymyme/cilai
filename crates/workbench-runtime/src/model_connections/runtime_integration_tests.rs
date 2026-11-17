@@ -321,6 +321,7 @@ fn peer_closed_while_held(socket: &TcpStream, hold: &AtomicBool, stop: &AtomicBo
     false
 }
 
+#[allow(clippy::too_many_lines)]
 fn respond(socket: &mut TcpStream, body: &Value, subagent: Option<&str>) {
     let mut events = vec![json!({"type":"response.created","response":{"id":"fixture-response"}})];
     let inputs = body["input"].as_array().unwrap();
@@ -331,9 +332,25 @@ fn respond(socket: &mut TcpStream, body: &Value, subagent: Option<&str>) {
     let has_result = inputs[latest_user..]
         .iter()
         .any(|item| item["type"] == "function_call_output");
+    let has_workbench_result = inputs[latest_user..].iter().any(|item| {
+        item["type"] == "function_call" && item["name"] == crate::workbench_result::RESULT_TOOL
+    });
     let tool = find_tool(&body["tools"], crate::application_result::RESULT_TOOL);
     let workbench = find_tool(&body["tools"], crate::workbench_result::RESULT_TOOL);
-    if body["model"] == "isolated-review-fixture" && subagent == Some("guardian") {
+    if let Some(note) = public_note_response(body) {
+        events.push(note);
+    } else if body.to_string().contains("PERSONAL_ASSISTANT_FIXTURE_V1") {
+        assert!(find_tool(&body["tools"], "exec_command").is_none());
+        assert!(find_tool(&body["tools"], "cilai_personal_tools").is_none());
+        assert!(find_tool(&body["tools"], crate::workbench_result::RESULT_TOOL).is_none());
+        if has_result {
+            assert_eq!(body["tools"], json!([]));
+            push_text_events(&mut events, "个人助理已连接，可以交办工作。");
+        } else {
+            assert!(find_tool(&body["tools"], "cilai_personal_assistant").is_some());
+            events.push(json!({"type":"response.output_item.done","item":{"type":"function_call","call_id":"fixture-assistant-reply","name":"cilai_personal_assistant","arguments":json!({"action":"reply","requestId":find_tool(&body["tools"],"cilai_personal_assistant").unwrap()["parameters"]["properties"]["requestId"]["enum"][0]}).to_string()}}));
+        }
+    } else if body["model"] == "isolated-review-fixture" && subagent == Some("guardian") {
         push_text_events(&mut events,&json!({"risk_level":"high","user_authorization":"unknown","outcome":"deny","rationale":"isolated explicit reviewer denial"}).to_string());
     } else if let Some(item) = personal_pages::response_tool(body, has_result) {
         events.push(item);
@@ -367,11 +384,17 @@ fn respond(socket: &mut TcpStream, body: &Value, subagent: Option<&str>) {
         let args = json!({"cmd":r#"printf 'TOOL_HOME=%s\nTOOL_CODEX_HOME=%s\nTOOL_TMPDIR=%s\n' "$HOME" "$CODEX_HOME" "$TMPDIR""#, "yield_time_ms":1000, "max_output_tokens":1024});
         events.push(json!({"type":"response.output_item.done","item":{"type":"function_call","call_id":"fixture-env-call",
             "name":"exec_command","arguments":args.to_string()}}));
-    } else if let Some(tool) = workbench.filter(|_| !has_result) {
-        let args = json!({"schemaVersion":1,"nonce":tool["parameters"]["properties"]["nonce"]["enum"][0],
-            "reply":"本机仿真正式结果","decision":"unclassified","taskId":"","taskTitle":"","objective":"",
-            "expectedOutput":"","completionCriteria":"","conversationStatus":"","stage":"","outcomeTitle":"",
-            "outcomeSummary":"","reason":"隔离协议验证","confidence":1.0});
+    } else if let Some(tool) = workbench.filter(|_| !has_workbench_result) {
+        let reply = if has_result {
+            "fixture completed"
+        } else {
+            "本机仿真正式结果"
+        };
+        let mut args =
+            json!({"schemaVersion":1,"reply":reply,"waitingForInput":null,"artifactPaths":[]});
+        if tool["parameters"]["properties"].get("decision").is_some() {
+            args.as_object_mut().unwrap().extend(serde_json::from_value::<serde_json::Map<String,Value>>(json!({"decision":"unclassified","taskId":"","taskTitle":"","objective":"","expectedOutput":"","completionCriteria":"","conversationStatus":"","stage":"","outcomeTitle":"","outcomeSummary":"","reason":"隔离协议验证","confidence":1.0})).unwrap());
+        }
         events.push(json!({"type":"response.output_item.done","item":{"type":"function_call","call_id":"fixture-main-call",
             "name":crate::workbench_result::RESULT_TOOL,"arguments":args.to_string()}}));
     } else if let Some(tool) = tool.filter(|_| !has_result) {
@@ -402,7 +425,23 @@ fn respond(socket: &mut TcpStream, body: &Value, subagent: Option<&str>) {
         events.push(json!({"type":"response.output_item.done","item":{"type":"function_call","call_id":"fixture-call",
             "name":crate::application_result::RESULT_TOOL,"arguments":args.to_string()}}));
     } else {
-        let text = if has_result && body.to_string().contains("AUTOMATION_SLEEP_FIXTURE_V1") {
+        let text = if has_workbench_result {
+            inputs[latest_user..]
+                .iter()
+                .rev()
+                .find(|item| {
+                    item["type"] == "function_call"
+                        && item["name"] == crate::workbench_result::RESULT_TOOL
+                })
+                .and_then(|item| item["arguments"].as_str())
+                .map(|args| {
+                    serde_json::from_str::<Value>(args).unwrap()["reply"]
+                        .as_str()
+                        .unwrap()
+                        .to_owned()
+                })
+                .expect("accepted formal reply must be preserved in the fixture history")
+        } else if has_result && body.to_string().contains("AUTOMATION_SLEEP_FIXTURE_V1") {
             "本机仿真正式结果".to_owned()
         } else if has_result {
             "fixture completed".to_owned()
@@ -413,6 +452,18 @@ fn respond(socket: &mut TcpStream, body: &Value, subagent: Option<&str>) {
     }
     events.push(json!({"type":"response.completed","response":{"id":"fixture-response","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}));
     write_sse(socket, &events);
+}
+
+fn public_note_response(body: &Value) -> Option<Value> {
+    if !body.to_string().contains("PUBLIC_NOTE_NATIVE_FIXTURE_V1") {
+        return None;
+    }
+    find_tool(&body["tools"], crate::public_reasoning::TOOL)?;
+    assert_eq!(body["tools"].as_array().unwrap().len(), 1);
+    assert_eq!(body["tool_choice"], "required");
+    Some(
+        json!({"type":"response.output_item.done","item":{"type":"function_call","call_id":"fixture-public-note","name":crate::public_reasoning::TOOL,"arguments":json!({"publicReasoning":"先核对资料来源，再整理可确认的结果。"}).to_string()}}),
+    )
 }
 
 fn write_sse(socket: &mut TcpStream, events: &[Value]) {
@@ -599,7 +650,10 @@ fn official_main_first_send_restores_in_the_same_connection_and_releases_idle_pr
     assert_eq!(second["output"], "本机仿真正式结果");
     fixture.assert_released();
     restored.shutdown();
-    assert_eq!(fixture.count.load(Ordering::Acquire), 4);
+    assert_eq!(
+        fixture.count.load(Ordering::Acquire),
+        first_main_request + 4
+    );
 }
 
 fn wait_for_requests(fixture: &Fixture, expected: usize) {
@@ -872,6 +926,7 @@ fn official_connection_switch_requires_exact_history_consent_and_starts_a_new_na
         "conversationId":started.conversation.conversation_id,"content":"明确继续到另一连接","clientMessageId":"official-fixture-switch",
         "modelSelection":selection,"modelOverride":"isolated-official-fixture","executionTarget":"model","permissionMode":"request"
     })).unwrap();
+    let requests_before_consent = fixture.count.load(Ordering::Acquire);
     let before = serde_json::to_value(fixture.manager.live_snapshot()).unwrap();
     assert_eq!(
         fixture
@@ -880,7 +935,10 @@ fn official_connection_switch_requires_exact_history_consent_and_starts_a_new_na
             .unwrap_err(),
         "model_thread_history_consent_required"
     );
-    assert_eq!(fixture.count.load(Ordering::Acquire), 5);
+    assert_eq!(
+        fixture.count.load(Ordering::Acquire),
+        requests_before_consent
+    );
     let after = serde_json::to_value(fixture.manager.live_snapshot()).unwrap();
     assert_eq!(before["messages"], after["messages"]);
     let preflight = fixture
@@ -919,7 +977,10 @@ fn official_connection_switch_requires_exact_history_consent_and_starts_a_new_na
         second["modelSelection"]["connectionId"],
         other.connection_id
     );
-    assert_eq!(fixture.count.load(Ordering::Acquire), 6);
+    assert_eq!(
+        fixture.count.load(Ordering::Acquire),
+        requests_before_consent + 2
+    );
     fixture.manager.shutdown();
     let restored = AiRuntimeManager::new();
     restored
@@ -936,6 +997,7 @@ fn official_native_shell_uses_only_the_private_home_and_tmp_environment() {
     let _guard = crate::supervisor::app_server_test_guard();
     let fixture = Fixture::new();
     fixture.validate_tools();
+    let baseline = fixture.count.load(Ordering::Acquire);
     let snapshot = serde_json::to_value(fixture.manager.live_snapshot()).unwrap();
     let started = fixture.manager.start_conversation_with_application_context(serde_json::from_value(json!({
         "title":"工具环境核验","conversationType":"task","mode":"edit","agentId":snapshot["agents"][0]["agentId"],
@@ -988,7 +1050,7 @@ fn official_native_shell_uses_only_the_private_home_and_tmp_environment() {
         "{output}"
     );
     fixture.assert_released();
-    assert_eq!(fixture.count.load(Ordering::Acquire), 4);
+    assert_eq!(fixture.count.load(Ordering::Acquire), baseline + 3);
 }
 
 #[test]
@@ -1586,4 +1648,183 @@ fn seed_memory_read_marker(root: &Path, marker: &str) {
         format!("# 本机测试摘要\n{marker}\n"),
     )
     .unwrap();
+}
+
+#[test]
+fn official_personal_assistant_has_only_coordination_tools_and_one_natural_reply() {
+    let _guard = crate::supervisor::app_server_test_guard();
+    let f = Fixture::new();
+    f.validate_tools();
+    let session = f.manager.conversation_session().unwrap().session_id;
+    let conversation = f.manager.ensure_personal_assistant(&session).unwrap();
+    let run=f.manager.send_message_with_application_context(serde_json::from_value(json!({
+        "conversationId":conversation,"content":"PERSONAL_ASSISTANT_FIXTURE_V1 你能做什么","clientMessageId":"official-assistant-input",
+        "modelSelection":{"connectionId":f.connection.connection_id,"modelId":"isolated-official-fixture","reasoningEffort":null},
+        "modelOverride":"isolated-official-fixture","executionTarget":"model","permissionMode":"read-only","planning":false
+    })).unwrap(),None,None,None).unwrap();
+    let result = completed_run(&f.manager, &run.run_id);
+    assert_eq!(result["output"], "个人助理已连接，可以交办工作。");
+    assert_eq!(
+        result["modelSelection"]["connectionId"],
+        f.connection.connection_id
+    );
+    let view = f
+        .manager
+        .personal_assistant_view(&session, None, None)
+        .unwrap();
+    assert_eq!(
+        view["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|message| message["role"] == "assistant")
+            .count(),
+        1
+    );
+    f.assert_released();
+    f.manager.shutdown_checked().unwrap();
+}
+
+#[test]
+fn personal_records_roundtrip_is_local_idempotent_and_survives_runtime_restart() {
+    let _guard = crate::supervisor::app_server_test_guard();
+    let f = Fixture::new();
+    let session = f.manager.conversation_session().unwrap().session_id;
+    let input = json!({"action":"save","item":{"title":"核对报价","details":"确认后回复","dueAt":"2026-12-01T10:00:00+08:00","reminder":null}});
+    let todo = f
+        .manager
+        .personal_records(&session, "todo", &input, Some("manual-todo"))
+        .unwrap();
+    assert_eq!(
+        f.manager
+            .personal_records(&session, "todo", &input, Some("manual-todo"))
+            .unwrap(),
+        todo
+    );
+    let memo=f.manager.personal_records(&session,"memo",&json!({"action":"save","item":{"title":"报价资料","body":"用户明确保存的资料","url":"https://example.com/quote","scope":null}}),Some("manual-memo")).unwrap();
+    let completed = f
+        .manager
+        .personal_records(
+            &session,
+            "todo",
+            &json!({"action":"complete","id":todo["id"],"revision":todo["revision"]}),
+            Some("manual-complete"),
+        )
+        .unwrap();
+    assert_eq!(completed["state"], "completed");
+    let saved_memo = f
+        .manager
+        .personal_records(
+            &session,
+            "memo",
+            &json!({"action":"get","id":memo["id"]}),
+            None,
+        )
+        .unwrap();
+    let saved_todo = f
+        .manager
+        .personal_records(
+            &session,
+            "todo",
+            &json!({"action":"get","id":todo["id"]}),
+            None,
+        )
+        .unwrap();
+    assert_eq!(saved_memo["body"], "用户明确保存的资料");
+    assert_eq!(saved_todo["state"], "completed");
+    assert!(
+        f.manager
+            .personal_records(
+                &session,
+                "todo",
+                &json!({"action":"cancel","id":todo["id"],"revision":todo["revision"]}),
+                Some("stale-cancel")
+            )
+            .is_err()
+    );
+    f.manager.shutdown_checked().unwrap();
+    let restored = AiRuntimeManager::new();
+    restored.initialize(&f.profile, &f.server).unwrap();
+    let next = restored.conversation_session().unwrap().session_id;
+    assert_ne!(next, session);
+    assert!(
+        restored
+            .personal_records(
+                &session,
+                "memo",
+                &json!({"action":"get","id":memo["id"]}),
+                None
+            )
+            .is_err()
+    );
+    assert_eq!(
+        restored
+            .personal_records(
+                &next,
+                "memo",
+                &json!({"action":"get","id":memo["id"]}),
+                None
+            )
+            .unwrap(),
+        saved_memo
+    );
+    assert_eq!(
+        restored
+            .personal_records(
+                &next,
+                "todo",
+                &json!({"action":"get","id":todo["id"]}),
+                None
+            )
+            .unwrap(),
+        saved_todo
+    );
+    assert_eq!(f.count.load(Ordering::Acquire), 0);
+    restored.shutdown_checked().unwrap();
+}
+
+#[test]
+fn official_public_note_uses_current_capability_declaration_before_formal_result() {
+    let _guard = crate::supervisor::app_server_test_guard();
+    let f = Fixture::new();
+    f.server.request_result("modelDescriptor/observe", &json!({
+        "connectionId":f.connection.connection_id,"expectedConfigRevision":f.connection.config_revision,"expectedAuthGeneration":f.connection.auth_generation,
+        "models":[{"modelId":"isolated-official-fixture","displayName":"任意已声明模型","source":"service_declared",
+            "capabilities":{"public_reasoning":{"state":"supported","source":"service_declared","evidenceId":null}},
+            "contextWindowTokens":null,"inputModalities":["text"],"defaultReasoningEffort":"medium","supportedReasoningEfforts":["medium"],"runtimeVersion":null,"serviceVersion":null}]
+    })).unwrap();
+    f.validate_tools();
+    let baseline = f.count.load(Ordering::Acquire);
+    let snapshot = serde_json::to_value(f.manager.live_snapshot()).unwrap();
+    let started = f.manager.start_conversation_with_application_context(serde_json::from_value(json!({
+        "title":"公开思路原生核验","conversationType":"task","mode":"edit","agentId":snapshot["agents"][0]["agentId"],"context":{"workspaceRoot":""},
+        "content":"PUBLIC_NOTE_NATIVE_FIXTURE_V1","clientMessageId":"native-public-note","modelSelection":{"connectionId":f.connection.connection_id,"modelId":"isolated-official-fixture","reasoningEffort":null},
+        "modelOverride":"isolated-official-fixture","executionTarget":"model","permissionMode":"request","planning":false
+    })).unwrap(),None,None,None).unwrap();
+    let run = completed_run(&f.manager, &started.run.run_id);
+    assert_eq!(run["output"], "fixture completed");
+    assert_eq!(run["reasoningEffort"], "medium");
+    assert!(
+        run["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(
+                |event| event["eventType"] == "item.reasoning.public.completed"
+                    && event["summary"] == "先核对资料来源，再整理可确认的结果。"
+            )
+    );
+    assert_eq!(f.count.load(Ordering::Acquire), baseline + 3);
+    let request: Value = serde_json::from_slice(
+        &fs::read(
+            f.owner
+                .join(format!("fixture-request-{}.json", baseline + 1)),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(find_tool(&request["tools"], crate::public_reasoning::TOOL).is_none());
+    assert!(find_tool(&request["tools"], crate::workbench_result::RESULT_TOOL).is_some());
+    f.assert_released();
+    f.manager.shutdown_checked().unwrap();
 }

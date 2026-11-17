@@ -1,4 +1,6 @@
-import { PageNotice } from "@cilai/app-ui/page-notice";
+import { StartupScreen } from "./startup-screen";
+import type { WorkSupplement } from "./assistant-work";
+import type { PersonalReminderIntent } from "./personal-records";
 import { ModelCatalogProvider } from "./use-model-catalog";
 import { WindowsSandboxProvider } from "./use-windows-sandbox";
 import { RetainedPage } from "./retained-page";
@@ -68,7 +70,8 @@ import cilaiSymbolUrl from "../../../assets/cilai-symbol-primary.svg";
 import "./page-polish.css";
 
 const ProjectProgressPage = lazy(() => import("./project-progress").then((module) => ({ default: module.ProjectProgressPage })));
-const MyWorkPage = lazy(() => import("./my-work").then((module) => ({ default: module.MyWorkPage })));
+const PersonalAssistantPage = lazy(() => import("./personal-assistant").then(module => ({ default: module.PersonalAssistantPage })));
+const MyWorkPage = lazy(() => import("./my-work").then((module) => ({ default: module.AssistantWorkBoard })));
 const AiWorkbenchPage = lazy(() => import("./ai-workbench").then((module) => ({ default: module.AiWorkbenchPage })));
 const ProjectPortfolioPage = lazy(() => import("./project-portfolio").then((module) => ({ default: module.ProjectPortfolioPage })));
 const SettingsPage = lazy(() => import("./settings").then((module) => ({ default: module.SettingsPage })));
@@ -77,7 +80,7 @@ const ApplicationsPage = lazy(() => import("./applications").then((module) => ({
 const SkillsPage = lazy(() => import("./skills").then((module) => ({ default: module.SkillsPage })));
 
 interface ProjectDetailContext { projectId: string; displayName: string; primaryWorkspaceId: string | null; workspaceIds: string[]; selectedPhaseId: string | null; selectedPhaseName: string | null; }
-const pageIds = ["mywork", "portfolio", "search", "automations", "skills", "workspace", "progress", "ai", "settings", "agents", "archived", "updates", "diagnostics", "disk-access", "usage", "tools", "data", "notifications", "applications"] as const;
+const pageIds = ["assistant", "mywork", "portfolio", "search", "automations", "skills", "workspace", "progress", "ai", "settings", "agents", "archived", "updates", "diagnostics", "disk-access", "usage", "tools", "data", "notifications", "applications"] as const;
 type Page = (typeof pageIds)[number];
 /** Guards the persisted page value, which is untrusted input from local storage. */
 function isPage(value: string | null): value is Page {
@@ -132,7 +135,9 @@ export function App() {
   const hostPlatform = useHostPlatform();
   const platformUi = hostPlatformUi(hostPlatform);
   const windowMaximized = useWindowMaximized(hostPlatform === "windows");
-  const [page, setPage] = useState<Page>("mywork");
+  const [page, setPage] = useState<Page>("assistant");
+  const [assistantSupplement, setAssistantSupplement] = useState<WorkSupplement | null>(null);
+  const [reminderIntent, setReminderIntent] = useState<PersonalReminderIntent | null>(null);
   const [workspaceState, dispatchWorkspace] = useReducer(workspaceReducer, initialWorkspaceState);
   const { workspaces, selectedWorkspaceId, files, workspaceRevision, selectedFileId, conflicts, loadState, loadError } = workspaceState;
   const workspaceKinds = useRef(new Map<string, string>());
@@ -292,6 +297,16 @@ export function App() {
   // while the local service is still starting is not overridden a moment later.
   const guards = useNavigationGuards();
 
+  useEffect(() => {
+    let active = true;
+    const pending = listen<{runtimeSessionId: string; todoId: string}>("personal-reminder-open", (event) => {
+      if (!active) return;
+      setReminderIntent({ ...event, token: randomUuid() });
+      setPage("assistant");
+    });
+    void pending.catch(error => { if (active) setMessage(String(error), "error"); });
+    return () => { active = false; void pending.then(stop => stop(), () => {}); };
+  }, [localProfile?.profileId]);
   const navigateTo = useCallback((next: Page) => {
     guards.userNavigated();
     setPage(next);
@@ -724,7 +739,8 @@ export function App() {
   // 会留下"记录说采用了平台、磁盘上还是本地那份"的静默错账。
   // 完整方案见《文件同步确认与冲突状态模型》第 19 节。
   const navItems = useMemo(() => ([
-    { id: "mywork" as const, label: "工作台", icon: <HomeIcon/> },
+    { id: "assistant" as const, label: "个人助理", icon: <HomeIcon/> },
+    { id: "mywork" as const, label: "工作台", icon: <PortfolioIcon/> },
     { id: "ai" as const, label: "对话", icon: <ChatBubbleIcon/> },
     { id: "portfolio" as const, label: "项目", icon: <PortfolioIcon/> },
     { id: "workspace" as const, label: "文件", icon: <WorkspaceIcon/> },
@@ -1042,7 +1058,7 @@ export function App() {
   };
 
   const isAiHub = page === "ai" || page === "automations";
-  const personalPage = page === "settings" || page === "agents" || page === "updates" || page === "diagnostics" || page === "usage" || page === "tools" || page === "data" || page === "notifications" || page === "disk-access" || page === "mywork" || page === "portfolio" || page === "search" || page === "skills" || page === "archived" || page === "applications" || isAiHub;
+  const personalPage = page === "assistant" || page === "settings" || page === "agents" || page === "updates" || page === "diagnostics" || page === "usage" || page === "tools" || page === "data" || page === "notifications" || page === "disk-access" || page === "mywork" || page === "portfolio" || page === "search" || page === "skills" || page === "archived" || page === "applications" || isAiHub;
   const projectShellActive = projectDetail !== null && (page === "progress" || page === "workspace");
   // 侧栏高亮跟着用户刚点的那一项走。此前在项目里点「文件」会把高亮留在「项目」上，
   // 点了像没生效。项目推进没有自己的一级入口，仍然由「项目」代表，侧栏不会空着。
@@ -1051,6 +1067,7 @@ export function App() {
     : page === id;
   const hideExplorer = personalPage || page === "progress";
   const pageTitle: Record<Page, string> = {
+    assistant: "个人助理",
     mywork: "工作台 · 跨项目",
     portfolio: "项目",
     search: "全局搜索",
@@ -1174,7 +1191,7 @@ export function App() {
     return <main className="standalone-screen">{standaloneWindowControls}<PersonalRestoreStatus applying={status.personalDataState === "applying"}/></main>;
   }
   if (status?.runtimeInitializing) {
-    return <main className="standalone-screen">{standaloneWindowControls}<section aria-label="本地资料"><h1>正在打开工作台</h1></section></main>;
+    return <main className="standalone-screen">{standaloneWindowControls}<StartupScreen label="正在打开工作台"/></main>;
   }
   if (status?.runtimeInitializationError && /personal_(?:data_)?maintenance_/.test(status.runtimeInitializationError)) {
     return <main className="standalone-screen">{standaloneWindowControls}<section><h1>资料维护尚未结束</h1><PersonalMaintenanceRecovery onRecovered={restartAppServer}/></section></main>;
@@ -1337,7 +1354,7 @@ export function App() {
             setArchiveOpenIntent({ conversationId, token: Date.now() });
             navigateTo("archived");
           }}/>)}
-        {message?.tone === "info" ? <PageNotice className="notice" dismiss={<button aria-label="关闭提示" onClick={() => setMessage(null)} type="button">关闭</button>}>{message.text}</PageNotice> : null}
+        {message?.tone === "info" ? <div className="notice" role="status"><span>{message.text}</span><button aria-label="关闭提示" onClick={() => setMessage(null)} type="button">关闭</button></div> : null}
       </div> : null}
       <ModelCatalogProvider key={localProfile.profileId} profileId={localProfile.profileId} enabled={status?.phase === "running"}>
       <WindowsSandboxProvider scopeKey={JSON.stringify([localProfile.profileId,status?.serverInstanceId])} enabled={status?.phase === "running"}>
@@ -1346,7 +1363,8 @@ export function App() {
       <Suspense fallback={page === "applications" ? <div className="page-loading" role="status">正在加载…</div> : null}>
       <ApplicationsPage onOpenModels={() => navigateTo("agents")} onActiveApplicationChange={setActiveApplicationId} browser={{ available: Boolean(applicationBrowserScope), open: aiBrowserOpen, onToggle: () => setAiBrowserCollapsed(current => !current) }} onCreate={() => openSkillConversation("system.capability-creator", "应用创建器", "create")} active={page === "applications" && status?.phase === "running" && !status.runtimeInitializing} key={JSON.stringify([localProfile.profileId, status?.serverInstanceId])} profileId={localProfile.profileId} onMessage={pageMessages.applications} openIntent={applicationSearchOpenIntent} onOpenIntentConsumed={(token) => setApplicationSearchOpenIntent((current) => current?.token === token ? null : current)}/>
       </Suspense>
-      <RetainedPage active={page === "mywork"}><MyWorkPage recentConversations={recentConversations} recentFailure={recentConversationError !== null ? { error: recentConversationError, retry: () => setRecentConversationRefresh((value) => value + 1) } : undefined} onStartTask={(projectId) => { setAiLaunchRequest({ token: Date.now(), title: "新建任务", conversationType: "project", mode: "discuss", context: unclassifiedConversationContext(), projectIds: projectId ? [projectId] : undefined }); setPreferredAiConversationId(null); navigateTo("ai"); }} onStartConversation={() => { setAiLaunchRequest({ token: Date.now(), title: "新对话", conversationType: "direct", mode: "discuss", context: unclassifiedConversationContext(), startFresh: true }); setPreferredAiConversationId(null); navigateTo("ai"); }} workspaces={workspaces} eventSequence={eventSignals.nextSequence + myWorkRefreshToken} onMessage={setMessage} onOpenConversation={(conversationId) => { setPreferredAiConversationId(conversationId); navigateTo("ai"); }} onOpenRun={(runId) => void openRunConversation(runId)} onOpenSource={openWorkItem}/></RetainedPage>
+      <RetainedPage active={page === "assistant"}><PersonalAssistantPage recordProjects={aiProjects} onOpenBoard={() => navigateTo("mywork")} supplement={assistantSupplement} onSupplementChange={setAssistantSupplement} reminderIntent={reminderIntent} onReminderIntentConsumed={() => setReminderIntent(null)}/></RetainedPage>
+      <RetainedPage active={page === "mywork"}><MyWorkPage onOpenAssistant={() => navigateTo("assistant")} onSupplement={(item) => { setAssistantSupplement(item); navigateTo("assistant"); }} recentConversations={recentConversations} recentFailure={recentConversationError !== null ? { error: recentConversationError, retry: () => setRecentConversationRefresh((value) => value + 1) } : undefined} onStartTask={(projectId) => { setAiLaunchRequest({ token: Date.now(), title: "新建任务", conversationType: "project", mode: "discuss", context: unclassifiedConversationContext(), projectIds: projectId ? [projectId] : undefined }); setPreferredAiConversationId(null); navigateTo("ai"); }} onStartConversation={() => { setAiLaunchRequest({ token: Date.now(), title: "新对话", conversationType: "direct", mode: "discuss", context: unclassifiedConversationContext(), startFresh: true }); setPreferredAiConversationId(null); navigateTo("ai"); }} workspaces={workspaces} eventSequence={eventSignals.nextSequence + myWorkRefreshToken} onMessage={setMessage} onOpenConversation={(conversationId) => { setPreferredAiConversationId(conversationId); navigateTo("ai"); }} onOpenRun={(runId) => void openRunConversation(runId)} onOpenSource={openWorkItem}/></RetainedPage>
       <RetainedPage active={page === "portfolio"}><ProjectPortfolioPage createIntent={portfolioCreateIntent} deleteProjectId={portfolioDeleteProjectId} onEditProject={(projectId) => void openProjectEditor(projectId)} onAddWorkspace={createWorkspace} workspaces={workspaces} eventSequence={eventSignals.nextSequence} onMessage={setMessage} onOpenProgress={(_workspaceId, targetProjectId, phaseId) => openProjectDetail(targetProjectId, { phaseId })}/></RetainedPage>
       <RetainedPage active={page === "search"}><GlobalSearchPage key={localProfile.profileId} profileId={localProfile.profileId} hostPlatform={hostPlatform} onMessage={pageMessages.search} onOpen={openSearchItem}/></RetainedPage>
       <RetainedPage active={page === "automations"}><AutomationsPage openIntent={automationOpenIntent} onOpenIntentConsumed={(token) => setAutomationOpenIntent(current => current?.token === token ? null : current)} reuseIntent={workReuse?.kind === "automation" ? workReuse.intent : null} onReuseConsumed={() => setWorkReuse(null)} projects={aiProjects} project={selectedProjectIdentity} workspace={selectedWorkspace} onMessage={pageMessages.automations} onOpenRun={(runId) => void openRunConversation(runId)}/></RetainedPage>

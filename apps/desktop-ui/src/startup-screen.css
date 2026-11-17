@@ -1,0 +1,31 @@
+/* 工作台启动页：只有品牌标志本身的聚合动效，只动 transform 和 opacity */
+.identity-recovery-screen:has(> .startup-screen) { position: fixed; padding: 0; overflow: hidden; background: var(--bg-canvas); }
+.identity-recovery-screen:has(> .startup-screen) > .title-strip { position: absolute; z-index: 1; inset: 0 0 auto; }
+.startup-screen { flex: 1; min-height: 0; display: grid; place-content: center; justify-items: center; gap: 24px; padding: 48px 24px; }
+.startup-symbol { width: 112px; height: auto; overflow: visible; }
+.startup-core, .startup-slice { transform-box: fill-box; transform-origin: center; }
+.startup-core { animation: startup-core 2.2s cubic-bezier(.22, 1, .36, 1) infinite; }
+.startup-slice { animation: startup-slice 2.2s cubic-bezier(.22, 1, .36, 1) var(--delay) infinite both; }
+.startup-slice[data-position="upper-left"] { --from-x: -9px; --from-y: -3px; --delay: 120ms; }
+.startup-slice[data-position="upper-right"] { --from-x: 9px; --from-y: -3px; --delay: 240ms; }
+.startup-slice[data-position="lower-left"] { --from-x: -9px; --from-y: 8px; --delay: 360ms; }
+.startup-slice[data-position="lower-right"] { --from-x: 9px; --from-y: 8px; --delay: 480ms; }
+.startup-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.startup-error { max-width: 420px; display: grid; gap: 6px; text-align: center; }
+.startup-error h2 { margin: 0; color: var(--text-heading); font-size: 18px; font-weight: 600; line-height: 26px; }
+.startup-error button { justify-self: center; min-width: 180px; margin-top: 8px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); color: var(--text-primary); background: var(--bg-surface); cursor: pointer; }
+.startup-error p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.startup-screen[data-state="error"] .startup-core, .startup-screen[data-state="error"] .startup-slice { animation: none; }
+@keyframes startup-core {
+  0% { opacity: 0; transform: scale(.5); }
+  14%, 76% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.92); }
+}
+@keyframes startup-slice {
+  0% { opacity: 0; transform: translate(var(--from-x), var(--from-y)); }
+  22%, 62% { opacity: 1; transform: translate(0, 0); }
+  78%, 100% { opacity: 0; transform: translate(0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-core, .startup-slice { animation: none; }
+}

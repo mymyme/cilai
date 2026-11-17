@@ -16,7 +16,7 @@ export function personalPageAiBootstrap(channel: string) {
         const entries=Object.entries(handlers), result=await request('uiAction.register',{actionIds:entries.map(([id])=>id)});
         actions.clear();for(const [id,fn] of entries)actions.set(id,fn);return result;
       }}),
-      model:Object.freeze({session:Object.freeze({open:()=>request('model.session.open'),read:modelSessionId=>request('model.session.read',{modelSessionId})}),run:Object.freeze({create:params=>request('model.run.create',params),get:runId=>request('model.run.get',{runId}),cancel:runId=>request('model.run.cancel',{runId})})}),
+      model:Object.freeze({session:Object.freeze({open:()=>request('model.session.open'),read:modelSessionId=>request('model.session.read',{modelSessionId}),restart:modelSessionId=>request('model.session.restart',{modelSessionId})}),run:Object.freeze({create:params=>request('model.run.create',params),get:runId=>request('model.run.get',{runId}),cancel:runId=>request('model.run.cancel',{runId})})}),
       conversation:Object.freeze({handoff:runId=>request('conversation.handoff',{runId})}),
       audit:Object.freeze({list:(limit=50,beforeSequence)=>request('audit.list',{limit,...(beforeSequence===undefined?{}:{beforeSequence})})})
     });

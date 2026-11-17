@@ -5,6 +5,16 @@
 
 /** 聊天区的下限。与 styles.css 里 .ai-workbench 的 minmax(420px, 1fr) 是同一个数，有测试钉住。 */
 export const minChatStageWidth = 420;
+export const minConversationRailWidth = 280;
+export const maxConversationRailWidth = 520;
+
+/** 保留偏好宽度；窗口不足时只改变当前有效布局。 */
+export function fitConversationRail(availableWidth: number, preferredWidth: number, requestedOpen: boolean) {
+  const maxWidth = Math.min(maxConversationRailWidth, Math.floor(availableWidth - minChatStageWidth));
+  const open = requestedOpen && maxWidth >= minConversationRailWidth;
+  return { open, width: open ? Math.min(maxWidth, Math.max(minConversationRailWidth, Math.round(preferredWidth))) : 0,
+    maxWidth: Math.max(minConversationRailWidth, maxWidth) };
+}
 /*
  * 活动栏。对话页左边永远有这一条，宽度随主导航收起还是展开而变——两个数都与 styles.css
  * 里 .shell 那几条网格的第一列对应，有测试钉住。

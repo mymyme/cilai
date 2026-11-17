@@ -58,6 +58,7 @@ pub(super) struct Document {
     pub contexts: BTreeMap<String, Context>,
     pub actions: HashSet<String>,
     pub model_sessions: HashMap<String, u64>,
+    pub model_session_restarts: HashMap<String, u64>,
     pub runs: HashSet<String>,
     pub requests: HashMap<String, RequestReceipt>,
 }

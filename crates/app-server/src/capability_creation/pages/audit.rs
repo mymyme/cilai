@@ -13,6 +13,7 @@ fn authorized(method: &Method, manifest: &PersonalPageAiManifest) -> bool {
         Method::UiActionsRegister | Method::UiActionInvoke => !manifest.ui_actions.is_empty(),
         Method::ModelSessionCreate
         | Method::ModelSessionRead
+        | Method::ModelSessionRestart
         | Method::ModelMessageRead
         | Method::ModelRunCreate
         | Method::ModelRunRead

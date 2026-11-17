@@ -16,6 +16,7 @@ fn text<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("native_history_invalid:{field}"))
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn read(
     ledger: &Value,
     service: &codex_threads::CodexThreadService,
@@ -552,7 +553,15 @@ fn normalized_reply(
         if submitted
             || (run["classificationStatus"] == "applied" && run["formalResultRequired"] != false)
         {
-            let result = crate::workbench_result::from_native_turn(turn, nonce)?;
+            let result = crate::workbench_result::from_native_turn(
+                turn,
+                nonce,
+                run["harnessProtocolVersion"]
+                    .as_u64()
+                    .is_some_and(|version| {
+                        version >= u64::from(crate::workbench_result::HOST_BOUND_PROTOCOL_VERSION)
+                    }),
+            )?;
             return crate::workbench_result::reply(&result).map(|reply| reply.trim().to_owned());
         }
         return Ok(output.trim().to_owned());

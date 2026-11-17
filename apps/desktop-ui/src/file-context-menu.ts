@@ -1,6 +1,7 @@
 import type { WorkspaceFileItem, WorkspaceSummary } from "./generated/protocol";
 import type { ContextMenuItem } from "./context-menu";
 import { hostPlatformUi } from "./host-platform-ui";
+import { workspaceAbsolutePath } from "./workspace-path";
 
 /** 对一个文件能做的事。做法留在调用方，这份清单只回答"有哪些、什么顺序、什么时候不可用"。 */
 export interface FileActions {
@@ -34,7 +35,9 @@ export function fileContextMenuItems(
   const cloud = workspace?.workspaceKind === "cloud_team";
   const readOnly = cloud && workspace?.permissionRole === "viewer";
   const previewable = !directory && file.fileType === "file" && file.presenceState === "present";
-  const absolutePath = workspace ? cloud ? `${workspace.displayName}/${file.relativePath}` : `${workspace.localRoot}/${file.relativePath}` : file.relativePath;
+  const absolutePath = workspace
+    ? cloud ? `${workspace.displayName}/${file.relativePath}` : workspaceAbsolutePath(workspace.localRoot, file.relativePath, hostPlatform)
+    : file.relativePath;
   const openDetail = () => actions.openDetail(file);
   const platformUi = hostPlatformUi(hostPlatform);
   return [

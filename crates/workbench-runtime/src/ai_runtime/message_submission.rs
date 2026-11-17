@@ -116,6 +116,7 @@ impl AiRuntimeManager {
         request: ConversationStartRequest,
     ) -> Result<(Conversation, MessageSendRequest, SubmissionAcceptance), String> {
         let mut message = MessageSendRequest {
+            expected_work_run_id: None,
             conversation_id: String::new(),
             content: request.content,
             client_message_id: request.client_message_id,

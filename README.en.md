@@ -2,11 +2,25 @@
 
 # Cilai Personal Workbench
 
-**A third-party desktop client for Codex, bringing persistent conversations, projects, files and tools into one workspace.**
+**An assistant-centered workspace for delegating work, following progress, and collecting results.**
 
-Built on the official Codex CLI, this local-first desktop workspace helps AI carry work through to completion.
+Cilai is a third-party desktop client built on the official Codex CLI. The personal assistant coordinates work while dedicated conversations execute it, bringing projects, files, tools, and personal records together in a local-first workspace.
 
 [简体中文](README.md) · [Download v0.1.2](https://github.com/mymyme/cilai/releases/tag/v0.1.2) · [Build guide](docs/BUILDING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Enterprise website](https://www.cilai.com.cn) · [Apache-2.0](LICENSE)
+
+## Personal assistant
+
+Start with a goal, delegate the work, and return to see how it is progressing.
+
+- **Delegate work.** Start execution conversations, continue existing work, or split one request into several independently tracked tasks.
+- **Follow progress.** See active work, missing information, failures, and artifacts in the work board. Send additional information to the corresponding work.
+- **Receive updates.** Get summaries based on actual execution results. Following work and stopping execution are separate actions; acceptance and completion are separate states.
+- **Manage personal records.** Create todos, recurring reminders, and memos manually or through the assistant, with explicit links to projects and work.
+- **Keep context.** Check the original execution after an interruption and explicitly continue it, preserving permissions and approval requirements.
+
+The assistant uses your selected model connection. Dedicated work conversations perform the execution; the coordinator has no general terminal or file-write access. Todos, memos, and reminder schedules stay local, and scheduled reminders do not call a model.
+
+**The personal assistant is implemented in the current source and is not included in the published v0.1.2 download.** [Build from source](#build-from-source) to try the new capabilities. See the [requirements](docs/PERSONAL_ASSISTANT_REQUIREMENTS.md), [architecture and boundaries](docs/PERSONAL_ASSISTANT.md), [acceptance criteria](docs/PERSONAL_ASSISTANT_ACCEPTANCE.md), and [local verification record](docs/verification/personal-assistant-2026-11-17.md).
 
 ## Download the developer preview
 
@@ -18,17 +32,21 @@ This is a **developer preview** with ad-hoc signing, without a Developer ID sign
 
 ## Screenshots
 
-Actual macOS interface with temporary demo data. The conversation view shows an unsent task draft. Demo data was removed after capture; no private business data is shown.
+**Personal assistant · Current source**
 
-**Workbench**
+Actual startup screen from a macOS arm64 local testing package, using a fresh isolated profile without a model connection or private business records.
+
+![Personal assistant with a work composer, follow-up, todos, and memos](docs/screenshots/personal-assistant.png)
+
+**Workbench and conversations · Earlier preview**
+
+Actual macOS interface with temporary demo data that has since been removed. The conversation view shows an unsent task draft.
 
 ![Workbench with demo tasks organized by status and recent conversations](docs/screenshots/workbench.jpg)
 
-**Conversations**
-
 ![Conversation view with demo sessions and an unsent task draft](docs/screenshots/conversation.jpg)
 
-## Highlights
+## The workbench around your assistant
 
 - **A local workspace without product registration.** Manage local projects, files, history, and settings before connecting a model.
 - **Ongoing work organized around projects.** Keep conversations connected to workspaces, files, and artifacts, and return to them later.

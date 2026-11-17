@@ -118,6 +118,8 @@
   white-space: nowrap;
   transition: color 120ms ease, background-color 120ms ease;
 }
+:root .workbench-filter-group[data-compact="true"] > button { padding-inline: 6px; font-variant-numeric: tabular-nums; }
+:root .workbench-filter-group > button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
 :root :is(
   .portfolio-controls nav button,
   .automation-list-toolbar nav button,
@@ -305,7 +307,6 @@
 :root .explorer-search-results button span { min-width: 0; }
 :root .explorer-search-results :is(strong, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root .document-view-context { flex-wrap: wrap; }
-:root .document-source { flex: 0 0 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-2xs); color: var(--text-tertiary); }
 :root .skill-detail-tabs { display: flex; gap: 8px; padding: 12px 24px 0; }
 :root .skill-detail-tabs button { padding: 7px 14px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); cursor: pointer; }
 :root .skill-detail-tabs button[aria-pressed="true"] { color: var(--accent-text); background: var(--bg-selected); }
@@ -343,3 +344,5 @@
 :root .portfolio-table th:nth-child(5) { width: 7%; }
 :root .portfolio-table th:nth-child(6) { width: 9%; }
 :root .portfolio-table th:nth-child(7) { width: 11%; }
+
+:root .document-source { flex: 0 0 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-2xs); color: var(--text-tertiary); }

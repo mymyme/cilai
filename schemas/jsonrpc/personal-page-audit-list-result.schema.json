@@ -51,6 +51,7 @@
         "ui_action_invoke",
         "model_session_create",
         "model_session_read",
+        "model_session_restart",
         "model_message_read",
         "model_run_create",
         "model_run_read",

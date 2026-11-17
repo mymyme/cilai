@@ -32,6 +32,10 @@ pub(super) fn state_without_messages(state: &PersistedAiState) -> Value {
 pub(super) fn run(run: &AgentRun) -> Value {
     let AgentRun {
         planning,
+        continuation_of_run_id,
+        waiting_for_input,
+        response_to_work_run_id,
+        selected_skill_id,
         model_selection,
         model_execution,
         run_id,
@@ -78,6 +82,7 @@ pub(super) fn run(run: &AgentRun) -> Value {
         event.phase == "reply" && event.kind == "mcp" && event.event_type == "item.completed"
     });
     json!({
+        "continuationOfRunId":continuation_of_run_id,"waitingForInput":waiting_for_input,"responseToWorkRunId":response_to_work_run_id,"selectedSkillId":selected_skill_id,
         "planning":planning,"modelSelection":model_selection,"modelExecution":model_execution,
         "runId":run_id,
         "conversationId":conversation_id,

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { createPortal } from "./page-portal";
 import { useModal } from "./use-modal";
+import { DialogErrorNotice, useDialogErrorNotice, type DialogError } from "./dialog-error-notice";
 import "./confirm-dialog.css";
 
 /**
@@ -13,6 +14,7 @@ import "./confirm-dialog.css";
  */
 export function ConfirmDialog(props: {
   title: string;
+  notice?: DialogError | null;
   description?: ReactNode;
   confirmLabel: string;
   danger?: boolean;
@@ -24,8 +26,9 @@ export function ConfirmDialog(props: {
   onCancel: () => void;
 }) {
   const [comment, setComment] = useState("");
+  const notice = useDialogErrorNotice();
   const commentMissing = Boolean(props.commentLabel) && !comment.trim();
-  const modalRef = useModal<HTMLDivElement>({ onClose: props.onCancel, busy: props.busy });
+  const modalRef = useModal<HTMLDivElement>({ onClose: props.onCancel, busy: props.busy, noticeLayer: notice.noticeLayer });
 
   return createPortal(<div
     aria-label={props.title}
@@ -36,8 +39,8 @@ export function ConfirmDialog(props: {
     // dialog does not close it.
     onMouseDown={(event) => { if (event.target === event.currentTarget && !props.busy) props.onCancel(); }}
     role="dialog">
-    <section className="confirm-dialog">
-      <h3>{props.title}</h3>
+    <section className="confirm-dialog" ref={props.notice ? notice.setContent : undefined}>
+      <h3 ref={props.notice ? notice.setAnchor : undefined}>{props.title}</h3>
       {props.description != null ? <div className="confirm-body">{props.description}</div> : null}
       {props.commentLabel ? <label className="confirm-comment">{props.commentLabel}<textarea
         autoFocus
@@ -56,6 +59,7 @@ export function ConfirmDialog(props: {
           type="button">{props.busy ? "处理中…" : props.confirmLabel}</button>
       </div>
     </section>
+    {props.notice ? <DialogErrorNotice layer={notice} error={props.notice}/> : null}
   </div>, document.body);
 }
 

@@ -1,6 +1,6 @@
 use super::{
-    AgentRun, AgentRunArtifact, AgentRunEvent, ApplicationAiContextSnapshot, ArtifactVersion, ConversationMessage,
-    MessageAttachment, RegenerationDraft,
+    AgentRun, AgentRunArtifact, AgentRunEvent, ApplicationAiContextSnapshot, ArtifactVersion,
+    ConversationMessage, MessageAttachment, RegenerationDraft,
 };
 
 fn application_for_ui(application: &ApplicationAiContextSnapshot) -> ApplicationAiContextSnapshot {
@@ -73,6 +73,10 @@ pub(super) fn run_for_ui(run: &AgentRun) -> AgentRun {
 
 pub(super) fn run_with_events_for_ui(run: &AgentRun, events: &[AgentRunEvent]) -> AgentRun {
     AgentRun {
+        continuation_of_run_id: run.continuation_of_run_id.clone(),
+        waiting_for_input: run.waiting_for_input.clone(),
+        response_to_work_run_id: run.response_to_work_run_id.clone(),
+        selected_skill_id: run.selected_skill_id.clone(),
         planning: run.planning,
         run_id: run.run_id.clone(),
         conversation_id: run.conversation_id.clone(),

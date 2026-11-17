@@ -116,6 +116,7 @@ pub enum PersonalPageAuditMethod {
     UiActionInvoke,
     ModelSessionCreate,
     ModelSessionRead,
+    ModelSessionRestart,
     ModelMessageRead,
     ModelRunCreate,
     ModelRunRead,

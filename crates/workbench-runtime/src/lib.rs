@@ -37,3 +37,5 @@ pub mod windows_sandbox;
 mod work_classification;
 mod workbench_result;
 pub mod workspace;
+
+pub(crate) mod public_reasoning;

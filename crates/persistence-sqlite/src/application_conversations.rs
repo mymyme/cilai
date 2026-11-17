@@ -59,6 +59,15 @@ fn ensure_page_writers_settled(
     tx: &rusqlite::Transaction<'_>,
     session: &str,
 ) -> Result<(), PersistenceError> {
+    let native_active: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM ai_conversation_thread_bindings WHERE conversation_id='application:'||?1 AND active_run_id IS NOT NULL) OR EXISTS(SELECT 1 FROM ai_thread_operations WHERE conversation_id='application:'||?1 AND state IN ('prepared','dispatched','uncertain'))",
+        [session], |row| row.get(0),
+    ).map_err(database_error("read page native writers"))?;
+    if native_active {
+        return Err(invalid(
+            "application_page_authorization_reconciliation_required",
+        ));
+    }
     let mut statement = tx
         .prepare("SELECT snapshot_json FROM ai_application_messages WHERE session_id=?1")
         .map_err(database_error("read page authorization writers"))?;
@@ -175,6 +184,7 @@ impl SqlitePersistence {
             return Ok(json!({"sessionIds":sessions}));
         }
         let mut id = text(value, "sessionId")?;
+        let mut replacement: Option<String> = None;
         let tx = self
             .connection
             .transaction()
@@ -431,6 +441,41 @@ impl SqlitePersistence {
             "close" => {
                 tx.execute("UPDATE ai_application_sessions SET status='closed',revision=revision+1,updated_at=?2 WHERE session_id=?1 AND status='active'",params![id,now]).map_err(database_error("close application conversation"))?;
             }
+            "restart" => {
+                let Some((instance, app, authorization, status, _)) = existing.as_ref() else {
+                    return Err(invalid("application_conversation_missing"));
+                };
+                if value["applicationId"] != app.as_str() || id.starts_with("model_report_") {
+                    return Err(invalid("application_conversation_scope_denied"));
+                }
+                if status == "active" {
+                    ensure_page_writers_settled(&tx, id)?;
+                    let next = text(value, "replacementSessionId")?;
+                    let base = instance
+                        .split_once(":restart:")
+                        .map_or(instance.as_str(), |(base, _)| base);
+                    let next_instance = format!("{base}:restart:{next}");
+                    tx.execute(
+                        "INSERT INTO ai_application_sessions(session_id,instance_id,application_id,authorization_digest,status,created_at,updated_at) VALUES(?1,?2,?3,?4,'active',?5,?5)",
+                        params![next, next_instance, app, authorization, now],
+                    ).map_err(database_error("create replacement application conversation"))?;
+                    tx.execute(
+                        "UPDATE ai_application_sessions SET status='closed',replacement_session_id=?2,revision=revision+1,updated_at=?3 WHERE session_id=?1",
+                        params![id, next, now],
+                    ).map_err(database_error("replace application conversation"))?;
+                    id = next;
+                } else {
+                    replacement = tx.query_row(
+                        "SELECT n.session_id FROM ai_application_sessions p JOIN ai_application_sessions n
+                         ON n.session_id=p.replacement_session_id
+                         WHERE p.session_id=?1 AND n.status='active'",
+                        [id], |row| row.get::<_, String>(0),
+                    ).optional().map_err(database_error("read existing application restart"))?;
+                    if replacement.is_none() {
+                        return Err(invalid("application_conversation_closed"));
+                    }
+                }
+            }
             "beginCleanup" => {
                 if existing
                     .as_ref()
@@ -505,6 +550,7 @@ impl SqlitePersistence {
             "read" | "open" | "openReport" | "openPage" => {}
             _ => return Err(invalid("application_conversation_action_invalid")),
         }
+        let id = replacement.as_deref().unwrap_or(id);
         let session=tx.query_row("SELECT application_id,status,revision FROM ai_application_sessions WHERE session_id=?1",[id],|r|Ok(json!({"sessionId":id,"applicationId":r.get::<_,String>(0)?,"status":r.get::<_,String>(1)?,"revision":r.get::<_,i64>(2)?}))).map_err(database_error("read application session"))?;
         let mut statement=tx.prepare("SELECT client_message_id,content_digest,run_id,snapshot_json,context_json,attachments_json,revision FROM ai_application_messages WHERE session_id=?1 ORDER BY created_at,rowid").map_err(database_error("read application messages"))?;
         let rows = statement
@@ -578,6 +624,51 @@ mod tests {
         payload: &Value,
     ) -> Result<Value, PersistenceError> {
         db.application_conversation(action, payload, 1)
+    }
+    #[test]
+    fn page_restart_is_atomic_empty_and_idempotent_and_preserves_original_history() {
+        let fixture = TestDatabase::new("application-page-restart");
+        let mut db = SqlitePersistence::open(&fixture.path, "0.1.0").unwrap();
+        call(&mut db,"open",&json!({"sessionId":"original","instanceId":"instance","applicationId":"app","authorizationDigest":"auth"})).unwrap();
+        call(&mut db,"reserve",&json!({"sessionId":"original","clientMessageId":"input","contentDigest":"digest","runId":"run","snapshot":{"runId":"run","applicationId":"app","modelId":"model","status":"completed","output":"历史正文"},"context":{},"attachments":[]})).unwrap();
+        let restart =
+            json!({"sessionId":"original","applicationId":"app","replacementSessionId":"fresh"});
+        assert!(call(&mut db,"restart",&json!({"sessionId":"original","applicationId":"other","replacementSessionId":"bad"})).is_err());
+        let before = call(&mut db, "read", &json!({"sessionId":"original"})).unwrap();
+        let next = call(&mut db, "restart", &restart).unwrap();
+        assert_eq!(next["session"]["sessionId"], "fresh");
+        assert_eq!(next["messages"], json!([]));
+        let old = call(&mut db, "read", &json!({"sessionId":"original"})).unwrap();
+        assert_eq!(old["session"]["status"], "closed");
+        assert_eq!(old["messages"], before["messages"]);
+        assert_eq!(call(&mut db, "restart", &restart).unwrap(), next);
+        assert_eq!(call(&mut db,"restart",&json!({"sessionId":"original","applicationId":"app","replacementSessionId":"duplicate"})).unwrap(),next);
+    }
+    #[test]
+    fn page_restart_rejects_active_and_unknown_writes_without_creating_a_replacement() {
+        let fixture = TestDatabase::new("application-page-restart-blocked");
+        let mut db = SqlitePersistence::open(&fixture.path, "0.1.0").unwrap();
+        call(&mut db,"open",&json!({"sessionId":"original","instanceId":"instance","applicationId":"app","authorizationDigest":"auth"})).unwrap();
+        call(&mut db,"reserve",&json!({"sessionId":"original","clientMessageId":"input","contentDigest":"digest","runId":"run","snapshot":{"runId":"run","applicationId":"app","modelId":"model","status":"running"},"context":{},"attachments":[]})).unwrap();
+        let restart =
+            json!({"sessionId":"original","applicationId":"app","replacementSessionId":"fresh"});
+        for snapshot in [
+            json!({"runId":"run","applicationId":"app","modelId":"model","status":"running"}),
+            json!({"runId":"run","applicationId":"app","modelId":"model","status":"failed","writeRequest":{"approval":{"executionStatus":"outcome_unknown"}}}),
+        ] {
+            call(
+                &mut db,
+                "update",
+                &json!({"sessionId":"original","runId":"run","snapshot":snapshot}),
+            )
+            .unwrap();
+            assert!(call(&mut db, "restart", &restart).is_err());
+            assert_eq!(
+                call(&mut db, "read", &json!({"sessionId":"original"})).unwrap()["session"]["status"],
+                "active"
+            );
+            assert!(call(&mut db, "read", &json!({"sessionId":"fresh"})).is_err());
+        }
     }
     #[test]
     fn cold_restart_preflight_preserves_unaccepted_input_and_blocks_running_or_unknown_writes() {

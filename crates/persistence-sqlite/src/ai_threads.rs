@@ -1,3 +1,13 @@
+pub(super) fn tool_config_version(value: Option<&Value>) -> Result<i64, PersistenceError> {
+    match value {
+        None => Ok(0),
+        Some(value) => value
+            .as_i64()
+            .filter(|version| matches!(*version, 0..=5))
+            .ok_or_else(|| rejected("ai_thread_tool_config_version_invalid")),
+    }
+}
+
 use super::{PersistenceError, PersistenceErrorKind, SqlitePersistence, database_error};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde_json::{Value, json};
@@ -15,7 +25,7 @@ fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str, PersistenceError> {
 
 fn binding(db: &Connection, conversation_id: &str) -> Result<Option<Value>, PersistenceError> {
     db.query_row(
-        "SELECT binding_revision,generation,native_thread_id,protocol_version,status,owner_instance_id,active_run_id,writer_parked,runtime_scope_json FROM ai_conversation_thread_bindings WHERE conversation_id=?1",
+        "SELECT b.binding_revision,b.generation,b.native_thread_id,b.protocol_version,b.status,b.owner_instance_id,b.active_run_id,b.writer_parked,b.runtime_scope_json,coalesce(g.tool_config_version,0) FROM ai_conversation_thread_bindings b LEFT JOIN ai_thread_generations g ON g.conversation_id=b.conversation_id AND g.generation=b.generation WHERE b.conversation_id=?1",
         [conversation_id],
         |row| Ok(json!({
             "conversationId": conversation_id,
@@ -24,6 +34,7 @@ fn binding(db: &Connection, conversation_id: &str) -> Result<Option<Value>, Pers
             "status": row.get::<_, String>(4)?, "ownerInstanceId": row.get::<_, Option<String>>(5)?,
             "activeRunId": row.get::<_, Option<String>>(6)?,
             "writerParked": row.get::<_, bool>(7)?,
+            "toolConfigVersion":row.get::<_,i64>(9)?,
             "runtimeScope": row.get::<_,Option<String>>(8)?.map(|raw|serde_json::from_str::<Value>(&raw)).transpose().map_err(|_|rusqlite::Error::InvalidQuery)?,
         })),
     ).optional().map_err(database_error("read AI thread binding"))
@@ -127,6 +138,8 @@ impl SqlitePersistence {
             .as_i64()
             .filter(|v| *v > 0)
             .ok_or_else(|| rejected("ai_thread_request_invalid"))?;
+        let requested_tool_version =
+            tool_config_version(request["input"].get("toolConfigVersion"))?;
         let tx = self
             .connection
             .transaction()
@@ -247,6 +260,28 @@ impl SqlitePersistence {
         if let Some(current) = current {
             if current["bindingRevision"] != expected {
                 return Err(rejected("thread_binding_conflict"));
+            }
+            if kind == "fork"
+                && ((requested_tool_version > current["toolConfigVersion"].as_i64().unwrap_or(0))
+                    || ["sourceGeneration", "sourceBindingRevision", "historyDigest"]
+                        .iter()
+                        .any(|field| request["input"].get(*field).is_some()))
+            {
+                let input = &request["input"];
+                if requested_tool_version == 0
+                    || requested_tool_version < current["toolConfigVersion"].as_i64().unwrap_or(0)
+                    || input["sourceThreadId"] != current["nativeThreadId"]
+                    || input["sourceGeneration"] != current["generation"]
+                    || input["sourceBindingRevision"] != current["bindingRevision"]
+                    || input["migrationItemCount"]
+                        .as_i64()
+                        .is_none_or(|count| count < 0)
+                    || !input["historyDigest"].as_str().is_some_and(|digest| {
+                        digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    })
+                {
+                    return Err(rejected("ai_thread_tool_upgrade_source_invalid"));
+                }
             }
             if current["status"] == "retired" || current["protocolVersion"] != protocol {
                 return Err(rejected("history_migration_required"));
@@ -421,7 +456,7 @@ impl SqlitePersistence {
                     .get("runtimeScope")
                     .filter(|v| !v.is_null())
                     .map(Value::to_string);
-                tx.execute("INSERT INTO ai_thread_generations(conversation_id,generation,native_thread_id,source_thread_id,source_operation_id,created_at,runtime_scope_json) VALUES(?1,?2,?3,?4,?5,?6,?7)", params![conversation_id,generation,native_thread,current["nativeThreadId"].as_str(),operation_id,now,runtime_scope])
+                tx.execute("INSERT INTO ai_thread_generations(conversation_id,generation,native_thread_id,source_thread_id,source_operation_id,created_at,runtime_scope_json,tool_config_version) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)", params![conversation_id,generation,native_thread,current["nativeThreadId"].as_str(),operation_id,now,runtime_scope,tool_config_version(prior["request"]["input"].get("toolConfigVersion"))?])
                     .map_err(database_error("publish AI thread generation"))?;
                 tx.execute("UPDATE ai_conversation_thread_bindings SET generation=?2,native_thread_id=?3,runtime_scope_json=?4 WHERE conversation_id=?1", params![conversation_id,generation,native_thread,runtime_scope])
                     .map_err(database_error("bind AI native thread"))?;

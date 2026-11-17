@@ -22,6 +22,7 @@
         "openPage",
         "listInstance",
         "restartBlockers",
+        "restart",
         "read",
         "usage",
         "reserve",

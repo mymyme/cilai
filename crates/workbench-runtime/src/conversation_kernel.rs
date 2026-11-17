@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ConversationKind {
     Workbench,
+    PersonalAssistant,
     ApplicationPage,
     ApplicationTask,
 }
@@ -18,7 +19,9 @@ impl ConversationKind {
 
     pub(crate) fn harness_home(self, data_dir: &Path) -> PathBuf {
         match self {
-            Self::Workbench => crate::codex_upgrade::official_home(&data_dir.join("cilai-harness")),
+            Self::Workbench | Self::PersonalAssistant => {
+                crate::codex_upgrade::official_home(&data_dir.join("cilai-harness"))
+            }
             Self::ApplicationPage | Self::ApplicationTask => {
                 crate::codex_upgrade::official_home(&data_dir.join("cilai-application-harness"))
             }
@@ -26,6 +29,21 @@ impl ConversationKind {
     }
 
     pub(crate) fn validate(self, request: &CodexHarnessRequest) -> Result<(), String> {
+        if self == Self::PersonalAssistant {
+            if request.planning
+                || request.sandbox_mode != "read-only"
+                || request.classification.is_some()
+                || request.application_action.is_some()
+                || request.application_write.is_some()
+                || request.application_mcp.is_some()
+                || request.application_adapter.is_some()
+                || request.user_mcp.is_some()
+                || !request.skills.is_empty()
+            {
+                return Err("personal_assistant_execution_scope_invalid".into());
+            }
+            return Ok(());
+        }
         if self == Self::Workbench {
             return Ok(());
         }
@@ -125,6 +143,8 @@ pub(crate) fn thread_plan(
         fork_before_turn_id,
         workbench_history_fork: false,
         cross_runtime_fork: false,
+        tool_config_upgrade: None,
+        tool_config_version: crate::workbench_result::TOOL_CONFIG_VERSION,
         workbench_history: Vec::new(),
         name,
         history: Vec::new(),

@@ -13,6 +13,8 @@ publish.workspace = true
 #
 # 版本与两个壳原先各自声明的逐一对齐：被移动的是同一份源码，依赖版本不同会引入行为差异。
 [dependencies]
+chrono-tz = "=0.10.4"
+iana-time-zone = "=0.1.65"
 base64 = "=0.22.1"
 chrono = { version = "=0.4.44", default-features = false, features = ["clock", "std"] }
 contexthub-local-transport = { path = "../local-transport", version = "=0.1.2" }
@@ -39,7 +41,7 @@ zip = { version = "=9.0.4", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 contexthub-persistence-sqlite = { path = "../persistence-sqlite", version = "=0.1.2" }
-rusqlite = { version = "=0.39.0", features = ["bundled"] }
+rusqlite = { version = "=0.41.0", features = ["bundled"] }
 
 [lints]
 workspace = true

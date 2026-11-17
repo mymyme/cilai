@@ -10,6 +10,8 @@ export type AiReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" |
 
 export interface AiModelInfo {
   modelId: string;
+  supportsReasoningSummary?: boolean;
+  supportsPublicReasoning?: boolean;
   connectionId?: string | null;
   connectionName?: string | null;
   configRevision?: number | null;
@@ -213,6 +215,9 @@ export interface AiContext {
 export type AiMaterialReference = NonNullable<AiContext["referencedMaterials"]>[number];
 
 export interface AiConversation {
+  firstPromptPreview?: string | null;
+  latestMessagePreview?: string | null;
+  hasMessages?: boolean;
   conversationId: string;
   title: string;
   conversationType: AiConversationType;
@@ -263,6 +268,10 @@ export interface AiConversationMessage {
 }
 
 export interface AiAgentRun {
+  continuationOfRunId?: string | null;
+  waitingForInput?: { question: string; impact: string } | null;
+  responseToWorkRunId?: string | null;
+  selectedSkillId?: string | null;
   modelSelection?: ModelSelection | null;
   historyConsent?: ModelHistoryTransferConsent | null;
   runId: string;
@@ -1135,3 +1144,7 @@ export function aiErrorMessage(error: unknown): string {
   };
   return labels[value] ?? value;
 }
+
+export interface AiRunRecoveryCheck { runId: string; state: "running" | "completed" | "ready" | "blocked" | "continued"; summary: string; checkedAt: number; continuationRunId: string | null; nativeInputRecorded: boolean; }
+export function checkAiRunRecovery(runId: string): Promise<AiRunRecoveryCheck> { return invoke("ai_run_recovery_check", { runId }); }
+export function continueAiRun(runId: string): Promise<AiAgentRun> { return invoke("ai_run_continue", { runId }); }

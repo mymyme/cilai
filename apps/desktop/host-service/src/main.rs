@@ -319,7 +319,11 @@ fn write_line(value: &serde_json::Value) -> Result<(), String> {
 
 fn ai_manager() -> &'static AiRuntimeManager {
     static INSTANCE: OnceLock<AiRuntimeManager> = OnceLock::new();
-    INSTANCE.get_or_init(AiRuntimeManager::new)
+    INSTANCE.get_or_init(|| {
+        let manager = AiRuntimeManager::new();
+        manager.set_personal_assistant_dispatch(Arc::new(handle));
+        manager
+    })
 }
 
 /// 前端按小驼峰传参，宿主按蛇形命名接收，取值时按两种写法各查一次。
@@ -1132,6 +1136,156 @@ fn handle_inner(command: &str, args: &serde_json::Value) -> Result<serde_json::V
                 ai_manager().start_conversation_with_application_context(request, None, None, None)
             })?)
         }
+        "ai_personal_assistant_view" => {
+            let session: String = arg(args, "runtime_session_id")?;
+            if arg::<Option<bool>>(args, "work_only")? == Some(true) {
+                return ai_manager().personal_assistant_work_view(&session);
+            }
+            if let Some(view) = arg::<Option<String>>(args, "tracking_history")? {
+                let before = arg::<Option<(i64, String)>>(args, "tracking_before")?;
+                return ai_manager().personal_assistant_tracking_history(
+                    &session,
+                    &view,
+                    before.as_ref(),
+                );
+            }
+            let before = arg::<Option<String>>(args, "before")?;
+            let at_message = arg::<Option<String>>(args, "at_message")?;
+            ai_manager().personal_assistant_view(&session, before.as_deref(), at_message.as_deref())
+        }
+        "ai_pa_records" => {
+            local_profile()?;
+            ai_manager().personal_records(
+                &arg::<String>(args, "runtime_session_id")?,
+                &arg::<String>(args, "kind")?,
+                &arg(args, "request")?,
+                arg::<Option<String>>(args, "operation_id")?.as_deref(),
+            )
+        }
+        "ai_pa_reminder_history" => {
+            local_profile()?;
+            ai_manager().personal_reminder_history(
+                &arg::<String>(args, "runtime_session_id")?,
+                arg(args, "offset")?,
+            )
+        }
+        "ai_pa_reminder_tick" => {
+            local_profile()?;
+            ai_manager().personal_reminder_tick(
+                arg::<Option<String>>(args, "previous_runtime_session_id")?.as_deref(),
+                arg(args, "waking")?,
+            )
+        }
+        "ai_pa_reminder_claim" => {
+            local_profile()?;
+            encode(ai_manager().personal_reminder_claim(
+                &arg::<String>(args, "runtime_session_id")?,
+                &arg::<String>(args, "notice_id")?,
+            )?)
+        }
+        "ai_pa_reminder_result" => {
+            local_profile()?;
+            ai_manager().personal_reminder_result(
+                &arg::<String>(args, "runtime_session_id")?,
+                &arg::<String>(args, "notice_id")?,
+                &arg::<String>(args, "outcome")?,
+            )?;
+            Ok(serde_json::Value::Null)
+        }
+        "ai_personal_assistant_send" => {
+            let _operation = ai_manager().begin_capability_operation()?;
+            let session: String = arg(args, "runtime_session_id")?;
+            let content: String = arg(args, "content")?;
+            let message_id: String = arg(args, "client_message_id")?;
+            if let Some(run_id) = arg::<Option<String>>(args, "work_run_id")? {
+                return ai_manager()
+                    .supplement_personal_assistant_work(&session, &run_id, &message_id, &content)
+                    .or_else(|error| {
+                        if matches!(
+                            error.as_str(),
+                            "personal_assistant_work_input_invalid"
+                                | "personal_assistant_work_input_stale"
+                                | "personal_assistant_target_busy"
+                                | "personal_assistant_target_requires_direct_access"
+                                | "personal_assistant_target_unavailable"
+                                | "ai_profile_changed"
+                        ) {
+                            Ok(serde_json::json!({"status":"rejected","reason":error}))
+                        } else {
+                            Err(error)
+                        }
+                    });
+            }
+            let model: String = arg(args, "model_id")?;
+            let connection: String = arg(args, "connection_id")?;
+            let attachments: Vec<String> = arg(args, "attachment_ids")?;
+            let effort: Option<String> = arg(args, "reasoning_effort")?;
+            let history_consent: Option<serde_json::Value> = arg(args, "history_consent")?;
+            let conversation = match ai_manager().ensure_personal_assistant(&session) {
+                Ok(id) => id,
+                Err(error) => return Ok(serde_json::json!({"status":"rejected","reason":error})),
+            };
+            let request = serde_json::from_value(serde_json::json!({
+                "conversationId": conversation, "content": content, "clientMessageId": message_id,
+                "modelOverride": model, "reasoningEffort": effort,
+                "modelSelection":{"connectionId":connection,"modelId":model,"reasoningEffort":effort},
+                "executionTarget": "model", "permissionMode": "read-only", "attachmentIds": attachments, "historyConsent":history_consent,
+            })).map_err(|_| "personal_assistant_input_invalid".to_owned())?;
+            let operation = match ai_manager().accept_message_submission(&request) {
+                Ok(ai_runtime::SubmissionAcceptance::Recorded(run)) => return encode(run),
+                Ok(ai_runtime::SubmissionAcceptance::Accepted(operation)) => operation,
+                Err(error)
+                    if error != "message_delivery_uncertain"
+                        && error != "message_submission_in_progress" =>
+                {
+                    return Ok(serde_json::json!({"status":"rejected","reason":error}));
+                }
+                Err(error) => return Err(error),
+            };
+            let result =
+                ai_manager().send_message_with_application_context(request, None, None, None);
+            ai_manager()
+                .finish_message_submission(&message_id, result.as_ref().err().map(String::as_str));
+            drop(operation);
+            encode(result?)
+        }
+        "ai_personal_assistant_memory_note" => {
+            ai_manager().submit_personal_assistant_memory(
+                &arg::<String>(args, "runtime_session_id")?,
+                &arg::<String>(args, "operation_id")?,
+                arg(args, "created_at")?,
+                &arg::<String>(args, "kind")?,
+                &arg::<String>(args, "content")?,
+            )?;
+            Ok(serde_json::Value::Null)
+        }
+        "ai_personal_assistant_unfollow" => {
+            ai_manager().stop_personal_assistant_followup(
+                &arg::<String>(args, "runtime_session_id")?,
+                &arg::<String>(args, "operation_id")?,
+            )?;
+            Ok(serde_json::Value::Null)
+        }
+        "ai_personal_assistant_receipt" => {
+            ai_manager()
+                .validate_personal_assistant_session(&arg::<String>(args, "runtime_session_id")?)?;
+            ai_manager().message_receipt(
+                &arg::<String>(args, "client_message_id")?,
+                arg::<Option<String>>(args, "conversation_id")?.as_deref(),
+            )
+        }
+        "ai_run_recovery_check" => {
+            encode(ai_manager().check_run_recovery(&arg::<String>(args, "run_id")?)?)
+        }
+        "ai_run_continue" => {
+            let _operation = ai_manager().begin_capability_operation()?;
+            let source: String = arg(args, "run_id")?;
+            if let Some(existing) = ai_manager().continued_run(&source) {
+                return encode(existing);
+            }
+            let request = ai_manager().continuation_request(&source)?;
+            encode(ai_manager().continue_run(&source, request, None, None)?)
+        }
         "ai_recent_conversations" => encode(ai_manager().recent_conversations()),
         "ai_conversation_session_get" => encode(ai_manager().conversation_session()?),
         "ai_application_handoff_cancel" => {
@@ -1203,11 +1357,11 @@ fn handle_inner(command: &str, args: &serde_json::Value) -> Result<serde_json::V
 
         "ai_message_receipt" => {
             let expected: String = arg(args, "profile_id")?;
-            if !active_profile()
+            if active_profile()
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
                 .as_ref()
-                .is_some_and(|profile| profile.id == expected)
+                .is_none_or(|profile| profile.id != expected)
             {
                 return Err("ai_message_receipt_scope_mismatch".into());
             }
@@ -1487,6 +1641,20 @@ fn main() {
     // 没有人在读管道，必然自锁。回执直接交给等待者，命令投递到队列由本线程处理。
     let initializing = RuntimeInitialization::begin();
     let (commands, incoming) = std::sync::mpsc::sync_channel::<QueuedRequest>(64);
+    start_command_reader(commands);
+
+    initialize_host_services();
+    drop(initializing);
+    let catalog_publisher = start_model_catalog_publisher();
+    let dispatch = dispatch_commands(&incoming);
+    catalog_publisher.abort();
+    if let Err(reason) = finish_host_shutdown().and(dispatch) {
+        eprintln!("{reason}");
+        std::process::exit(1);
+    }
+}
+
+fn start_command_reader(commands: std::sync::mpsc::SyncSender<QueuedRequest>) {
     std::thread::spawn(move || {
         let mut commands = Some(commands);
         let stdin = std::io::stdin();
@@ -1558,16 +1726,6 @@ fn main() {
             }
         }
     });
-
-    initialize_host_services();
-    drop(initializing);
-    let catalog_publisher = start_model_catalog_publisher();
-    let dispatch = dispatch_commands(&incoming);
-    catalog_publisher.abort();
-    if let Err(reason) = finish_host_shutdown().and(dispatch) {
-        eprintln!("{reason}");
-        std::process::exit(1);
-    }
 }
 
 fn finish_host_shutdown() -> Result<(), String> {
@@ -1632,6 +1790,10 @@ fn dispatch_commands(incoming: &std::sync::mpsc::Receiver<QueuedRequest>) -> Res
         let queued = match receive_with_follow_up(incoming, &mut next_follow_up, || {
             if files.is_idle() && commands.is_idle() {
                 dispatch_follow_up(&in_flight);
+                ai_manager().refresh_personal_assistant_board();
+                if let Err(error) = ai_manager().refresh_personal_assistant() {
+                    eprintln!("personal_assistant_refresh_failed:{error}");
+                }
             }
         }) {
             Ok(queued) => queued,

@@ -105,11 +105,7 @@ fn database_digest(
         let mut statement = connection
             .prepare(&format!("SELECT * FROM {}", quote(&table)))
             .map_err(err)?;
-        let columns: Vec<String> = statement
-            .column_names()
-            .iter()
-            .map(|name| (*name).to_owned())
-            .collect();
+        let columns: Vec<String> = statement.column_names().map(str::to_owned).collect();
         digest.update(serde_json::to_vec(&columns).map_err(err)?);
         let mut rows = statement.query([]).map_err(err)?;
         let mut hashes = Vec::new();

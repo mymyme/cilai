@@ -1,3 +1,4 @@
+const { installPersonalReminders } = require("./personal-reminders");
 const { app, BrowserWindow, WebContentsView, ipcMain, clipboard, dialog, protocol, session, net, screen,
   Tray, Menu, nativeImage, powerMonitor, Notification, autoUpdater: nativeUpdater } = require("electron");
 const { autoUpdater } = require("electron-updater");
@@ -123,11 +124,13 @@ setPersonalApplicationCloser(require("./personal-application-close").createPerso
   revokePageAi: () => personalPageAi.revokeAll(),
 }));
 const macosDiskAccess = createMacosDiskAccess(() => main && !main.isDestroyed() ? main.webContents : null, (command, args) => service.call(command, args));
+let personalReminders = null;
 const backgroundLifecycle = createBackgroundLifecycle({
   app, Tray, Menu, nativeImage, nativeUpdater, headless: HEADLESS,
   getWindow: () => main,
   cleanup: async () => {
     documentLayout.stop();
+    personalReminders?.stop();
     notificationNavigation.stop();
     const stoppingNotifications = personalNotifications.stop();
     personalPageAi.invalidate(); personalPageAi.stop();
@@ -248,6 +251,7 @@ ipcMain.handle("host:invoke", async (event, message) => {
   if (documentLayout.handles(message?.command)) return documentLayout.invoke(event, message);
   const readOnly = isUpdateRead(message?.command, message?.args?.method);
   if (service.updateHold && !readOnly) throw new Error('正在准备重启更新，请稍后再操作。');
+  const completeReminderControl = personalReminders?.beginControl(message?.command);
   const operation = Symbol();
   if (!readOnly) activeHostOperations.add(operation);
   try {
@@ -256,7 +260,7 @@ ipcMain.handle("host:invoke", async (event, message) => {
       throw new Error("personal_application_close_ack_invalid");
     }
     if (notificationNavigation.handles(message?.command)) return notificationNavigation.ready(event, message.args);
-    if (["personal_notification_preferences_get", "personal_notification_preferences_save", "personal_data_restore_workspace_plan"].includes(message?.command)) personalDocuments.verify(event);
+    if (["personal_notification_preferences_get", "personal_notification_preferences_save", "personal_data_restore_workspace_plan", "ai_pa_open_memo_link"].includes(message?.command)) personalDocuments.verify(event);
     if (personalPageAi.handles(message?.command)) return await personalPageAi.invoke(event, message);
     if (personalDocuments.handles(message?.command)) {
       personalDocuments.verify(event);
@@ -271,6 +275,7 @@ ipcMain.handle("host:invoke", async (event, message) => {
     // 保持与现有宿主一致的失败语义：命令失败以异常回到前端，不返回空值
     throw error;
   } finally {
+    completeReminderControl?.();
     activeHostOperations.delete(operation);
   }
 });
@@ -327,6 +332,7 @@ app.whenReady().then(async () => {
   service.start({ ...browserMcpEnv, ...dataEnvironmentEnv,
     ...(service.testDiagnostics?.status().enabled ? { CILAI_PERSONAL_STARTUP_TIMING: "1" } : {}),
   }, personalHostArguments);
+  if (!HEADLESS) personalReminders = installPersonalReminders({ service, powerMonitor, Notification, publish: emitToRenderer, showWindow: backgroundLifecycle.showWindow, notificationSettings: async () => (await personalNotifications.preferences("personal_notification_preferences_get")).preferences, log: error => console.error("[personal-reminders]", error.message) });
 
   protocol.handle("app", (request) => {
     const { pathname, host } = new URL(request.url);
@@ -377,9 +383,13 @@ app.whenReady().then(async () => {
   });
 
   if (PERSONAL_SMOKE) {
+    const frontendErrors = [];
+    main.webContents.on("console-message", (event) => {
+      if (event.level === "error" || event.level >= 2) frontendErrors.push(`${event.message} (${event.sourceId}:${event.lineNumber})`);
+    });
     try {
       await new Promise(resolve => main.webContents.once("did-finish-load", resolve));
-      await require('./personal-smoke-check').checkPersonalStartup({ window: main, service, root: headlessIsolation.root });
+      await require('./personal-smoke-check').checkPersonalStartup({ window: main, service, root: headlessIsolation.root, frontendErrors });
       app.quit();
     } catch (error) {
       console.error('[personal-check] failed:', error.message);

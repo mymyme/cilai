@@ -1,3 +1,7 @@
+import { usePageActive } from "./page-visibility";
+import { loadAssistantWork, type AssistantWorkItem, type WorkSupplement } from "./assistant-work";
+import { useConversationSessionId } from "./conversation-session";
+import type { ReactNode } from "react";
 import { conversationFileArtifacts } from "./ai-artifacts";
 import { displayModelId } from "./model-label";
 import { ImageArtifactLightbox } from "./artifact-preview";
@@ -17,6 +21,9 @@ import { emptyAiQuerySnapshot, loadAiRuntimeQuery, type AiRuntimeQuerySnapshot }
 export interface RecentConversation { conversationId: string; title: string; updatedAt: number; projectName: string | null; running: boolean }
 
 interface MyWorkPageProps {
+  onOpenAssistant?: () => void;
+  onSupplement?: (item: WorkSupplement) => void;
+  followups?: ReactNode;
   workspaces: WorkspaceSummary[];
   eventSequence: number;
   onMessage: MessageSink;
@@ -127,8 +134,9 @@ export function MyWorkPage(props: MyWorkPageProps) {
     <header className="my-work-hero">
       <div><h1>工作台</h1><p className="my-work-summary"><strong>{total}</strong> 个当前待办<span aria-hidden="true">·</span>{projects.length} 个相关项目</p></div>
       {props.onStartConversation ? <button className="my-work-start" onClick={props.onStartConversation} type="button">开始对话</button> : null}
+    {props.onOpenAssistant ? <button className="my-work-start" onClick={props.onOpenAssistant} type="button">返回</button> : null}
     </header>
-
+    {props.followups}
     <div className="my-work-toolbar">
       <SearchField ariaLabel="搜索个人工作项" className="my-work-search" onChange={setQuery} placeholder="搜索任务、项目、阶段或交付物" value={query}/>
       <label><span>项目</span><Select ariaLabel="按项目筛选" options={[{ value: "all", label: "全部项目" }, ...projects.map(([id, name]) => ({ value: id, label: name }))]} value={projectId} onChange={setProjectId}/></label>
@@ -622,3 +630,30 @@ function ProjectIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><pat
 function ArtifactIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 2.5h8l4 4v11H4zM12 2.5v4h4M7 10h6M7 13h4"/></svg>; }
 function EmptyIcon() { return <svg aria-hidden="true" viewBox="0 0 32 32"><path d="M7 8h18v17H7zM11 13h10M11 18h7"/></svg>; }
 function CloseIcon() { return <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10M15 5 5 15"/></svg>; }
+
+export function AssistantWorkBoard(props: MyWorkPageProps) {
+  const session = useConversationSessionId();
+  const active = usePageActive();
+  const [view, setView] = useState<{session: string; items: AssistantWorkItem[]; error: unknown} | null>(null);
+  const [attempt, retry] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      try { const items = await loadAssistantWork(session); if (!disposed) setView({session, items, error:null}); }
+      catch (error) { if (!disposed) setView({session,items:[],error}); }
+      finally { if (!disposed) timer = setTimeout(() => void refresh(), 2000); }
+    };
+    void refresh();
+    return () => { disposed = true; clearTimeout(timer); };
+  }, [active, session, attempt]);
+  const current = view?.session === session ? view : null;
+  const followups = current?.error ? <LoadFailure error={current.error} what="工作跟进" onRetry={() => retry(value => value + 1)}/>
+    : current?.items.length ? <section className="my-work-followups" aria-label="工作跟进">{current.items.map(item =>
+      <article className="my-work-item" key={item.runId}><strong>{item.title}</strong>
+        {item.waiting ? <><p>{item.waiting.question}</p><button className="my-work-primary" onClick={() => props.onSupplement?.(item)} type="button">补充信息</button></>
+          : <button onClick={() => props.onOpenRun(item.runId)} type="button">查看</button>}
+      </article>)}</section> : null;
+  return <MyWorkPage {...props} followups={followups}/>;
+}

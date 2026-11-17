@@ -5,6 +5,11 @@ use std::collections::BTreeMap;
 use ts_rs::TS;
 
 pub const CONVERSATION_SESSION_KEYS: &[&str] = &[
+    "personalAssistantOutgoing",
+    "personalAssistantModel",
+    "personalAssistantConnection",
+    "personalAssistantEffort",
+    "personalAssistantPanelOpen",
     "applicationHandoffs",
     "drafts",
     "queuedFollowUps",

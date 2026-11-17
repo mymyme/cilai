@@ -119,3 +119,14 @@ test("连接错误回给原页面，输入和clientMessageId不被替换或自�
   expect(await screen.findByText("请先配置此模型用途。")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "设置模型" })); expect(onOpenModels).toHaveBeenCalledTimes(1);
 });
+
+
+test("应用临时对话可以明确重新开始，完整传递当前会话且不重发模型执行", async () => {
+  const {send, frame}=await open();
+  const post=vi.spyOn(frame.contentWindow!, "postMessage");
+  const params={modelSessionId:"session1"};
+  send("model.session.restart",params);
+  await waitFor(()=>expect(host.invoke).toHaveBeenCalledWith("personal_page_ai_dispatch",{url:"app://personal-capability/page1",request:{method:"model.session.restart",requestId:expect.any(String),params}}));
+  await waitFor(()=>expect(post).toHaveBeenCalledWith(expect.objectContaining({type:"cilai-personal-ai-result",result:{modelSessionId:"session1"}}),"*"));
+  expect(host.invoke.mock.calls.filter(([command,args])=>command==="personal_page_ai_dispatch" && args.request.method==="model.run.create")).toHaveLength(0);
+});

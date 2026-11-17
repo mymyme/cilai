@@ -1,13 +1,5 @@
-import type { HTMLAttributes, ReactNode } from "react";
-
-export interface PageNoticeProps extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "role"> {
-  children: ReactNode;
-  icon?: ReactNode;
-  actions?: ReactNode;
-  dismiss?: ReactNode;
-  role?: "status" | "alert";
-}
-
-export function PageNotice({ children, icon, actions, dismiss, role = "status", ...element }: PageNoticeProps) {
-  return <div {...element} role={role}>{icon}<span>{children}</span>{actions}{dismiss}</div>;
-}
+export { PageNoticeStack } from "./stack.js";
+export { noticeText } from "./text.js";
+export type { PageError, PageInformation, PageNotice, PageNoticeStackProps } from "./stack.js";
+export { ApplicationPageNoticeLayer, useApplicationPageNotices } from "./application.js";
+export type { ApplicationNoticeOrigin, ApplicationNoticeVisibility } from "./application.js";

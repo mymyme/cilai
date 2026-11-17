@@ -136,6 +136,7 @@ pub enum AiApplicationAction {
     OpenPage,
     ListInstance,
     RestartBlockers,
+    Restart,
     Read,
     Usage,
     Reserve,
@@ -158,6 +159,8 @@ mod tests {
         let params: AiApplicationParams =
             serde_json::from_value(json!({"action":"usage","payload":{}})).unwrap();
         assert_eq!(params.action, AiApplicationAction::Usage);
+        let restart: AiApplicationParams = serde_json::from_value(json!({"action":"restart","payload":{"sessionId":"old","applicationId":"app","replacementSessionId":"new"}})).unwrap();
+        assert_eq!(restart.action, AiApplicationAction::Restart);
         assert!(
             serde_json::from_value::<AiApplicationParams>(
                 json!({"action":"usageWrite","payload":{}})

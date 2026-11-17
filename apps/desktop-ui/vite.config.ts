@@ -23,7 +23,6 @@ export default defineConfig({
           maxSize: 450_000,
           groups: [
             { name: "react", test: /[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/, priority: 20, includeDependenciesRecursively: false },
-            { name: "markdown", test: /[\\/]node_modules[\\/](?:react-markdown|remark-[^\\/]+|rehype-[^\\/]+|micromark[^\\/]*|mdast-util-[^\\/]+|hast-util-[^\\/]+|unified|vfile[^\\/]*|unist-util-[^\\/]+)[\\/]/, priority: 10, includeDependenciesRecursively: false },
           ],
         },
       },

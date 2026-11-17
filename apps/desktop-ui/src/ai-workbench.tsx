@@ -1,3 +1,4 @@
+import { ContinueReplyButton, RunRecoveryStatus, useRunRecovery } from "./ai-run-recovery";
 import { ConversationFields,ConversationInput,conversationModelLabel } from "@cilai/app-ui/conversation";
 import { Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type SetStateAction } from "react";
 import { conversationFileArtifacts,type ConversationArtifact } from "./ai-artifacts";
@@ -44,7 +45,7 @@ import { adaptiveControlWidth,assistantMessageBody,contextChips,conversationSumm
 import { AdvanceBusinessIcon,ApprovalIcon,ArrowDownIcon,ArrowRightIcon,ArtifactsSourcesIcon,CheckIcon,ChevronIcon,CloseIcon,ContextAddIcon,ContextUsageIcon,ConversationIcon,ConversationRailToggle,CopyIcon,DownIcon,EditIcon,EnterIcon,FileIcon,FillBusinessIcon,ImageMaterialIcon,MediaIcon,MoreDotsIcon,OutputIcon,PaperclipIcon,PinIcon,PlusIcon,ProjectFolderIcon,ProjectGroupIcon,QueueAdjustIcon,QueueIcon,RefreshIcon,ReuseIcon,SearchBusinessIcon,ShieldIcon,SkillIcon,StopIcon,WriteBusinessIcon } from './conversation-icons';
 import { ConversationNavigator,type NavigatorMessage } from "./conversation-navigator";
 import { ConversationRun,ImageGenerationPending,imageGenerationProgress,incompleteRunSummary,PendingReplyIntro,RunArtifacts,RunElapsedTime,RunExecutionProcess,runProgress,RunRecordIcon,WindowsSandboxGate,type ArtifactContextHandler } from "./conversation-run-view";
-import { useConversationSessionFlush,useConversationSessionState } from "./conversation-session";
+import { useConversationSessionId,useConversationSessionFlush,useConversationSessionState } from "./conversation-session";
 import { clockMoment,formatCount,timelineMoment } from "./datetime";
 import type { DecisionRequestCreateResult,ModelSelection,SkillConversationCatalogItem,SkillConversationCatalogResult,WorkspaceFileItem,WorkspaceSummary } from "./generated/protocol";
 import { invoke } from "./host";
@@ -465,6 +466,7 @@ export function AiWorkbenchPage(props: Props) {
   const pageMounted = useRef(true);
   useEffect(() => { pageMounted.current = true; return () => { pageMounted.current = false; }; }, []);
   const flushConversationSession = useConversationSessionFlush();
+  const recoverySessionId = useConversationSessionId();
   const [runtimeRevision, setRuntimeRevision] = useConversationSessionState("runtimeRevision", 0);
   const [pendingOutgoing, setPendingOutgoing] = useConversationSessionState<PendingOutgoingMessage[]>("pendingOutgoing", []);
   const [recoveredOutgoing, setRecoveredOutgoing] = useConversationSessionState<PendingOutgoingMessage[]>("recoveredOutgoing", []);
@@ -835,6 +837,13 @@ export function AiWorkbenchPage(props: Props) {
   const threadDraining = conversationRuns.some((run) => run.threadWriterActive && !activeRunStatuses.includes(run.status));
   const selectableSlashInvocationChoices = activeRun ? [] : slashInvocationChoices;
   const latestConversationRun = conversationRuns.reduce<AiAgentRun | null>((latest, run) => !latest || run.startedAt > latest.startedAt ? run : latest, null);
+  const recovery = useRunRecovery({
+    run: !activeRun && latestConversationRun && ["failed", "interrupted", "terminated"].includes(latestConversationRun.status) ? latestConversationRun : null,
+    scope: selectedConversationId ? `${recoverySessionId}:${selectedConversationId}` : null,
+    disabled: busy || waitingForRunFeedback || threadDraining,
+    onContinued: () => { setRuntimeRevision(value => value + 1); void refresh(false); },
+    onRefresh: () => { void refresh(false); },
+  });
   const pendingApproval = activeRun?.permissionRequestId
     ? snapshot.permissionRequests.find((item) => item.permissionRequestId === activeRun.permissionRequestId && item.status === "pending") ?? null
     : null;
@@ -872,7 +881,7 @@ export function AiWorkbenchPage(props: Props) {
   const selectedRuntimeReady = Boolean(starterModelOverride && selectedModel) && modelSandboxReady;
   const starterModel = selectedModel;
   const modelSelection: ModelSelection | null = starterConnectionId && starterModelOverride
-    ? { connectionId: starterConnectionId, modelId: starterModelOverride, reasoningEffort: effectiveStarterReasoningEffort }
+    ? { connectionId: starterConnectionId, modelId: starterModelOverride, reasoningEffort: starterReasoningEffort }
     : null;
   const obtainHistoryConsent = async (selection: ModelSelection | null | undefined, conversationId: string | null): Promise<ModelHistoryTransferConsent | null | false> => {
     try { const approval = await historyTransfer.approve(selection, conversationId); return approval.allowed ? approval.consent : false; }
@@ -1286,7 +1295,7 @@ export function AiWorkbenchPage(props: Props) {
       agentId: conversation?.agentId ?? null,
       modelId: latestRun?.executionTarget === "model" ? latestRun.model : null,
       connectionId: latestRun?.modelSelection?.connectionId ?? null,
-      reasoningEffort: latestRun?.executionTarget === "model" ? latestRun.reasoningEffort ?? null : null,
+      reasoningEffort: latestRun?.executionTarget === "model" && latestRun.modelSelection?.reasoningEffort != null ? latestRun.reasoningEffort ?? null : null,
     };
     // 会话没有可沿用的模型运行时，按员工上次选择的模型进入；会话自身的执行档案保持不变
     if (!selection.modelId && !(latestRun && conversation?.agentId)) {
@@ -2493,6 +2502,7 @@ export function AiWorkbenchPage(props: Props) {
           })}
           {pendingApproval ? <ConversationApprovalCard busy={busy} onDecision={(decision, applicationWriteArguments) => void resolveApproval(decision, applicationWriteArguments)} request={pendingApproval}/> : null}
           {pendingReplyAnchor < 0 ? pendingReply : null}
+          {recovery ? <div className="ai-recovery-actions"><RunRecoveryStatus recovery={recovery}/>{recovery.checked?.state === "ready" || recovery.phase === "continuing" ? <ContinueReplyButton recovery={recovery} disabled={recovery.disabled}/> : null}</div> : null}
           <ConversationRun hasAssistantMessage={Boolean(latestConversationRun && messages.some((message) => message.role === "assistant" && message.runId === latestConversationRun.runId))} key={activeRun ? activeRun.runId : latestConversationRun?.runId ?? "no-run"} modelLabel={latestConversationRun?.modelLabel ?? catalog.models.find((model) => model.modelId === latestConversationRun?.model)?.label ?? null} run={waitingForRunFeedback || activeRun ? null : latestConversationRun}/>
           </> : snapshotLoaded ? <div className="ai-starter-content">
             <header className="ai-starter-heading"><h2>{pendingCreate?.title === "新建任务" ? "描述你要完成的事" : "Hi，今天有什么安排？"}</h2></header>
@@ -2858,11 +2868,8 @@ function StarterModelPicker(props: {
   const selectedModel = catalogModel(props.models, props.selectedModelId, props.selectedConnectionId);
   const selectedModelEfforts = selectedModel?.supportedReasoningEfforts ?? [];
   const selectedModelHasReasoning = selectedModelEfforts.length > 0;
-  const selectedModelEffort = props.selectedReasoningEffort && selectedModelEfforts.includes(props.selectedReasoningEffort)
-    ? props.selectedReasoningEffort
-    : props.selectedReasoningEffort
-      ? null
-      : selectedModel?.defaultReasoningEffort ?? null;
+  const selectedModelEffort = props.selectedReasoningEffort;
+  const [menuOpen, setMenuOpen] = useState(false);
   const [step, setStep] = useState<"model" | "reasoning">(selectedModelHasReasoning ? "reasoning" : "model");
   const [draftModelId, setDraftModelId] = useState<string | null>(selectedModelHasReasoning ? selectedModel ? catalogModelKey(selectedModel) : null : null);
   const [draftReasoningEffort, setDraftReasoningEffort] = useState<AiReasoningEffort | null>(selectedModelEffort);
@@ -2885,6 +2892,7 @@ function StarterModelPicker(props: {
     setDraftModelId(selectedModelHasReasoning ? selectedModel ? catalogModelKey(selectedModel) : null : null);
     setDraftReasoningEffort(selectedModelEffort);
   }, [selectedModel?.connectionId, selectedModel?.modelId, selectedModelEffort, selectedModelHasReasoning]);
+  useEffect(() => { if (!menuOpen) resetDraft(); }, [menuOpen, resetDraft]);
   const selectModel = (model: AiRuntimeSnapshot["models"][number]) => {
     if (!modelHostAgent) return;
     const supported = model.supportedReasoningEfforts ?? [];
@@ -2894,22 +2902,21 @@ function StarterModelPicker(props: {
     }
     const current = model.modelId === props.selectedModelId && (model.connectionId ?? null) === props.selectedConnectionId && props.selectedReasoningEffort && supported.includes(props.selectedReasoningEffort)
       ? props.selectedReasoningEffort
-      : model.defaultReasoningEffort && supported.includes(model.defaultReasoningEffort)
-        ? model.defaultReasoningEffort
-        : null;
+      : null;
     setDraftModelId(catalogModelKey(model));
     setDraftReasoningEffort(current);
-    if (current) props.onSelectModel(model.modelId, modelHostAgent.agentId, current, model.connectionId);
+    props.onSelectModel(model.modelId, modelHostAgent.agentId, current, model.connectionId);
     setStep("reasoning");
   };
-  const completeReasoningSelection = (effort: AiReasoningEffort) => {
+  const completeReasoningSelection = (effort: AiReasoningEffort | null) => {
     if (!draftModel || !modelHostAgent) return;
     setDraftReasoningEffort(effort);
     props.onSelectModel(draftModel.modelId, modelHostAgent.agentId, effort, draftModel.connectionId);
   };
   const draftReasoningTitle = draftModel?.reasoningControl === "toggle" ? "思考模式" : "思考深度";
   const draftReasoningEfforts = draftModel?.supportedReasoningEfforts ?? [];
-  const draftReasoningIndex = draftReasoningEffort ? draftReasoningEfforts.indexOf(draftReasoningEffort) : -1;
+  const effectiveDraftEffort = draftReasoningEffort ?? draftModel?.defaultReasoningEffort ?? null;
+  const draftReasoningIndex = effectiveDraftEffort ? draftReasoningEfforts.indexOf(effectiveDraftEffort) : -1;
   const sliderValue = Math.max(0, draftReasoningIndex);
 
   return <div className="ai-starter-model-picker">
@@ -2918,7 +2925,7 @@ function StarterModelPicker(props: {
       ariaLabel="模型"
       className="ai-model-picker-menu"
       maxHeight={430}
-      onOpenChange={(open) => { if (!open) resetDraft(); }}
+      onOpenChange={(open) => { setMenuOpen(open); if (!open) resetDraft(); }}
       /* 两步共用这一个浮层：模型列表要放下名称、描述和配额标签，思考深度只有一行文字
          和一条滑轨，按同样的宽度铺开会显得空。宽度是行内样式，样式表里改不动它。 */
       width={step === "model" ? 340 : 266}
@@ -2935,11 +2942,11 @@ function StarterModelPicker(props: {
         <header>
           <span className="ai-reasoning-picker-symbol"><ReasoningIdeaIcon/></span>
           <button aria-label={`切换模型：${draftModel.label}`} className="ai-reasoning-model-switch" onClick={() => setStep("model")} type="button">
-            <strong><span>{draftReasoningEffort ? reasoningLabel(draftReasoningEffort, draftModel) : "选择深度"}</span><ChevronIcon direction="right"/></strong>
+            <strong><span>{draftReasoningEffort ? reasoningLabel(draftReasoningEffort, draftModel) : "跟随默认"}</span><ChevronIcon direction="right"/></strong>
             <small>{draftModel.label}</small>
           </button>
           <button aria-label={draftModel.reasoningControl === "toggle" ? "恢复模型默认模式" : "恢复模型默认深度"} disabled={!draftModel.defaultReasoningEffort} onClick={() => {
-            if (draftModel.defaultReasoningEffort) completeReasoningSelection(draftModel.defaultReasoningEffort);
+            completeReasoningSelection(null);
           }} type="button"><ResetReasoningIcon/></button>
         </header>
         <div className="ai-reasoning-effort-track" style={{
@@ -2958,7 +2965,7 @@ function StarterModelPicker(props: {
           </span>
           <input
             aria-label={draftReasoningTitle}
-            aria-valuetext={draftReasoningEffort ? reasoningLabel(draftReasoningEffort, draftModel) : "未选择"}
+            aria-valuetext={effectiveDraftEffort ? reasoningLabel(effectiveDraftEffort, draftModel) : "未选择"}
             disabled={!draftReasoningEfforts.length}
             max={Math.max(0, draftReasoningEfforts.length - 1)}
             min={0}
@@ -2979,7 +2986,7 @@ function StarterModelPicker(props: {
               if (effort) completeReasoningSelection(effort);
             }}
             step={1}
-            title={draftReasoningEffort ? reasoningLabel(draftReasoningEffort, draftModel) : "选择深度"}
+            title={draftReasoningEffort ? reasoningLabel(draftReasoningEffort, draftModel) : "跟随默认"}
             type="range"
             value={sliderValue}/>
         </div>

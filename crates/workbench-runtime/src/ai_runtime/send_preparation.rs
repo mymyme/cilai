@@ -455,11 +455,22 @@ impl LockedPreparation<'_> {
         history: &[ConversationMessage],
     ) -> Result<RunCapabilities, String> {
         let run_id = format!("run_{}", uuid::Uuid::new_v4());
-        let harness_skills = self.skills(input_message, &run_id)?;
+        let assistant = super::personal_assistant::is_conversation(conversation);
+        let harness_skills = if assistant {
+            Vec::new()
+        } else {
+            self.skills(input_message, &run_id)?
+        };
         let classification_nonce = format!("classification_{}", uuid::Uuid::new_v4());
         let task_candidates = self.task_candidates(conversation)?;
         let turn_context = model_main_turn_context(conversation, input_message, history)?;
-        let policy = RunPolicy::prepare(self.request, conversation)?;
+        let mut policy = RunPolicy::prepare(self.request, conversation)?;
+        if assistant {
+            policy.prompt = super::personal_assistant::instructions();
+            policy.run_tools.clear();
+            policy.approval_mode = "legacy".into();
+            policy.sandbox_mode = "read-only".into();
+        }
         let model_classification =
             if !self.request.planning && conversation.context.project_id.is_some() {
                 Some((

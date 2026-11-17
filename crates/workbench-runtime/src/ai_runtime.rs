@@ -1,3 +1,10 @@
+mod execution_recovery;
+pub(crate) mod personal_assistant;
+pub(crate) mod personal_records;
+mod tool_config_upgrade;
+pub use execution_recovery::RunRecoveryCheck;
+pub use personal_assistant::AssistantDispatch;
+pub const PERSONAL_ASSISTANT_CONVERSATION_ID: &str = personal_assistant::THREAD;
 mod artifact_versions;
 mod automation_claim;
 mod automation_lifecycle;
@@ -113,7 +120,7 @@ const MAX_SKILL_PACKAGE_BYTES: usize = 1024 * 1024;
 const MAX_SKILL_PACKAGE_FILES: usize = 64;
 const QWEN_MODEL_35B: &str = "Qwen3.6-35B-A3B-NVFP4";
 const QWEN_MODEL_27B: &str = "Qwen3.8-27B-NVFP4";
-const MODEL_HARNESS_PROTOCOL_VERSION: u32 = 7;
+const MODEL_HARNESS_PROTOCOL_VERSION: u32 = crate::workbench_result::HOST_BOUND_PROTOCOL_VERSION;
 const DEFAULT_MODEL_APPROVAL_MODE: &str = "request";
 
 #[derive(Clone, Debug, Serialize)]
@@ -584,6 +591,8 @@ struct ModelWorkClassification {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MessageSendRequest {
+    #[serde(default)]
+    pub expected_work_run_id: Option<String>,
     pub conversation_id: String,
     pub content: String,
     #[serde(default)]
@@ -858,6 +867,7 @@ struct PersistedAiState {
 pub struct AiRuntimeManager {
     pub(crate) personal_models: Arc<crate::model_connections::ConnectionRuntime>,
     inner: Arc<Mutex<ManagerState>>,
+    assistant_dispatch: Arc<Mutex<Option<AssistantDispatch>>>,
     harness_pool: Arc<crate::harness_pool::IdlePool<crate::codex_harness::CachedHarness>>,
     application_lifecycle: Arc<Mutex<()>>,
     application_runs_completed: Arc<std::sync::Condvar>,
@@ -870,6 +880,9 @@ pub struct AiRuntimeManager {
 #[derive(Default)]
 struct ManagerState {
     initialized: bool,
+    assistant_refresh: Option<Instant>,
+    assistant_board_refresh: Option<(Instant, bool)>,
+    assistant_board: personal_assistant::work::BoardSources,
     maintenance_fence: Option<contexthub_protocol::PersonalMaintenanceFence>,
     shutting_down: bool,
     memory_resetting: bool,
@@ -1579,6 +1592,7 @@ impl AiRuntimeManager {
     pub fn new() -> Self {
         Self {
             inner: Arc::new(Mutex::new(ManagerState::default())),
+            assistant_dispatch: Arc::new(Mutex::new(None)),
             personal_models: Arc::new(crate::model_connections::ConnectionRuntime::default()),
             harness_pool: Arc::new(crate::harness_pool::IdlePool::default()),
             application_lifecycle: Arc::new(Mutex::new(())),
@@ -1690,8 +1704,9 @@ impl AiRuntimeManager {
                 .as_str()
                 .ok_or("请选择个人能力。")?;
             let digest = request["packageDigest"].as_str();
-            let catalog =
+            let mut catalog =
                 crate::personal_runtime::invoke(&server, id, None, &serde_json::json!({}), digest)?;
+            crate::personal_runtime::restrict_conversation_tools(&mut catalog)?;
             if action == "list" {
                 return Ok(catalog);
             }
@@ -2198,9 +2213,10 @@ impl AiRuntimeManager {
         };
         let manager = self.clone();
         let progress_run_id = run_id.clone();
-        let progress = Arc::new(move |event: CodexHarnessEvent| {
-            manager.record_application_model_progress(&progress_run_id, event);
-        });
+        let progress: crate::codex_harness::ProgressCallback =
+            Arc::new(move |event: CodexHarnessEvent| {
+                manager.record_application_model_progress(&progress_run_id, event);
+            });
         let approval = Arc::new(|_request: CodexHarnessApprovalRequest| {});
         let artifact =
             Arc::new(|_path: &str| Err("application_model_artifacts_not_allowed".to_owned()));
@@ -2281,6 +2297,8 @@ impl AiRuntimeManager {
         proxy.constrain_personal_page_tools(personal_tools.is_some(), page_has_actions)?;
         let spawned = spawn_codex_harness(
             CodexHarnessRequest {
+                assistant_reply: None,
+                execution_nonce: None,
                 validation_probe: false,
                 turn_admission: None,
                 execution: Some(execution_bundle),
@@ -2311,6 +2329,8 @@ impl AiRuntimeManager {
                 model_catalog: model_catalog
                     .into_iter()
                     .map(|item| CodexHarnessModel {
+                        supports_reasoning_summary: item.supports_reasoning_summary,
+                        supports_public_reasoning: item.supports_public_reasoning,
                         model_id: item.model_id,
                         display_name: item.label,
                         context_window: item.context_window_tokens,
@@ -2330,7 +2350,10 @@ impl AiRuntimeManager {
                 attachments: Vec::new(),
                 skills: Vec::new(),
                 user_mcp: None,
-                personal_tools,
+                personal_tools: personal_tools.map(|callback| {
+                    Arc::new(move |_: &str, args| callback(args))
+                        as crate::codex_harness::NativePersonalToolsCallback
+                }),
                 application_action: page_has_actions.then_some(application_action),
                 application_write: None,
                 application_mcp: Some(application_mcp),
@@ -2728,7 +2751,13 @@ impl AiRuntimeManager {
             state_revision: state.state_revision,
             models: state.model_catalog.models().to_vec(),
             agents: state.persisted.agents.clone(),
-            conversations: state.persisted.conversations.clone(),
+            conversations: state
+                .persisted
+                .conversations
+                .iter()
+                .filter(|conversation| !personal_assistant::is_conversation(conversation))
+                .cloned()
+                .collect(),
             messages,
             runs,
             permission_requests: state.persisted.permission_requests.clone(),
@@ -2782,15 +2811,28 @@ impl AiRuntimeManager {
         for run in &runs {
             let digest = activity_event_digest(&run.events)?;
             let retained = match event_cursors.get(&run.run_id) {
-                Some(cursor) if cursor.count == run.events.len() && cursor.digest == digest => cursor.count,
-                Some(cursor) if cursor.count > 0 && cursor.count < run.events.len()
-                    && activity_event_digest(&run.events[..cursor.count])? == cursor.digest => cursor.count,
+                Some(cursor) if cursor.count == run.events.len() && cursor.digest == digest => {
+                    cursor.count
+                }
+                Some(cursor)
+                    if cursor.count > 0
+                        && cursor.count < run.events.len()
+                        && activity_event_digest(&run.events[..cursor.count])? == cursor.digest =>
+                {
+                    cursor.count
+                }
                 _ => 0,
             };
             let projected = ui_projection::run_with_events_for_ui(run, &run.events[retained..]);
             event_pages.insert(
                 run.run_id.clone(),
-                AiRunEventPage { retained, cursor: AiRunEventCursor { count: run.events.len(), digest } },
+                AiRunEventPage {
+                    retained,
+                    cursor: AiRunEventCursor {
+                        count: run.events.len(),
+                        digest,
+                    },
+                },
             );
             projected_runs.push(projected);
         }
@@ -3352,6 +3394,7 @@ impl AiRuntimeManager {
         };
         let run = self.send_message_with_automation(
             MessageSendRequest {
+                expected_work_run_id: None,
                 conversation_id: String::new(),
                 content: request.content,
                 client_message_id: request.client_message_id,
@@ -3778,6 +3821,7 @@ impl AiRuntimeManager {
         application_discovery: Option<ApplicationDiscoveryNotice>,
     ) -> Result<AgentRun, String> {
         let send_request = MessageSendRequest {
+            expected_work_run_id: None,
             conversation_id: request.conversation_id,
             content: request.content.clone(),
             client_message_id: None,
@@ -3843,6 +3887,7 @@ impl AiRuntimeManager {
             application_discovery,
             application_action,
             false,
+            None,
         )
     }
 
@@ -3865,6 +3910,7 @@ impl AiRuntimeManager {
         application_discovery: Option<ApplicationDiscoveryNotice>,
         application_action: Option<ApplicationActionCallback>,
         submit_while_busy: bool,
+        continuation_source: Option<&str>,
     ) -> Result<AgentRun, String> {
         use crate::model_connections::ModelRuntimeKind;
         use send_preparation::{LockedPreparation, ModelPreparation, RunCapabilities, RunPolicy};
@@ -3904,6 +3950,18 @@ impl AiRuntimeManager {
         let now = unix_epoch_millis()?;
         let mut state = lock(&self.inner);
         let locked_at = Instant::now();
+        if let Some(source) = continuation_source {
+            if let Some(child) = execution_recovery::continuation_child(&state, source) {
+                return Ok(child.clone());
+            }
+            let original = state
+                .persisted
+                .runs
+                .iter()
+                .find(|run| run.run_id == source)
+                .ok_or("agent_run_not_found")?;
+            execution_recovery::validate_continuation_locked(&state, original)?;
+        }
         if let Some(run) = recorded_message_run(&state, &request)? {
             return Ok(run);
         }
@@ -3966,18 +4024,35 @@ impl AiRuntimeManager {
             .as_ref()
             .map(|(_, run_id)| run_id.clone())
             .or_else(|| request.retry_of_run_id.clone());
-        let agent = state
-            .persisted
-            .agents
-            .iter()
-            .find(|agent| {
-                Some(agent.agent_id.as_str())
-                    == automation
-                        .map(|rule| rule.agent_id.as_str())
-                        .or(conversation.agent_id.as_deref())
-            })
-            .cloned()
-            .ok_or_else(|| "conversation_agent_not_found".to_owned())?;
+        let assistant = personal_assistant::is_conversation(&conversation);
+        if let Some(expected) = request.expected_work_run_id.as_deref() {
+            personal_assistant::work::expected_run(
+                &state,
+                &conversation.conversation_id,
+                expected,
+            )?;
+        }
+        if assistant
+            && (request.permission_mode != "read-only" || request.planning || automation.is_some())
+        {
+            return Err("personal_assistant_execution_scope_invalid".into());
+        }
+        let agent = if assistant {
+            personal_assistant::profile(now)
+        } else {
+            state
+                .persisted
+                .agents
+                .iter()
+                .find(|agent| {
+                    Some(agent.agent_id.as_str())
+                        == automation
+                            .map(|rule| rule.agent_id.as_str())
+                            .or(conversation.agent_id.as_deref())
+                })
+                .cloned()
+                .ok_or_else(|| "conversation_agent_not_found".to_owned())?
+        };
         let model = selected_model;
         let reasoning_effort = LockedPreparation::new(&state, &request, &model)
             .reasoning_effort(execution.lease.snapshot.reasoning_effort.as_deref())?;
@@ -4106,8 +4181,7 @@ impl AiRuntimeManager {
         } else {
             None
         };
-        let approved_permission = regeneration_target
-            .is_none()
+        let approved_permission = (regeneration_target.is_none() && continuation_source.is_none())
             .then_some(retry_of_run_id.as_ref())
             .flatten()
             .and_then(|retry_run_id| {
@@ -4125,7 +4199,11 @@ impl AiRuntimeManager {
             });
         let input_message = LockedPreparation::new(&state, &request, &model).input_message(
             &conversation,
-            retry_of_run_id.as_deref(),
+            if continuation_source.is_some() {
+                None
+            } else {
+                retry_of_run_id.as_deref()
+            },
             regeneration.as_ref(),
             requested_attachments,
             now,
@@ -4161,8 +4239,12 @@ impl AiRuntimeManager {
             approval_mode,
             sandbox_mode,
             run_tools,
-            prompt,
+            mut prompt,
         } = policy;
+        if continuation_source.is_some() {
+            prompt.push('\n');
+            prompt.push_str(execution_recovery::CONTINUE_INPUT);
+        }
         let skill_ids = harness_skills
             .iter()
             .map(|skill| skill.skill_id.clone())
@@ -4175,6 +4257,10 @@ impl AiRuntimeManager {
             ..AgentRunEvent::default()
         }];
         let run = AgentRun {
+            continuation_of_run_id: continuation_source.map(str::to_owned),
+            waiting_for_input: None,
+            response_to_work_run_id: request.expected_work_run_id.clone(),
+            selected_skill_id: request.selected_skill_id.clone(),
             planning: request.planning,
             run_id: run_id.clone(),
             conversation_id: conversation.conversation_id.clone(),
@@ -4440,10 +4526,7 @@ impl AiRuntimeManager {
                             .map(|(instructions, _)| instructions.clone()),
                         classification_output_schema: model_classification
                             .map(|(_, output_schema)| output_schema),
-                        classification_nonce: conversation
-                            .context
-                            .project_id
-                            .is_some()
+                        classification_nonce: (!assistant && !request.planning)
                             .then_some(classification_nonce),
                         classification_task_candidates: conversation
                             .context
@@ -4606,6 +4689,7 @@ impl AiRuntimeManager {
         let (application_context, application_discovery) = prepare(&run)?;
         self.send_message_with_delivery(
             MessageSendRequest {
+                expected_work_run_id: None,
                 conversation_id: run.conversation_id,
                 content: content.to_owned(),
                 client_message_id: Some(request.client_message_id.clone()),
@@ -4632,6 +4716,7 @@ impl AiRuntimeManager {
             application_discovery,
             None,
             true,
+            None,
         )
     }
 
@@ -4821,6 +4906,17 @@ impl AiRuntimeManager {
             if state.persisted.runs[run_index].status != "running" {
                 return Err("application_write_run_not_active".to_owned());
             }
+            let normalized = application_write_arguments(tool, arguments)?;
+            if let Some(receipt) = execution_recovery::prior_write_receipt(
+                &state,
+                run_id,
+                &tool.application_id,
+                &tool.tool_name,
+                &normalized,
+            )? {
+                return Ok(receipt);
+            }
+
             let conversation_id = state.persisted.runs[run_index].conversation_id.clone();
             let workspace_root = state
                 .persisted
@@ -5693,6 +5789,7 @@ impl AiRuntimeManager {
         });
         catalog_result?;
         let mut model_request = MessageSendRequest {
+            expected_work_run_id: None,
             client_message_id: None,
             conversation_id: rule.conversation_id.clone().unwrap_or_default(),
             content: format!(
@@ -5806,7 +5903,7 @@ impl AiRuntimeManager {
         &self,
         data_dir: &Path,
         conversation: &Conversation,
-        input: SpawnModelHarnessInput,
+        mut input: SpawnModelHarnessInput,
     ) -> Result<(), String> {
         if let Some(ticket) = &input.automation_ticket {
             ticket.validate_pending()?;
@@ -5828,6 +5925,10 @@ impl AiRuntimeManager {
             return Ok(());
         }
         drop(state);
+        {
+            let state = lock(&self.inner);
+            tool_config_upgrade::prepare(&state, data_dir, conversation, &mut input)?;
+        }
         self.spawn_model_harness(data_dir, conversation, input)
     }
 
@@ -5973,6 +6074,10 @@ impl AiRuntimeManager {
             input.resume_thread_id = native;
             input.persistent_thread.history.clear();
         }
+        {
+            let state = lock(&self.inner);
+            tool_config_upgrade::prepare(&state, data_dir, conversation, &mut input)?;
+        }
         self.spawn_model_harness(data_dir, conversation, input)
     }
 
@@ -5998,9 +6103,10 @@ impl AiRuntimeManager {
         let stderr_path = runs_dir.join(format!("{}.stderr.log", input.run_id));
         let manager = self.clone();
         let progress_run_id = input.run_id.clone();
-        let progress = Arc::new(move |event: CodexHarnessEvent| {
-            manager.record_harness_progress(&progress_run_id, event);
-        });
+        let progress: crate::codex_harness::ProgressCallback =
+            Arc::new(move |event: CodexHarnessEvent| {
+                manager.record_harness_progress(&progress_run_id, event);
+            });
         let manager = self.clone();
         let approval_run_id = input.run_id.clone();
         let approval = Arc::new(move |request: CodexHarnessApprovalRequest| {
@@ -6093,8 +6199,28 @@ impl AiRuntimeManager {
         } else {
             crate::model_connections::LOOPBACK_PROVIDER
         };
+        let assistant = personal_assistant::is_conversation(conversation);
+        let assistant_summary = if assistant {
+            self.assistant_summary_turn(&input.run_id)?
+        } else {
+            None
+        };
+        let summary_only = assistant_summary.is_some();
+        let assistant_reply = if assistant {
+            Some(Arc::new(
+                self.assistant_reply_state(&input.run_id, assistant_summary)?,
+            ))
+        } else {
+            None
+        };
         let turn_context = input.turn_context.clone();
         let application_tools = proxy.bind_run(&input.run_id)?;
+        proxy.configure_conversation_contract(
+            &input.run_id,
+            (!assistant && !input.planning).then_some(input.classification_instructions.is_some()),
+            assistant_reply.clone(),
+            Arc::clone(&progress),
+        )?;
         proxy.set_start_admission(input.automation_ticket.clone().map(|ticket| {
             Arc::new(move || ticket.begin_model_request())
                 as crate::application_tool_adapter::ScopeValidator
@@ -6172,6 +6298,7 @@ impl AiRuntimeManager {
         };
         let spawned = spawn_codex_harness(
             CodexHarnessRequest {
+                execution_nonce: input.classification_nonce.clone(),
                 turn_admission: input.automation_ticket.clone().map(|ticket| {
                     Arc::new(move || ticket.validate_pending())
                         as crate::application_tool_adapter::ScopeValidator
@@ -6182,7 +6309,11 @@ impl AiRuntimeManager {
                     .memory_execution
                     .as_ref()
                     .map(|scope| scope.lease.snapshot.model_id.clone()),
-                conversation_kind: ConversationKind::Workbench,
+                conversation_kind: if assistant {
+                    ConversationKind::PersonalAssistant
+                } else {
+                    ConversationKind::Workbench
+                },
                 planning: input.planning,
                 executable: input.executable,
                 harness_home: runtime_home,
@@ -6207,6 +6338,8 @@ impl AiRuntimeManager {
                     .model_catalog
                     .into_iter()
                     .map(|model| CodexHarnessModel {
+                        supports_reasoning_summary: model.supports_reasoning_summary,
+                        supports_public_reasoning: model.supports_public_reasoning,
                         model_id: model.model_id,
                         display_name: model.label,
                         context_window: model.context_window_tokens,
@@ -6258,20 +6391,42 @@ impl AiRuntimeManager {
                 conversation_text: input.conversation_text,
                 attachments: input.attachments,
                 skills: input.skills,
-                user_mcp,
-                personal_tools: input
-                    .application_mcp
-                    .as_ref()
-                    .is_none_or(|scope| !scope.restrict_to_applications)
-                    .then(|| {
-                        self.personal_tools_callback(&input.run_id, Arc::clone(&validate_scope))
-                    }),
+                user_mcp: if assistant { None } else { user_mcp },
+                assistant_reply: assistant_reply.clone(),
+                personal_tools: if assistant {
+                    if summary_only {
+                        None
+                    } else {
+                        Some(
+                            self.personal_assistant_tool(
+                                input.run_id.clone(),
+                                Arc::clone(&validate_scope),
+                                assistant_reply
+                                    .clone()
+                                    .ok_or("personal_assistant_reply_missing")?,
+                            ),
+                        )
+                    }
+                } else {
+                    input
+                        .application_mcp
+                        .as_ref()
+                        .is_none_or(|scope| !scope.restrict_to_applications)
+                        .then(|| {
+                            let callback = self.personal_tools_callback(
+                                &input.run_id,
+                                Arc::clone(&validate_scope),
+                            );
+                            Arc::new(move |_: &str, arguments| callback(arguments))
+                                as crate::codex_harness::NativePersonalToolsCallback
+                        })
+                },
                 application_action: input.application_action,
                 application_write: input.application_write,
                 application_mcp: input.application_mcp,
                 resume_thread_id: input.resume_thread_id,
                 persistent_thread: Some(input.persistent_thread),
-                application_adapter: Some((
+                application_adapter: (!assistant).then_some((
                     proxy.application_mcp_url.clone(),
                     application_tools,
                     validate_scope,
@@ -6306,6 +6461,9 @@ impl AiRuntimeManager {
                     manager.settle_automation_not_started(&completed_run_id, &reason);
                 }
                 manager.verify_thread_record(&completed_run_id);
+                if let Err(error) = manager.observe_personal_assistant_completion() {
+                    eprintln!("personal_assistant_observation_failed:{error}");
+                }
                 if let Some(ticket) = completion_ticket
                     && let Err(error) = ticket.finish_terminal(&manager)
                 {
@@ -6573,6 +6731,10 @@ impl AiRuntimeManager {
         let Ok(now) = unix_epoch_millis() else {
             return;
         };
+        let waiting_for_input = result
+            .as_ref()
+            .ok()
+            .and_then(|result| result.waiting_for_input.clone());
         let mut state = lock(&self.inner);
         let Some(run_index) = state
             .persisted
@@ -6582,6 +6744,7 @@ impl AiRuntimeManager {
         else {
             return;
         };
+        state.persisted.runs[run_index].waiting_for_input = waiting_for_input;
         if let Err(reason) = &result {
             Self::invalidate_catalog_for_error(&mut state, reason);
         }
@@ -7325,6 +7488,8 @@ fn system_model_catalog() -> Vec<ModelInfo> {
     ]
     .into_iter()
     .map(|(model_id, label, context_window_tokens)| ModelInfo {
+        supports_reasoning_summary: false,
+        supports_public_reasoning: false,
         connection_id: None,
         connection_name: None,
         config_revision: None,
@@ -8958,7 +9123,7 @@ fn build_model_classification_instructions(
     ))
 }
 
-fn model_classification_output_schema(
+pub(crate) fn model_classification_output_schema(
     classification_nonce: &str,
     current_task_id: Option<&str>,
 ) -> serde_json::Value {
@@ -10434,10 +10599,18 @@ fn synchronize_native_catalog(state: &mut ManagerState) -> Result<(), String> {
                     .ok_or("native_history_archive_missing")?;
                 (thread, title, archived)
             } else {
-                let created = group.service.start_workbench_thread(
-                    &conversation.context.workspace_root,
-                    state.persisted.memory_preferences,
-                )?;
+                let created = if personal_assistant::is_conversation(conversation) {
+                    personal_assistant::start_thread(
+                        &group.service,
+                        &conversation.context.workspace_root,
+                        state.persisted.memory_preferences,
+                    )?
+                } else {
+                    group.service.start_workbench_thread(
+                        &conversation.context.workspace_root,
+                        state.persisted.memory_preferences,
+                    )?
+                };
                 let thread = created["thread"]["id"]
                     .as_str()
                     .ok_or("native_conversation_create_invalid")?
@@ -10623,6 +10796,14 @@ fn model_info_from_snapshot(
         return Err("model_tools_validation_required".into());
     }
     Ok(ModelInfo {
+        supports_reasoning_summary: snapshot
+            .capabilities
+            .get("reasoning_summary")
+            .is_some_and(|e| e.state == contexthub_protocol::ModelCapabilityState::Supported),
+        supports_public_reasoning: snapshot
+            .capabilities
+            .get("public_reasoning")
+            .is_some_and(|e| e.state == contexthub_protocol::ModelCapabilityState::Supported),
         connection_id: Some(snapshot.connection_id.clone()),
         connection_name: None,
         config_revision: Some(snapshot.config_revision),
@@ -10971,6 +11152,14 @@ fn model_info_from_descriptor(
                 && evidence.source == ModelEvidenceSource::Observed
         });
     ModelInfo {
+        supports_reasoning_summary: descriptor
+            .capabilities
+            .get("reasoning_summary")
+            .is_some_and(|e| e.state == contexthub_protocol::ModelCapabilityState::Supported),
+        supports_public_reasoning: descriptor
+            .capabilities
+            .get("public_reasoning")
+            .is_some_and(|e| e.state == contexthub_protocol::ModelCapabilityState::Supported),
         connection_id: Some(connection.connection_id.clone()),
         connection_name: Some(connection.config.name.clone()),
         config_revision: Some(connection.config_revision),
@@ -11376,7 +11565,10 @@ mod tests {
         assert!(context.composition.is_none());
         drop(state);
         let snapshot = manager
-            .activity_snapshot(&["run-context".to_owned()], &std::collections::HashMap::new())
+            .activity_snapshot(
+                &["run-context".to_owned()],
+                &std::collections::HashMap::new(),
+            )
             .unwrap();
         assert_eq!(
             snapshot.runs[0].usage.context.as_ref().unwrap().tokens,
@@ -12761,7 +12953,10 @@ mod tests {
             }
         }
         let result = manager
-            .activity_snapshot(&["run-1".to_owned(), "missing".to_owned()], &std::collections::HashMap::new())
+            .activity_snapshot(
+                &["run-1".to_owned(), "missing".to_owned()],
+                &std::collections::HashMap::new(),
+            )
             .unwrap();
         assert_eq!(result.runs.len(), 1);
         assert_eq!(result.messages.len(), 1);
@@ -12802,8 +12997,13 @@ mod tests {
             }
         }
         let ids = ["run".to_owned()];
-        let first = manager.activity_snapshot(&ids, &std::collections::HashMap::new()).unwrap();
-        let cursors = std::collections::HashMap::from([("run".to_owned(), first.event_pages["run"].cursor.clone())]);
+        let first = manager
+            .activity_snapshot(&ids, &std::collections::HashMap::new())
+            .unwrap();
+        let cursors = std::collections::HashMap::from([(
+            "run".to_owned(),
+            first.event_pages["run"].cursor.clone(),
+        )]);
         {
             let mut state = super::lock(&manager.inner);
             let mut event = state.persisted.runs[0].events[0].clone();
@@ -12822,7 +13022,10 @@ mod tests {
         assert_eq!(replaced.runs[0].events[0].summary, "已修订");
         let approvals = manager.activity_approvals(&ids).unwrap();
         assert_eq!(approvals.permission_requests.len(), 1);
-        assert_eq!(approvals.permission_requests[0].permission_request_id, "run");
+        assert_eq!(
+            approvals.permission_requests[0].permission_request_id,
+            "run"
+        );
     }
 
     #[test]
@@ -12856,7 +13059,9 @@ mod tests {
                 .unwrap(),
             );
         }
-        let result = manager.activity_snapshot(&["run-1".to_owned()], &std::collections::HashMap::new()).unwrap();
+        let result = manager
+            .activity_snapshot(&["run-1".to_owned()], &std::collections::HashMap::new())
+            .unwrap();
         assert_eq!(result.state_revision, 7);
         let state = super::lock(&manager.inner);
         assert_eq!(state.persisted.runs[0].events[0].summary, "正在处理");

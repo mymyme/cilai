@@ -707,3 +707,69 @@ fn official_plain_page_can_chat_with_no_native_or_package_tools() {
     assert_eq!(f.count.load(Ordering::Acquire), requests);
     reopened.shutdown_checked().unwrap();
 }
+
+#[test]
+fn personal_page_restart_returns_a_new_empty_session_and_keeps_the_old_scope_closed() {
+    let _guard = crate::supervisor::app_server_test_guard();
+    let f = Fixture::new();
+    f.validate_tools();
+    let binding = configure_page_target(&f, false);
+    let page = PersonalPageAiManager::new(f.manager.clone());
+    page.register_document("restart_document", binding).unwrap();
+    let ui: UiActionExecutor = Arc::new(|_, _| panic!("restart must not invoke a page action"));
+    let old = dispatch(
+        &page,
+        "restart_document",
+        "model.session.open",
+        json!({}),
+        &ui,
+    )
+    .unwrap();
+    let request = json!({"method":"model.session.restart","requestId":"restart-once","params":{"modelSessionId":old["modelSessionId"]}});
+    let count = f.count.load(Ordering::Acquire);
+    let next = page
+        .dispatch("restart_document", request.clone(), Arc::clone(&ui))
+        .unwrap();
+    assert_eq!(
+        dispatch(
+            &page,
+            "restart_document",
+            "model.session.restart",
+            json!({"modelSessionId":old["modelSessionId"]}),
+            &ui
+        )
+        .unwrap(),
+        next
+    );
+    assert_ne!(next["modelSessionId"], old["modelSessionId"]);
+    assert_eq!(next["conversation"]["messages"], json!([]));
+    assert_eq!(
+        page.dispatch("restart_document", request, Arc::clone(&ui))
+            .unwrap(),
+        next
+    );
+    assert!(
+        dispatch(
+            &page,
+            "restart_document",
+            "model.session.read",
+            json!({"modelSessionId":old["modelSessionId"]}),
+            &ui
+        )
+        .is_err()
+    );
+    assert!(
+        dispatch(
+            &page,
+            "restart_document",
+            "model.session.read",
+            json!({"modelSessionId":next["modelSessionId"]}),
+            &ui
+        )
+        .is_ok()
+    );
+    assert_eq!(f.count.load(Ordering::Acquire), count);
+    page.close_document("restart_document").unwrap();
+    f.assert_released();
+    f.manager.shutdown_checked().unwrap();
+}
